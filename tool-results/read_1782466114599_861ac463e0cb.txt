@@ -1,0 +1,946 @@
+     1→     1→/**
+     2→     2→ * Auto-Apply Service for Hambisa Bekuma Tefera
+     3→     3→ *
+     4→     4→ * Runs on port 3020. Periodically searches Ethiopian job sites,
+     5→     5→ * scores matches against Hambisa's CV, generates cover letters,
+     6→     6→ * and saves applications to the main Next.js app.
+     7→     7→ */
+     8→     8→
+     9→     9→import ZAI from "z-ai-web-dev-sdk";
+    10→    10→
+    11→    11→// ---------------------------------------------------------------------------
+    12→    12→// Process-level error handlers (prevent silent crashes)
+    13→    13→// ---------------------------------------------------------------------------
+    14→    14→
+    15→    15→process.on("unhandledRejection", (reason) => {
+    16→    16→  console.error("[Process] Unhandled Rejection:", reason);
+    17→    17→  isRunning = false;
+    18→    18→  currentCycle = null;
+    19→    19→});
+    20→    20→
+    21→    21→process.on("uncaughtException", (err) => {
+    22→    22→  console.error("[Process] Uncaught Exception:", err);
+    23→    23→  isRunning = false;
+    24→    24→  currentCycle = null;
+    25→    25→});
+    26→    26→
+    27→    27→// ---------------------------------------------------------------------------
+    28→    28→// Constants
+    29→    29→// ---------------------------------------------------------------------------
+    30→    30→
+    31→    31→const PORT = 3020;
+    32→    32→const NEXTJS_API = `http://${process.env.NEXTJS_HOST || "127.0.0.1"}:3000/api/applications`;
+    33→    33→const AUTO_SEARCH_INTERVAL_MS = 1 * 60 * 60 * 1000; // 1 hour
+    34→    34→const MATCH_THRESHOLD = 50;
+    35→    35→
+    36→    36→// Ethiopian job sites to target in search queries
+    37→    37→const ETHIOPIAN_JOB_SITES = [
+    38→    38→  "ethiojobs.net",
+    39→    39→  "mekanisa.com",
+    40→    40→  "jobs.et",
+    41→    41→  "addisjobs.com",
+    42→    42→  "ethiopianjobs.com",
+    43→    43→  "jobwebethiopia.com",
+    44→    44→  "ethiocareers.com",
+    45→    45→  "cvbankethiopia.com",
+    46→    46→  "vacancyeth.com",
+    47→    47→  "habeshalinks.com",
+    48→    48→  "mereja.com",
+    49→    49→  "borkena.com",
+    50→    50→];
+    51→    51→
+    52→    52→// ---------------------------------------------------------------------------
+    53→    53→// Hambisa's Profile
+    54→    54→// ---------------------------------------------------------------------------
+    55→    55→
+    56→    56→const PROFILE = {
+    57→    57→  name: "Hambisa Bekuma Tefera",
+    58→    58→  phone: "+251 952 341 525",
+    59→    59→  email: "hambisa1992@gmail.com",
+    60→    60→  location: "Addis Ababa, Ethiopia",
+    61→    61→  title: "Sales Manager",
+    62→    62→  targetJobs: [
+    63→    63→    "Marketing & Sales Manager",
+    64→    64→    "Sales Representative",
+    65→    65→    "Area Sales Manager",
+    66→    66→    "Route Sales Representative",
+    67→    67→    "Business Development",
+    68→    68→  ],
+    69→    69→  languages: [
+    70→    70→    "Amharic (Native)",
+    71→    71→    "English (Professional)",
+    72→    72→    "Afaan Oromo (Fluent)",
+    73→    73→    "Somali (Conversational)",
+    74→    74→  ],
+    75→    75→  yearsExperience: "8+ years in sales",
+    76→    76→  education: [
+    77→    77→    "MBA — Addis Ababa Medical & Business College, 2018",
+    78→    78→    "BSc Agribusiness — Jimma University, 2014",
+    79→    79→  ],
+    80→    80→  skills: [
+    81→    81→    "Territory Management",
+    82→    82→    "Route-to-Market",
+    83→    83→    "Market Expansion",
+    84→    84→    "Field Team Leadership",
+    85→    85→    "Negotiation",
+    86→    86→    "B2B Account Management",
+    87→    87→    "Distributor Development",
+    88→    88→    "Sales Planning",
+    89→    89→    "Market Intelligence",
+    90→    90→  ],
+    91→    91→  experience: [
+    92→    92→    {
+    93→    93→      role: "Route Sales Representative",
+    94→    94→      company: "Romel General Trading",
+    95→    95→      period: "Jan 2026 – Present",
+    96→    96→      highlights:
+    97→    97→        "Managing 150+ B2B accounts across assigned territory",
+    98→    98→    },
+    99→    99→    {
+   100→   100→      role: "Marketing Manager",
+   101→   101→      company: "OL-BRIGHT International College",
+   102→   102→      period: "Dec 2022 – Nov 2025",
+   103→   103→      highlights:
+   104→   104→        "Led marketing strategy and brand positioning for the institution",
+   105→   105→    },
+   106→   106→    {
+   107→   107→      role: "Marketing & Sales Manager",
+   108→   108→      company: "Deran PLC",
+   109→   109→      period: "Dec 2020 – Nov 2022",
+   110→   110→      highlights:
+   111→   111→        "Built the department from zero; achieved 20% revenue growth through strategic market expansion and team development",
+   112→   112→    },
+   113→   113→    {
+   114→   114→      role: "Territory Sales Manager",
+   115→   115→      company: "SMADL Communication Terminal Factory PLC",
+   116→   116→      period: "Jul 2016 – Nov 2020",
+   117→   117→      highlights:
+   118→   118→        "Managed territory spanning Adama, Asella, Chiro, Awash, Dire Dawa, Harar, Jigjiga, and the Somali Region; led field teams and distributor networks",
+   119→   119→    },
+   120→   120→  ],
+   121→   121→} as const;
+   122→   122→
+   123→   123→// ---------------------------------------------------------------------------
+   124→   124→// SDK client (lazy-initialized singleton)
+   125→   125→// ---------------------------------------------------------------------------
+   126→   126→
+   127→   127→let _zai: Awaited<ReturnType<typeof ZAI.create>> | null = null;
+   128→   128→
+   129→   129→async function getZAI() {
+   130→   130→  if (!_zai) {
+   131→   131→    _zai = await ZAI.create();
+   132→   132→  }
+   133→   133→  return _zai;
+   134→   134→}
+   135→   135→
+   136→   136→// ---------------------------------------------------------------------------
+   137→   137→// Profile summary string for LLM prompts
+   138→   138→// ---------------------------------------------------------------------------
+   139→   139→
+   140→   140→function buildProfileSummary(): string {
+   141→   141→  const expBlock = PROFILE.experience
+   142→   142→    .map(
+   143→   143→      (e) =>
+   144→   144→        `- ${e.role} at ${e.company} (${e.period}): ${e.highlights}`
+   145→   145→    )
+   146→   146→    .join("\n");
+   147→   147→
+   148→   148→  return `
+   149→   149→## Candidate Profile
+   150→   150→
+   151→   151→**Name:** ${PROFILE.name}
+   152→   152→**Title:** ${PROFILE.title}
+   153→   153→**Location:** ${PROFILE.location}
+   154→   154→**Phone:** ${PROFILE.phone}
+   155→   155→**Email:** ${PROFILE.email}
+   156→   156→**Experience:** ${PROFILE.yearsExperience}
+   157→   157→**Education:**
+   158→   158→${PROFILE.education.map((e) => `- ${e}`).join("\n")}
+   159→   159→
+   160→   160→**Languages:** ${PROFILE.languages.join(", ")}
+   161→   161→
+   162→   162→**Core Skills:** ${PROFILE.skills.join(", ")}
+   163→   163→
+   164→   164→**Professional Experience:**
+   165→   165→${expBlock}
+   166→   166→
+   167→   167→**Target Roles:** ${PROFILE.targetJobs.join(", ")}
+   168→   168→`.trim();
+   169→   169→}
+   170→   170→
+   171→   171→// ---------------------------------------------------------------------------
+   172→   172→// Search Queries — at least 5 diverse queries
+   173→   173→// ---------------------------------------------------------------------------
+   174→   174→
+   175→   175→const SEARCH_QUERIES = [
+   176→   176→  "sales manager Ethiopia 2025 2026 job vacancy",
+   177→   177→  "marketing manager Addis Ababa job opening",
+   178→   178→  "area sales manager Ethiopia vacancy",
+   179→   179→  "sales representative Addis Ababa job",
+   180→   180→  "business development manager Ethiopia job hiring",
+   181→   181→  "route sales representative Ethiopia vacancy",
+   182→   182→  "B2B sales manager Addis Ababa job",
+   183→   183→  "territory sales manager Ethiopia career",
+   184→   184→];
+   185→   185→
+   186→   186→// ---------------------------------------------------------------------------
+   187→   187→// Types
+   188→   188→// ---------------------------------------------------------------------------
+   189→   189→
+   190→   190→interface SearchResult {
+   191→   191→  title: string;
+   192→   192→  snippet: string;
+   193→   193→  url: string;
+   194→   194→  source: string;
+   195→   195→  hostName: string;
+   196→   196→  date?: string;
+   197→   197→}
+   198→   198→
+   199→   199→interface ApplicationLog {
+   200→   200→  id: string;
+   201→   201→  timestamp: string;
+   202→   202→  query: string;
+   203→   203→  jobTitle: string;
+   204→   204→  company: string;
+   205→   205→  source: string;
+   206→   206→  matchScore: number;
+   207→   207→  coverLetter: string;
+   208→   208→  status: "saved" | "failed" | "skipped";
+   209→   209→  error?: string;
+   210→   210→  url?: string;
+   211→   211→}
+   212→   212→
+   213→   213→interface CycleLog {
+   214→   214→  cycleId: string;
+   215→   215→  startedAt: string;
+   216→   216→  completedAt?: string;
+   217→   217→  totalJobsFound: number;
+   218→   218→  matched: number;
+   219→   219→  saved: number;
+   220→   220→  failed: number;
+   221→   221→  skipped: number;
+   222→   222→  logs: ApplicationLog[];
+   223→   223→}
+   224→   224→
+   225→   225→// ---------------------------------------------------------------------------
+   226→   226→// In-memory state
+   227→   227→// ---------------------------------------------------------------------------
+   228→   228→
+   229→   229→const cycleLogs: CycleLog[] = [];
+   230→   230→let currentCycle: CycleLog | null = null;
+   231→   231→let isRunning = false;
+   232→   232→
+   233→   233→// ---------------------------------------------------------------------------
+   234→   234→// Helpers
+   235→   235→// ---------------------------------------------------------------------------
+   236→   236→
+   237→   237→function uid(): string {
+   238→   238→  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+   239→   239→}
+   240→   240→
+   241→   241→function nowISO(): string {
+   242→   242→  return new Date().toISOString();
+   243→   243→}
+   244→   244→
+   245→   245→function sleep(ms: number): Promise<void> {
+   246→   246→  return new Promise((resolve) => setTimeout(resolve, ms));
+   247→   247→}
+   248→   248→
+   249→   249→// ---------------------------------------------------------------------------
+   250→   250→// Step 1 — Web Search via z-ai-web-dev-sdk
+   251→   251→// ---------------------------------------------------------------------------
+   252→   252→
+   253→   253→/**
+   254→   254→ * Wraps a promise with an AbortController-based timeout.
+   255→   255→ */
+   256→   256→function withTimeout<T>(
+   257→   257→  promise: Promise<T>,
+   258→   258→  ms: number,
+   259→   259→  label: string
+   260→   260→): Promise<T> {
+   261→   261→  return Promise.race([
+   262→   262→    promise,
+   263→   263→    new Promise<never>((_, reject) =>
+   264→   264→      setTimeout(
+   265→   265→        () => reject(new Error(`${label} timed out after ${ms}ms`)),
+   266→   266→        ms
+   267→   267→      )
+   268→   268→    ),
+   269→   269→  ]);
+   270→   270→}
+   271→   271→
+   272→   272→async function searchJobs(query: string): Promise<SearchResult[]> {
+   273→   273→  try {
+   274→   274→    const zai = await getZAI();
+   275→   275→
+   276→   276→    // Primary search targeting Ethiopian job sites
+   277→   277→    const siteFilter = ETHIOPIAN_JOB_SITES
+   278→   278→      .slice(0, 4)
+   279→   279→      .map((s) => `site:${s}`)
+   280→   280→      .join(" OR ");
+   281→   281→    const targetedQuery = `${query} ${siteFilter}`;
+   282→   282→
+   283→   283→    console.log(`  [web_search] Targeted: "${targetedQuery.substring(0, 80)}..."`);
+   284→   284→    const targetedResults = await withTimeout(
+   285→   285→      zai.functions.invoke("web_search", {
+   286→   286→        query: targetedQuery,
+   287→   287→        num: 8,
+   288→   288→        recency_days: 30,
+   289→   289→      }),
+   290→   290→      60_000,
+   291→   291→      `web_search(targeted) for "${query.substring(0, 40)}"`
+   292→   292→    );
+   293→   293→
+   294→   294→    // Broader fallback search
+   295→   295→    const broadQuery = `latest ${query} 2025`;
+   296→   296→    console.log(`  [web_search] Broad: "${broadQuery.substring(0, 80)}..."`);
+   297→   297→    const broadResults = await withTimeout(
+   298→   298→      zai.functions.invoke("web_search", {
+   299→   299→        query: broadQuery,
+   300→   300→        num: 5,
+   301→   301→        recency_days: 14,
+   302→   302→      }),
+   303→   303→      60_000,
+   304→   304→      `web_search(broad) for "${query.substring(0, 40)}"`
+   305→   305→    );
+   306→   306→
+   307→   307→    // Combine and deduplicate
+   308→   308→    const allResults = [
+   309→   309→      ...(Array.isArray(targetedResults) ? targetedResults : []),
+   310→   310→      ...(Array.isArray(broadResults) ? broadResults : []),
+   311→   311→    ];
+   312→   312→
+   313→   313→    const seenUrls = new Set<string>();
+   314→   314→    const filtered: SearchResult[] = [];
+   315→   315→
+   316→   316→    for (const r of allResults) {
+   317→   317→      if (!r || typeof r !== "object") continue;
+   318→   318→
+   319→   319→      const url = String(r.url || "");
+   320→   320→      if (!url) continue;
+   321→   321→      if (seenUrls.has(url)) continue;
+   322→   322→
+   323→   323→      // Skip social media feeds
+   324→   324→      if (
+   325→   325→        url.includes("facebook.com") ||
+   326→   326→        url.includes("twitter.com") ||
+   327→   327→        url.includes("linkedin.com/feed") ||
+   328→   328→        url.includes("instagram.com")
+   329→   329→      ) {
+   330→   330→        continue;
+   331→   331→      }
+   332→   332→
+   333→   333→      seenUrls.add(url);
+   334→   334→
+   335→   335→      const hostName = String(r.host_name || new URL(url).hostname.replace("www.", ""));
+   336→   336→      const title = String(r.name || r.title || "");
+   337→   337→      const snippet = String(r.snippet || r.description || "");
+   338→   338→
+   339→   339→      if (!title) continue;
+   340→   340→
+   341→   341→      filtered.push({
+   342→   342→        title,
+   343→   343→        snippet,
+   344→   344→        url,
+   345→   345→        source: ETHIOPIAN_JOB_SITES.find((s) => hostName.includes(s)) || hostName,
+   346→   346→        hostName,
+   347→   347→        date: r.date ? String(r.date) : undefined,
+   348→   348→      });
+   349→   349→    }
+   350→   350→
+   351→   351→    return filtered;
+   352→   352→  } catch (err) {
+   353→   353→    console.error(`[WebSearch] Error searching "${query}":`, err);
+   354→   354→    return [];
+   355→   355→  }
+   356→   356→}
+   357→   357→
+   358→   358→// ---------------------------------------------------------------------------
+   359→   359→// Step 2 — LLM Score Match (0-100)
+   360→   360→// ---------------------------------------------------------------------------
+   361→   361→
+   362→   362→async function scoreMatch(
+   363→   363→  job: SearchResult
+   364→   364→): Promise<{ score: number; reasoning: string }> {
+   365→   365→  const userMessage = `You are a professional recruitment assistant. Rate how well the following job posting matches the candidate's profile.
+   366→   366→
+   367→   367→Provide ONLY a JSON object with two fields:
+   368→   368→- "score": a number from 0 to 100 (higher = better match)
+   369→   369→- "reasoning": a brief 1-2 sentence explanation
+   370→   370→
+   371→   371→${buildProfileSummary()}
+   372→   372→
+   373→   373→---
+   374→   374→
+   375→   375→**Job Posting:**
+   376→   376→- Title: ${job.title}
+   377→   377→- Description: ${job.snippet}
+   378→   378→- Source: ${job.source}
+   379→   379→- URL: ${job.url}
+   380→   380→
+   381→   381→Respond with ONLY the JSON object, no markdown fences.`;
+   382→   382→
+   383→   383→  try {
+   384→   384→    const zai = await getZAI();
+   385→   385→    console.log(`  [LLM] Scoring ${job.title.substring(0, 60)}...`);
+   386→   386→    const completion = await withTimeout(
+   387→   387→      zai.chat.completions.create({
+   388→   388→        messages: [
+   389→   389→          {
+   390→   390→            role: "assistant",
+   391→   391→            content:
+   392→   392→              "You are a JSON-only response assistant. Always respond with valid JSON and nothing else.",
+   393→   393→          },
+   394→   394→          { role: "user", content: userMessage },
+   395→   395→        ],
+   396→   396→        thinking: { type: "disabled" },
+   397→   397→      }),
+   398→   398→      60_000,
+   399→   399→      `LLM score for "${job.title.substring(0, 40)}"`
+   400→   400→    );
+   401→   401→
+   402→   402→    const text =
+   403→   403→      completion?.choices?.[0]?.message?.content?.trim() || "";
+   404→   404→
+   405→   405→    // Strip markdown fences if the LLM wraps the JSON
+   406→   406→    const cleaned = text
+   407→   407→      .replace(/```json?\s*\n?/g, "")
+   408→   408→      .replace(/```\s*$/g, "")
+   409→   409→      .trim();
+   410→   410→
+   411→   411→    const parsed = JSON.parse(cleaned);
+   412→   412→
+   413→   413→    return {
+   414→   414→      score: Math.max(0, Math.min(100, Number(parsed.score) || 0)),
+   415→   415→      reasoning: String(parsed.reasoning || "No reasoning provided"),
+   416→   416→    };
+   417→   417→  } catch (err) {
+   418→   418→    console.error("[LLM] Score error for", job.title, ":", err);
+   419→   419→    return { score: 0, reasoning: "Failed to score — parsing error" };
+   420→   420→  }
+   421→   421→}
+   422→   422→
+   423→   423→// ---------------------------------------------------------------------------
+   424→   424→// Step 3 — Generate Cover Letter via LLM
+   425→   425→// ---------------------------------------------------------------------------
+   426→   426→
+   427→   427→async function generateCoverLetter(
+   428→   428→  job: SearchResult,
+   429→   429→  company: string
+   430→   430→): Promise<string> {
+   431→   431→  const userMessage = `Write a professional, tailored cover letter for the following job application. The letter should:
+   432→   432→- Be addressed to the hiring manager
+   433→   433→- Reference specific relevant experience from the candidate's career history
+   434→   434→- Be concise but compelling (3-4 paragraphs, ~300-400 words)
+   435→   435→- Mention key skills that directly match the job requirements
+   436→   436→- Include the applicant's contact information at the top
+   437→   437→- End with a clear call to action
+   438→   438→- Follow Ethiopian professional norms
+   439→   439→
+   440→   440→${buildProfileSummary()}
+   441→   441→
+   442→   442→---
+   443→   443→
+   444→   444→**Job Details:**
+   445→   445→- Title: ${job.title}
+   446→   446→- Company: ${company}
+   447→   447→- Description: ${job.snippet}
+   448→   448→- Source: ${job.source}
+   449→   449→
+   450→   450→Write the cover letter now. Output ONLY the cover letter text — no preamble, no explanation, no JSON.`;
+   451→   451→
+   452→   452→  try {
+   453→   453→    const zai = await getZAI();
+   454→   454→    console.log(`  [LLM] Generating cover letter for ${job.title.substring(0, 60)}...`);
+   455→   455→    const completion = await withTimeout(
+   456→   456→      zai.chat.completions.create({
+   457→   457→        messages: [
+   458→   458→          {
+   459→   459→            role: "assistant",
+   460→   460→            content:
+   461→   461→              "You are a professional cover letter writer specializing in Ethiopian job applications. Write compelling, specific cover letters that reference the candidate's actual experience.",
+   462→   462→          },
+   463→   463→          { role: "user", content: userMessage },
+   464→   464→        ],
+   465→   465→        thinking: { type: "disabled" },
+   466→   466→      }),
+   467→   467→      90_000,
+   468→   468→      `LLM cover letter for "${job.title.substring(0, 40)}"`
+   469→   469→    );
+   470→   470→
+   471→   471→    const text =
+   472→   472→      completion?.choices?.[0]?.message?.content?.trim() || "";
+   473→   473→
+   474→   474→    return text || "Cover letter generation returned empty content.";
+   475→   475→  } catch (err) {
+   476→   476→    console.error("[LLM] Cover letter error for", job.title, ":", err);
+   477→   477→    return "Cover letter generation failed. Please contact the candidate directly at hambisa1992@gmail.com or +251 952 341 525.";
+   478→   478→  }
+   479→   479→}
+   480→   480→
+   481→   481→// ---------------------------------------------------------------------------
+   482→   482→// Step 4 — Save Application to Next.js API
+   483→   483→// ---------------------------------------------------------------------------
+   484→   484→
+   485→   485→async function saveApplication(log: ApplicationLog): Promise<boolean> {
+   486→   486→  try {
+   487→   487→    const payload = {
+   488→   488→      jobTitle: log.jobTitle,
+   489→   489→      company: log.company || null,
+   490→   490→      location: PROFILE.location,
+   491→   491→      status: "pending_review",
+   492→   492→      url: log.url || null,
+   493→   493→      coverLetter: log.coverLetter || null,
+   494→   494→      notes: `Pending review via auto-apply-service | Match Score: ${log.matchScore}/100 | Source: ${log.source} | Query: "${log.query}"`,
+   495→   495→    };
+   496→   496→
+   497→   497→    console.log(`  [Save] POST ${log.jobTitle.substring(0, 50)}...`);
+   498→   498→    const res = await withTimeout(
+   499→   499→      fetch(NEXTJS_API, {
+   500→   500→        method: "POST",
+   501→   501→        headers: { "Content-Type": "application/json" },
+   502→   502→        body: JSON.stringify(payload),
+   503→   503→      }),
+   504→   504→      15_000,
+   505→   505→      `Save application for "${log.jobTitle.substring(0, 40)}"`
+   506→   506→    );
+   507→   507→
+   508→   508→    if (!res.ok) {
+   509→   509→      const body = await res.text();
+   510→   510→      console.error(`[Save] Next.js returned ${res.status}: ${body}`);
+   511→   511→      return false;
+   512→   512→    }
+   513→   513→
+   514→   514→    const data = await res.json();
+   515→   515→    console.log(
+   516→   516→      `[Save] Application saved — DB id: ${data.application?.id || "n/a"} | ${log.jobTitle}`
+   517→   517→    );
+   518→   518→    return true;
+   519→   519→  } catch (err) {
+   520→   520→    console.error("[Save] Error saving application:", err);
+   521→   521→    return false;
+   522→   522→  }
+   523→   523→}
+   524→   524→
+   525→   525→// ---------------------------------------------------------------------------
+   526→   526→// Company extraction heuristics
+   527→   527→// ---------------------------------------------------------------------------
+   528→   528→
+   529→   529→function extractCompany(job: SearchResult): string {
+   530→   530→  const text = `${job.title} ${job.snippet}`;
+   531→   531→  const patterns = [
+   532→   532→    /(?:at|@|by|from)\s+([A-Z][A-Za-z&\s]{2,35}?)(?:\s*[-–|,.\n:;]|\s+(?:is|hiring|needs|looking|seeks|wants)|$)/,
+   533→   533→    /([A-Z][A-Za-z&\s]{2,35}?)\s+(?:is hiring|needs|looking for|seeks|wants|invites)/i,
+   534→   534→    /(?:company|organization|firm)[:\s]*([A-Z][A-Za-z&\s]{2,35}?)(?:\s*[-–|,.\n:;]|$)/i,
+   535→   535→  ];
+   536→   536→
+   537→   537→  for (const pat of patterns) {
+   538→   538→    const match = text.match(pat);
+   539→   539→    if (match && match[1]) {
+   540→   540→      const name = match[1].trim();
+   541→   541→      // Filter out common false positives
+   542→   542→      const blacklist = new Set([
+   543→   543→        "Ethiopia",
+   544→   544→        "Addis Ababa",
+   545→   545→        "Job",
+   546→   546→        "Vacancy",
+   547→   547→        "Career",
+   548→   548→        "Hiring",
+   549→   549→        "View",
+   550→   550→        "Apply",
+   551→   551→        "Click",
+   552→   552→        "Read",
+   553→   553→        "More",
+   554→   554→        "Details",
+   555→   555→        "Full",
+   556→   556→        "Description",
+   557→   557→      ]);
+   558→   558→      if (!blacklist.has(name) && name.length > 2) {
+   559→   559→        return name;
+   560→   560→      }
+   561→   561→    }
+   562→   562→  }
+   563→   563→
+   564→   564→  return job.source;
+   565→   565→}
+   566→   566→
+   567→   567→// ---------------------------------------------------------------------------
+   568→   568→// Core: Run Full Search Cycle
+   569→   569→// ---------------------------------------------------------------------------
+   570→   570→
+   571→   571→async function runSearchCycle(): Promise<CycleLog> {
+   572→   572→  const cycle: CycleLog = {
+   573→   573→    cycleId: uid(),
+   574→   574→    startedAt: nowISO(),
+   575→   575→    totalJobsFound: 0,
+   576→   576→    matched: 0,
+   577→   577→    saved: 0,
+   578→   578→    failed: 0,
+   579→   579→    skipped: 0,
+   580→   580→    logs: [],
+   581→   581→  };
+   582→   582→
+   583→   583→  currentCycle = cycle;
+   584→   584→  isRunning = true;
+   585→   585→  console.log(`\n${"=".repeat(64)}`);
+   586→   586→  console.log(
+   587→   587→    `[Cycle ${cycle.cycleId}] Starting auto-search cycle at ${cycle.startedAt}`
+   588→   588→  );
+   589→   589→  console.log(`${"=".repeat(64)}\n`);
+   590→   590→
+   591→   591→  // Track seen URLs across all queries to avoid duplicates
+   592→   592→  const seenUrls = new Set<string>();
+   593→   593→
+   594→   594→  for (const query of SEARCH_QUERIES) {
+   595→   595→    console.log(`[Search] Querying: "${query}"`);
+   596→   596→    const results = await searchJobs(query);
+   597→   597→    console.log(`[Search] Found ${results.length} unique results`);
+   598→   598→
+   599→   599→    for (const job of results) {
+   600→   600→      // Deduplicate globally
+   601→   601→      if (seenUrls.has(job.url)) continue;
+   602→   602→      seenUrls.add(job.url);
+   603→   603→      cycle.totalJobsFound++;
+   604→   604→
+   605→   605→      console.log(`\n[Evaluate] ${job.title} @ ${job.source}`);
+   606→   606→
+   607→   607→      // Step 2: Score match with LLM
+   608→   608→      const { score, reasoning } = await scoreMatch(job);
+   609→   609→      console.log(`[Evaluate] Match score: ${score}/100 — ${reasoning}`);
+   610→   610→
+   611→   611→      // Extract company name
+   612→   612→      const company = extractCompany(job);
+   613→   613→
+   614→   614→      const logEntry: ApplicationLog = {
+   615→   615→        id: uid(),
+   616→   616→        timestamp: nowISO(),
+   617→   617→        query,
+   618→   618→        jobTitle: job.title,
+   619→   619→        company,
+   620→   620→        source: job.source,
+   621→   621→        matchScore: score,
+   622→   622→        coverLetter: "",
+   623→   623→        status: "skipped",
+   624→   624→        url: job.url,
+   625→   625→      };
+   626→   626→
+   627→   627→      // Step 2b: Skip if below threshold
+   628→   628→      if (score < MATCH_THRESHOLD) {
+   629→   629→        console.log(
+   630→   630→          `[Skip] Score ${score} is below threshold ${MATCH_THRESHOLD}`
+   631→   631→        );
+   632→   632→        cycle.skipped++;
+   633→   633→        cycle.logs.push(logEntry);
+   634→   634→        continue;
+   635→   635→      }
+   636→   636→
+   637→   637→      // Step 3: Generate cover letter
+   638→   638→      cycle.matched++;
+   639→   639→      console.log(`[Match] Score ${score} ≥ ${MATCH_THRESHOLD} — generating cover letter...`);
+   640→   640→
+   641→   641→      const coverLetter = await generateCoverLetter(job, company);
+   642→   642→      logEntry.coverLetter = coverLetter;
+   643→   643→
+   644→   644→      // Step 4: Save to Next.js
+   645→   645→      const success = await saveApplication(logEntry);
+   646→   646→      logEntry.status = success ? "saved" : "failed";
+   647→   647→      if (!success) {
+   648→   648→        logEntry.error = "Failed to save to Next.js API";
+   649→   649→      }
+   650→   650→
+   651→   651→      if (success) {
+   652→   652→        cycle.saved++;
+   653→   653→        console.log(`[Saved] ✓ ${job.title} @ ${company}`);
+   654→   654→      } else {
+   655→   655→        cycle.failed++;
+   656→   656→        console.error(`[Failed] ✗ ${job.title} @ ${company}`);
+   657→   657→      }
+   658→   658→
+   659→   659→      cycle.logs.push(logEntry);
+   660→   660→
+   661→   661→      // Throttle to avoid API rate limits
+   662→   662→      await sleep(2000);
+   663→   663→    }
+   664→   664→
+   665→   665→    // Brief pause between queries
+   666→   666→    await sleep(1000);
+   667→   667→  }
+   668→   668→
+   669→   669→  cycle.completedAt = nowISO();
+   670→   670→  isRunning = false;
+   671→   671→  currentCycle = null;
+   672→   672→
+   673→   673→  console.log(`\n${"=".repeat(64)}`);
+   674→   674→  console.log(
+   675→   675→    `[Cycle ${cycle.cycleId}] Complete at ${cycle.completedAt}`
+   676→   676→  );
+   677→   677→  console.log(
+   678→   678→    `  Jobs found : ${cycle.totalJobsFound}\n` +
+   679→   679→    `  Matched (≥${MATCH_THRESHOLD}) : ${cycle.matched}\n` +
+   680→   680→    `  Saved      : ${cycle.saved}\n` +
+   681→   681→    `  Failed     : ${cycle.failed}\n` +
+   682→   682→    `  Skipped    : ${cycle.skipped}`
+   683→   683→  );
+   684→   684→  console.log(`${"=".repeat(64)}\n`);
+   685→   685→
+   686→   686→  // Store cycle log (keep last 20 in memory)
+   687→   687→  cycleLogs.unshift(cycle);
+   688→   688→  if (cycleLogs.length > 20) cycleLogs.pop();
+   689→   689→
+   690→   690→  return cycle;
+   691→   691→}
+   692→   692→
+   693→   693→// ---------------------------------------------------------------------------
+   694→   694→// HTTP Server
+   695→   695→// ---------------------------------------------------------------------------
+   696→   696→
+   697→   697→const server = Bun.serve({
+   698→   698→  port: PORT,
+   699→   699→  async fetch(req: Request): Promise<Response> {
+   700→   700→    const url = new URL(req.url);
+   701→   701→    const path = url.pathname;
+   702→   702→
+   703→   703→    // CORS headers
+   704→   704→    const corsHeaders: Record<string, string> = {
+   705→   705→      "Access-Control-Allow-Origin": "*",
+   706→   706→      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+   707→   707→      "Access-Control-Allow-Headers": "Content-Type",
+   708→   708→    };
+   709→   709→
+   710→   710→    // Handle CORS preflight
+   711→   711→    if (req.method === "OPTIONS") {
+   712→   712→      return new Response(null, { status: 204, headers: corsHeaders });
+   713→   713→    }
+   714→   714→
+   715→   715→    try {
+   716→   716→      // ---------------------------------------------------------------
+   717→   717→      // POST /api/auto-search — trigger a search cycle
+   718→   718→      // ---------------------------------------------------------------
+   719→   719→      if (path === "/api/auto-search" && req.method === "POST") {
+   720→   720→        if (isRunning) {
+   721→   721→          return jsonResponse(
+   722→   722→            {
+   723→   723→              status: "already_running",
+   724→   724→              message:
+   725→   725→                "A search cycle is already in progress. Please wait for it to complete.",
+   726→   726→              currentCycle: currentCycle
+   727→   727→                ? {
+   728→   728→                    cycleId: currentCycle.cycleId,
+   729→   729→                    startedAt: currentCycle.startedAt,
+   730→   730→                    totalJobsFound: currentCycle.totalJobsFound,
+   731→   731→                    matched: currentCycle.matched,
+   732→   732→                    saved: currentCycle.saved,
+   733→   733→                  }
+   734→   734→                : null,
+   735→   735→            },
+   736→   736→            202,
+   737→   737→            corsHeaders
+   738→   738→          );
+   739→   739→        }
+   740→   740→
+   741→   741→        // Fire-and-forget: start cycle, return immediately
+   742→   742→        runSearchCycle().catch((err) => {
+   743→   743→          console.error("[Server] Search cycle crashed:", err);
+   744→   744→          isRunning = false;
+   745→   745→          currentCycle = null;
+   746→   746→        });
+   747→   747→
+   748→   748→        return jsonResponse(
+   749→   749→          {
+   750→   750→            status: "started",
+   751→   751→            message:
+   752→   752→              "Auto-search cycle has been triggered. Check GET /api/status for progress.",
+   753→   753→          },
+   754→   754→          202,
+   755→   755→          corsHeaders
+   756→   756→        );
+   757→   757→      }
+   758→   758→
+   759→   759→      // ---------------------------------------------------------------
+   760→   760→      // GET /api/status — current status + recent application logs
+   761→   761→      // ---------------------------------------------------------------
+   762→   762→      if (path === "/api/status" && req.method === "GET") {
+   763→   763→        const lastCycle = cycleLogs[0] || null;
+   764→   764→        const totalSaved = cycleLogs.reduce((s, c) => s + c.saved, 0);
+   765→   765→        const totalMatched = cycleLogs.reduce((s, c) => s + c.matched, 0);
+   766→   766→        const totalFailed = cycleLogs.reduce((s, c) => s + c.failed, 0);
+   767→   767→        const totalSkipped = cycleLogs.reduce((s, c) => s + c.skipped, 0);
+   768→   768→        const totalJobs = cycleLogs.reduce((s, c) => s + c.totalJobsFound, 0);
+   769→   769→
+   770→   770→        // Recent logs from last 2 cycles, capped at 20 entries
+   771→   771→        const recentLogs: ApplicationLog[] = cycleLogs
+   772→   772→          .slice(0, 2)
+   773→   773→          .flatMap((c) => c.logs)
+   774→   774→          .slice(0, 20);
+   775→   775→
+   776→   776→        return jsonResponse(
+   777→   777→          {
+   778→   778→            service: "auto-apply-service",
+   779→   779→            candidate: PROFILE.name,
+   780→   780→            port: PORT,
+   781→   781→            isRunning,
+   782→   782→            currentCycle: currentCycle
+   783→   783→              ? {
+   784→   784→                  cycleId: currentCycle.cycleId,
+   785→   785→                  startedAt: currentCycle.startedAt,
+   786→   786→                  totalJobsFound: currentCycle.totalJobsFound,
+   787→   787→                  matched: currentCycle.matched,
+   788→   788→                  saved: currentCycle.saved,
+   789→   789→                }
+   790→   790→              : null,
+   791→   791→            lastCycle: lastCycle
+   792→   792→              ? {
+   793→   793→                  cycleId: lastCycle.cycleId,
+   794→   794→                  startedAt: lastCycle.startedAt,
+   795→   795→                  completedAt: lastCycle.completedAt,
+   796→   796→                  totalJobsFound: lastCycle.totalJobsFound,
+   797→   797→                  matched: lastCycle.matched,
+   798→   798→                  saved: lastCycle.saved,
+   799→   799→                  failed: lastCycle.failed,
+   800→   800→                  skipped: lastCycle.skipped,
+   801→   801→                }
+   802→   802→              : null,
+   803→   803→            allTimeStats: {
+   804→   804→              totalCycles: cycleLogs.length,
+   805→   805→              totalJobsFound: totalJobs,
+   806→   806→              totalMatched,
+   807→   807→              totalSaved,
+   808→   808→              totalFailed,
+   809→   809→              totalSkipped,
+   810→   810→            },
+   811→   811→            recentLogs,
+   812→   812→          },
+   813→   813→          200,
+   814→   814→          corsHeaders
+   815→   815→        );
+   816→   816→      }
+   817→   817→
+   818→   818→      // ---------------------------------------------------------------
+   819→   819→      // GET /api/logs — all application logs with optional filters
+   820→   820→      // ---------------------------------------------------------------
+   821→   821→      if (path === "/api/logs" && req.method === "GET") {
+   822→   822→        const allLogs = cycleLogs.flatMap((c) => c.logs);
+   823→   823→        const limitParam = url.searchParams.get("limit");
+   824→   824→        const minScoreParam = url.searchParams.get("minScore");
+   825→   825→        const statusParam = url.searchParams.get("status");
+   826→   826→
+   827→   827→        let filtered = allLogs;
+   828→   828→
+   829→   829→        if (minScoreParam) {
+   830→   830→          const threshold = Number(minScoreParam);
+   831→   831→          if (!isNaN(threshold)) {
+   832→   832→            filtered = filtered.filter((l) => l.matchScore >= threshold);
+   833→   833→          }
+   834→   834→        }
+   835→   835→
+   836→   836→        if (statusParam) {
+   837→   837→          filtered = filtered.filter((l) => l.status === statusParam);
+   838→   838→        }
+   839→   839→
+   840→   840→        if (limitParam) {
+   841→   841→          const n = Number(limitParam);
+   842→   842→          if (!isNaN(n) && n > 0) {
+   843→   843→            filtered = filtered.slice(0, n);
+   844→   844→          }
+   845→   845→        }
+   846→   846→
+   847→   847→        return jsonResponse(
+   848→   848→          {
+   849→   849→            total: filtered.length,
+   850→   850→            cycles: cycleLogs.length,
+   851→   851→            logs: filtered,
+   852→   852→          },
+   853→   853→          200,
+   854→   854→          corsHeaders
+   855→   855→        );
+   856→   856→      }
+   857→   857→
+   858→   858→      // ---------------------------------------------------------------
+   859→   859→      // 404 — Unknown route
+   860→   860→      // ---------------------------------------------------------------
+   861→   861→      return jsonResponse(
+   862→   862→        {
+   863→   863→          error: "Not Found",
+   864→   864→          availableEndpoints: [
+   865→   865→            "POST /api/auto-search  — Trigger a new search cycle",
+   866→   866→            "GET  /api/status       — View service status and recent logs",
+   867→   867→            "GET  /api/logs         — View all application logs",
+   868→   868→            'GET  /api/logs?limit=50&minScore=50&status=saved  — Filtered logs',
+   869→   869→          ],
+   870→   870→        },
+   871→   871→        404,
+   872→   872→        corsHeaders
+   873→   873→      );
+   874→   874→    } catch (err) {
+   875→   875→      console.error("[Server] Unhandled error:", err);
+   876→   876→      return jsonResponse(
+   877→   877→        {
+   878→   878→          error: "Internal Server Error",
+   879→   879→          message: err instanceof Error ? err.message : "Unknown error",
+   880→   880→        },
+   881→   881→        500,
+   882→   882→        corsHeaders
+   883→   883→      );
+   884→   884→    }
+   885→   885→  },
+   886→   886→});
+   887→   887→
+   888→   888→// ---------------------------------------------------------------------------
+   889→   889→// Response helper
+   890→   890→// ---------------------------------------------------------------------------
+   891→   891→
+   892→   892→function jsonResponse(
+   893→   893→  data: unknown,
+   894→   894→  status: number,
+   895→   895→  extraHeaders: Record<string, string>
+   896→   896→): Response {
+   897→   897→  return new Response(JSON.stringify(data, null, 2), {
+   898→   898→    status,
+   899→   899→    headers: {
+   900→   900→      "Content-Type": "application/json",
+   901→   901→      ...extraHeaders,
+   902→   902→    },
+   903→   903→  });
+   904→   904→}
+   905→   905→
+   906→   906→// ---------------------------------------------------------------------------
+   907→   907→// Startup
+   908→   908→// ---------------------------------------------------------------------------
+   909→   909→
+   910→   910→console.log(`
+   911→   911→╔═══════════════════════════════════════════════════════════════════╗
+   912→   912→║                  AUTO-APPLY SERVICE                              ║
+   913→   913→║  Candidate : ${PROFILE.name.padEnd(47)}║
+   914→   914→║  Port      : ${String(PORT).padEnd(47)}║
+   915→   915→║  Interval  : Every 4 hours                                       ║
+   916→   916→║  Threshold : Match score ≥ ${String(MATCH_THRESHOLD).padEnd(39)}║
+   917→   917→║  Endpoints :                                                       ║
+   918→   918→║    POST /api/auto-search                                          ║
+   919→   919→║    GET  /api/status                                               ║
+   920→   920→║    GET  /api/logs                                                 ║
+   921→   921→╚═══════════════════════════════════════════════════════════════════╝
+   922→   922→`);
+   923→   923→
+   924→   924→// Run initial search cycle on startup (with a small delay so the server is ready)
+   925→   925→console.log("[Startup] Initial search cycle will begin in 3 seconds...\n");
+   926→   926→setTimeout(() => {
+   927→   927→  runSearchCycle().catch((err) => {
+   928→   928→    console.error("[Startup] Initial cycle failed:", err);
+   929→   929→    isRunning = false;
+   930→   930→    currentCycle = null;
+   931→   931→  });
+   932→   932→}, 3000);
+   933→   933→
+   934→   934→// Schedule recurring cycles every 4 hours
+   935→   935→setInterval(() => {
+   936→   936→  console.log("[Scheduler] 4-hour interval triggered");
+   937→   937→  if (!isRunning) {
+   938→   938→    runSearchCycle().catch((err) => {
+   939→   939→      console.error("[Scheduler] Cycle failed:", err);
+   940→   940→      isRunning = false;
+   941→   941→      currentCycle = null;
+   942→   942→    });
+   943→   943→  } else {
+   944→   944→    console.log("[Scheduler] Skipped — a cycle is already running");
+   945→   945→  }
+   946→   946→}, AUTO_SEARCH_INTERVAL_MS);

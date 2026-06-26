@@ -127,3 +127,43 @@ Stage Summary:
 - Each job shows summary (title, company, source, match score, deadline, reasoning) for approval
 - Email sending via mailto: links
 - PDF preview with print/download capability
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Add new job sites (GeezJob, HarmeJobs, EthioVacancy, Reporter, LinkedIn), remote data entry jobs, and 1-hour auto-search
+
+Work Log:
+- Updated ALL_JOB_SITES in /api/auto-apply/run/route.ts with 20 Ethiopian job portals:
+  - Added: geezjob.com, harmejobs.com, ethiovacancy.com, reporterethiopia.com
+  - Added: zamejobs.com, hiredet.com, newjobsethiopia.com, ethio-job.com, ethiopiajobvacancy.com
+- Added LINKEDIN_REMOTE_SITES: linkedin.com, remoteok.com, weworkremotely.com, flexjobs.com, remotive.com, upwork.com, indeed.com, glassdoor.com
+- Expanded SEARCH_QUERIES from 28 to 42 queries:
+  - 28 Ethiopian job site queries (with site filter)
+  - 5 LinkedIn queries (with LinkedIn site filter)
+  - 9 remote data entry queries (no site filter)
+- Added query categories with URL parameter support: ?category=all|ethiopia|linkedin|remote
+- Updated LLM evaluator to accept data entry, virtual assistant, remote work, clerical as "related" roles
+- Rewrote mini-services/auto-apply-service to lightweight scheduler:
+  - Delegates search to Next.js /api/auto-apply/run?full=true (no duplicate logic)
+  - 1-hour interval (confirmed)
+  - 10-second startup delay for Next.js readiness
+  - Status/logs endpoints retained
+- Created /api/auto-apply/scheduler/route.ts status endpoint
+- Updated UI with category-based search buttons:
+  - "Find All Jobs" (green, searches all 42 queries)
+  - "LinkedIn Only" (blue, searches 5 LinkedIn queries)
+  - "Remote Data Entry" (purple, searches 9 remote queries)
+  - "Ethiopian Sites" (orange, searches 28 Ethiopian queries)
+- Updated source badges to show all 20+ sources
+- Updated footer text with new site list
+- Lint passes clean
+- Verified via browser: all buttons visible, 11 pending + 2 approved apps displayed correctly
+
+Stage Summary:
+- 42 search queries across 20+ Ethiopian job sites, LinkedIn, remote work platforms, and Telegram
+- New sites: GeezJob, HarmeJobs, EthioVacancy, ReporterEthiopia, ZameJobs, HiredET, NewJobsEthiopia
+- LinkedIn and remote data entry job search added
+- Auto-search runs every 1 hour via mini-service on port 3020
+- Category search buttons in UI for targeted searching
+- Mini-service simplified to delegate all search logic to Next.js endpoint

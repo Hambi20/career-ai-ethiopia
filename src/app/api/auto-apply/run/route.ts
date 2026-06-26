@@ -27,11 +27,25 @@ LANGUAGES: Amharic (Native), English (Professional), Afaan Oromo (Fluent), Somal
 
 // All Ethiopian job sites to search across
 const ALL_JOB_SITES = [
+  // Major Ethiopian job portals
   'ethiojobs.net', 'mekanisa.com', 'jobs.et', 'addisjobs.com',
   'jobwebethiopia.com', 'ethiopianjobs.com', 'ethiocareers.com',
-  'cvbankethiopia.com', 'job Ethiopia vacancy.com',
-  'ethiojobs.com.et', ' vacancyeth.com',
-  'habeshalinks.com', 'mereja.com', 'borkena.com',
+  'cvbankethiopia.com', 'vacancyeth.com',
+  'ethiojobs.com.et',
+  // User-requested new sites
+  'geezjob.com', 'harmejobs.com', 'ethiovacancy.com',
+  // Ethiopian news/media with job sections
+  'reporterethiopia.com', 'habeshalinks.com', 'mereja.com', 'borkena.com',
+  // Additional Ethiopian job portals
+  'zamejobs.com', 'hiredet.com', 'newjobsethiopia.com',
+  'ethio-job.com', 'ethiopiajobvacancy.com',
+];
+
+// LinkedIn and remote work sites (separate filter)
+const LINKEDIN_REMOTE_SITES = [
+  'linkedin.com', 'remoteok.com', 'weworkremotely.com',
+  'flexjobs.com', 'remotive.com', 'upwork.com',
+  'indeed.com', 'glassdoor.com',
 ];
 
 function buildSiteFilter(count: number): string {
@@ -39,8 +53,9 @@ function buildSiteFilter(count: number): string {
   return ' site:' + sites.join(' OR site:');
 }
 
-// Broad search queries covering marketing, sales, business dev, commercial, and Telegram channels
+// Broad search queries covering marketing, sales, business dev, commercial, Telegram, LinkedIn, and remote work
 const SEARCH_QUERIES = [
+  // ====== ETHIOPIAN JOB SITE QUERIES (with site filter) ======
   // Direct title matches
   'sales manager Ethiopia 2025 2026 job vacancy',
   'marketing manager Addis Ababa job opening',
@@ -71,6 +86,8 @@ const SEARCH_QUERIES = [
   'merchandiser Ethiopia sales vacancy',
   'sales consultant Ethiopia Addis Ababa',
   'retail manager Ethiopia job vacancy',
+
+  // ====== BROAD QUERIES (no site filter — catches Telegram, LinkedIn, everything) ======
   // Telegram & social media job groups
   'telegram job vacancy Ethiopia sales marketing',
   'Ethiopia job telegram channel sales manager',
@@ -84,11 +101,31 @@ const SEARCH_QUERIES = [
   'Ethiopian job site sales manager vacancy fresh',
   'urgent hiring sales marketing Ethiopia 2026',
   'latest job vacancy sales Ethiopia this week',
+
+  // ====== LINKEDIN QUERIES ======
+  'linkedin sales manager Ethiopia jobs hiring',
+  'linkedin marketing manager Addis Ababa jobs',
+  'linkedin business development Ethiopia vacancy',
+  'linkedin sales representative Ethiopia job opening',
+  'linkedin commercial manager Ethiopia career',
+
+  // ====== REMOTE DATA ENTRY QUERIES ======
+  'remote data entry job Ethiopia hiring now',
+  'data entry remote work Africa available',
+  'work from home data entry Ethiopia Addis Ababa',
+  'remote data entry clerk job worldwide Africa',
+  'online data entry part time full time Ethiopia',
+  'remote data entry job no experience needed Africa',
+  'data entry operator remote job Ethiopian',
+  'virtual assistant data entry remote Africa hiring',
+  'remote typing job data entry from home Ethiopia',
 ];
 
-// Split into two groups: job site queries and broad/telegram queries
-const JOB_SITE_QUERIES = SEARCH_QUERIES.slice(0, 20);
-const BROAD_QUERIES = SEARCH_QUERIES.slice(20);
+// Split into groups for site filter logic
+const JOB_SITE_QUERIES = SEARCH_QUERIES.slice(0, 28); // Ethiopian job site queries
+const LINKEDIN_QUERIES = SEARCH_QUERIES.slice(28, 33); // LinkedIn-specific queries
+const REMOTE_QUERIES = SEARCH_QUERIES.slice(33); // Remote data entry queries
+const BROAD_QUERIES = [...SEARCH_QUERIES.slice(28)]; // All queries from LinkedIn onwards (no site filter)
 
 interface SearchResult {
   url: string; name: string; snippet: string; host_name: string; date?: string;
@@ -115,8 +152,21 @@ function extractCompany(text: string, title: string): string {
 function getQueries(request: NextRequest): string[] {
   const { searchParams } = new URL(request.url);
   const full = searchParams.get('full');
+  const category = searchParams.get('category'); // 'all', 'ethiopia', 'linkedin', 'remote'
+  if (category === 'linkedin') return LINKEDIN_QUERIES;
+  if (category === 'remote') return REMOTE_QUERIES;
   if (!full) return JOB_SITE_QUERIES.slice(0, 5);
-  return [...JOB_SITE_QUERIES, ...BROAD_QUERIES];
+  return SEARCH_QUERIES; // All queries
+}
+
+// Get site filter based on query type index
+function getSiteFilterForQuery(queryIndex: number, totalJobSiteQueries: number, totalLinkedInQueries: number): string {
+  if (queryIndex < totalJobSiteQueries) {
+    return buildSiteFilter(ALL_JOB_SITES.length); // Ethiopian job sites filter
+  } else if (queryIndex < totalJobSiteQueries + totalLinkedInQueries) {
+    return ' site:' + LINKEDIN_REMOTE_SITES.slice(0, 3).join(' OR site:'); // LinkedIn filter
+  }
+  return ''; // Remote queries: no site filter
 }
 
 // Deep LLM evaluation: checks expiry, position accuracy, match reasoning
@@ -145,7 +195,8 @@ You MUST respond with a JSON object with these exact fields:
 - "isRelated": boolean (true if the role is in any way related to marketing, sales, business development, or commercial operations)
 
 Guidelines:
-- A job related to sales, marketing, business development, commercial, account management, brand management, trade marketing, field sales, route sales, territory management is "related"
+- A job related to sales, marketing, business development, commercial, account management, brand management, trade marketing, field sales, route sales, territory management, data entry, virtual assistant, remote work, clerical work, administrative support, or any online/remote job is "related"
+- Remote data entry, virtual assistant, and work-from-home jobs should be considered "related" since the candidate wants remote work opportunities
 - Check for expiry dates like "Deadline: ...", "Apply before ...", "Closing date ...", "expired", "closed"
 - If the deadline has passed, set isExpired=true and score=0 regardless of fit
 - Be generous with "related" — if it involves selling, promoting, managing accounts, or growing business, it's related
@@ -212,19 +263,25 @@ async function runAutoApply(request: NextRequest) {
 
     logs.push(`[${new Date().toISOString()}] Starting smart search (${queries.length} queries, ${BROAD_QUERIES.length > 0 ? 'full mode' : 'quick mode'})`);
 
+    const totalJobSiteQ = JOB_SITE_QUERIES.length;
+    const totalLinkedinQ = LINKEDIN_QUERIES.length;
+
     for (let qi = 0; qi < queries.length; qi++) {
       const query = queries[qi];
-      const isBroad = qi >= JOB_SITE_QUERIES.length;
+      const isBroad = qi >= totalJobSiteQ;
+      const isLinkedin = qi >= totalJobSiteQ && qi < totalJobSiteQ + totalLinkedinQ;
+      const isRemote = qi >= totalJobSiteQ + totalLinkedinQ;
+      const categoryLabel = isLinkedin ? '(LinkedIn)' : isRemote ? '(Remote Data Entry)' : isBroad ? '(broad)' : '(Ethiopian sites)';
 
       try {
-        logs.push(`\n[${qi + 1}/${queries.length}] Searching: "${query.substring(0, 60)}" ${isBroad ? '(broad)' : ''}`);
+        logs.push(`\n[${qi + 1}/${queries.length}] Searching: "${query.substring(0, 60)}" ${categoryLabel}`);
 
-        // Job site queries get site filter, broad queries don't
-        const siteFilter = isBroad ? '' : buildSiteFilter(14);
+        // Different site filters per query type
+        const siteFilter = getSiteFilterForQuery(qi, totalJobSiteQ, totalLinkedinQ);
         const results = await zai.functions.invoke('web_search', {
           query: `${query}${siteFilter}`,
           num: isBroad ? 5 : 8,
-          recency_days: 45,
+          recency_days: isRemote ? 30 : 45,
         }) as SearchResult[];
 
         let found = 0;

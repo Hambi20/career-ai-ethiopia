@@ -315,17 +315,19 @@ function AutoApplyTab({
   const approvedApps = applications.filter(a => a.status === 'approved');
   const submittedApps = applications.filter(a => a.status === 'submitted');
 
-  // Trigger search
-  const triggerRun = async () => {
+  // Trigger search with optional category filter
+  const triggerRun = async (category?: string) => {
     if (isRunningCycle) return;
     setIsRunningCycle(true);
-    setRunLogs(['🔍 Starting smart job search...', 'This will search multiple websites and Telegram channels...', 'Matching against your experience profile...', 'Please wait — this takes 2-5 minutes...']);
+    const catLabel = category === 'linkedin' ? 'LinkedIn' : category === 'remote' ? 'Remote Data Entry' : category === 'ethiopia' ? 'Ethiopian Sites' : 'All Sources';
+    setRunLogs([`🔍 Starting ${catLabel} job search...`, 'This will search multiple websites and Telegram channels...', 'Matching against your experience profile...', 'Please wait — this takes 2-5 minutes...']);
     try {
-      const res = await fetch('/api/auto-apply/run?full=true', { method: 'POST' });
+      const queryStr = category ? `?full=true&category=${category}` : '?full=true';
+      const res = await fetch(`/api/auto-apply/run${queryStr}`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         setRunLogs(data.logs || []);
-        toast.success(`Found ${data.totalFound} jobs, ${data.totalExpired} expired, ${data.totalSaved} new for review`);
+        toast.success(`[${catLabel}] Found ${data.totalFound} jobs, ${data.totalExpired} expired, ${data.totalSaved} new for review`);
         refreshApps();
       } else {
         setRunLogs(['❌ ' + (data.error || 'Unknown error')]);
@@ -449,7 +451,7 @@ function AutoApplyTab({
               <div>
                 <h3 className="font-semibold text-lg">Smart Job Search</h3>
                 <p className="text-sm text-muted-foreground">
-                  {isRunningCycle ? 'Searching 36+ queries across job sites & Telegram...' :
+                  {isRunningCycle ? 'Searching 42+ queries across 20+ sources...' :
                     pendingApps.length > 0 ? `${pendingApps.length} jobs waiting for your review` :
                       approvedApps.length > 0 ? `${approvedApps.length} jobs approved — ready to send` :
                         'Click to search job sites & Telegram for matching jobs'}
@@ -466,22 +468,32 @@ function AutoApplyTab({
               <Button onClick={downloadCV} disabled={isGeneratingPdf} variant="outline" className="gap-1.5 text-xs">
                 <Download className="w-3.5 h-3.5" />My CV
               </Button>
-              <Button onClick={triggerRun} disabled={isRunningCycle} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+              <Button onClick={() => triggerRun()} disabled={isRunningCycle} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
                 {isRunningCycle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                {isRunningCycle ? 'Searching...' : 'Find Jobs Now'}
+                {isRunningCycle ? 'Searching...' : 'Find All Jobs'}
+              </Button>
+              <Button onClick={() => triggerRun('linkedin')} disabled={isRunningCycle} variant="outline" className="gap-1.5 text-xs text-blue-600 border-blue-300 hover:bg-blue-50">
+                <Globe className="w-3.5 h-3.5" />LinkedIn Only
+              </Button>
+              <Button onClick={() => triggerRun('remote')} disabled={isRunningCycle} variant="outline" className="gap-1.5 text-xs text-purple-600 border-purple-300 hover:bg-purple-50">
+                <Activity className="w-3.5 h-3.5" />Remote Data Entry
+              </Button>
+              <Button onClick={() => triggerRun('ethiopia')} disabled={isRunningCycle} variant="outline" className="gap-1.5 text-xs text-orange-600 border-orange-300 hover:bg-orange-50">
+                <Target className="w-3.5 h-3.5" />Ethiopian Sites
               </Button>
             </div>
           </div>
 
           {/* Search info */}
           <div className="mt-4 p-3 rounded-lg bg-muted/50 text-xs text-muted-foreground">
-            <p className="font-medium mb-1">Searches across 14+ sources:</p>
+            <p className="font-medium mb-1">Searches across 20+ sources with 42+ queries:</p>
             <div className="flex flex-wrap gap-1.5">
-              {['EthioJobs.net', 'Mekanisa.com', 'Jobs.et', 'AddisJobs.com', 'JobWebEthiopia', 'EthiopianJobs.com', 'EthioCareers.com', 'CVBankEthiopia', 'VacancyEth.com', 'HabeshaLinks.com', 'Mereja.com', 'Borkena.com', 'Telegram Groups', 'Google Web'].map(s => (
+              {['EthioJobs.net', 'Mekanisa.com', 'Jobs.et', 'AddisJobs.com', 'JobWebEthiopia', 'EthiopianJobs.com', 'EthioCareers.com', 'GeezJob.com', 'HarmeJobs.com', 'EthioVacancy.com', 'ReporterEthiopia.com', 'VacancyEth.com', 'ZameJobs.com', 'HiredET.com', 'LinkedIn', 'RemoteOK', 'WeWorkRemotely', 'Upwork', 'Telegram Groups'].map(s => (
                 <Badge key={s} variant="outline" className="text-[10px]">{s}</Badge>
               ))}
             </div>
-            <p className="mt-2">Matching: Sales, Marketing, Business Dev, Commercial, Account Mgmt, Brand Mgmt, Trade Marketing, Field Sales, Route Sales, Territory Mgmt + related roles</p>
+            <p className="mt-2">Matching: Sales, Marketing, Business Dev, Commercial, Account Mgmt, Brand Mgmt, Data Entry, Remote Work, Virtual Assistant + related roles</p>
+            <p className="mt-1 text-emerald-600">Auto-search runs every 1 hour • New sites: GeezJob, HarmeJobs, EthioVacancy, Reporter, LinkedIn, Remote Data Entry</p>
           </div>
 
           {/* Live Run Logs */}
@@ -1283,7 +1295,7 @@ export default function Home() {
             Hambisa Bekuma Tefera — Marketing &amp; Sales Manager • Addis Ababa, Ethiopia • +251 952 341 525
           </p>
           <p className="text-[10px] text-muted-foreground/60 mt-1">
-            Auto-searches every 1 hour across EthioJobs, Mekanisa, Jobs.et, AddisJobs, JobWebEthiopia, EthiopianJobs, EthioCareers, CVBankEthiopia, VacancyEth, HabeshaLinks, Mereja, Borkena, Telegram Groups &amp; more
+            Auto-searches every 1 hour across 20+ sources: EthioJobs, Mekanisa, Jobs.et, GeezJob, HarmeJobs, EthioVacancy, Reporter, LinkedIn, RemoteOK, WeWorkRemotely, Telegram Groups &amp; more
           </p>
         </div>
       </footer>
