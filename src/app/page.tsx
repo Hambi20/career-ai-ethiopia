@@ -346,7 +346,9 @@ function AutoApplyTab({
           if (status.status === 'completed') {
             clearInterval(poll);
             setIsRunningCycle(false);
-            toast.success(`[${catLabel}] Found ${status.results?.totalFound || 0} jobs, ${status.results?.totalExpired || 0} expired, ${status.results?.totalSaved || 0} new for review`);
+            const autoApproved = status.results?.autoApproved || 0;
+            const saved = status.results?.totalSaved || 0;
+            toast.success(`[${catLabel}] Found ${status.results?.totalFound || 0} jobs, ${status.results?.totalExpired || 0} expired, ${saved} new${autoApproved > 0 ? ` (${autoApproved} auto-approved)` : ''}`);
             refreshApps();
           } else if (status.status === 'failed') {
             clearInterval(poll);
@@ -511,14 +513,17 @@ function AutoApplyTab({
 
           {/* Search info */}
           <div className="mt-4 p-3 rounded-lg bg-muted/50 text-xs text-muted-foreground">
-            <p className="font-medium mb-1">Searches across 20+ sources with 20 smart queries:</p>
+            <p className="font-medium mb-1">Scrapes job sites directly + web search backup:</p>
             <div className="flex flex-wrap gap-1.5">
-              {['EthioJobs.net', 'Mekanisa.com', 'Jobs.et', 'AddisJobs.com', 'JobWebEthiopia', 'EthiopianJobs.com', 'EthioCareers.com', 'GeezJob.com', 'HarmeJobs.com', 'EthioVacancy.com', 'ReporterEthiopia.com', 'VacancyEth.com', 'ZameJobs.com', 'HiredET.com', 'LinkedIn', 'RemoteOK', 'WeWorkRemotely', 'Upwork', 'Telegram Groups'].map(s => (
+              {['EthioJobs.net', 'Mekanisa.com', 'Jobs.et', 'GeezJob.com', 'EthioVacancy.com', 'AddisJobs.com', 'HarmeJobs.com', 'CVBankEthiopia', 'RemoteOK', 'WeWorkRemotely', 'Upwork', 'LinkedIn'].map(s => (
                 <Badge key={s} variant="outline" className="text-[10px]">{s}</Badge>
               ))}
             </div>
-            <p className="mt-2">Matching: Sales, Marketing, Business Dev, Commercial, Account Mgmt, Brand Mgmt, Data Entry, Remote Work, Virtual Assistant + related roles</p>
-            <p className="mt-1 text-emerald-600">Auto-search runs every 1 hour • New sites: GeezJob, HarmeJobs, EthioVacancy, Reporter, LinkedIn, Remote Data Entry</p>
+            <p className="mt-2">Matching: Sales, Marketing, Business Dev, Data Entry, Remote Work, Virtual Assistant + related roles</p>
+            <div className="flex items-center gap-3 mt-2">
+              <p className="text-emerald-600 flex items-center gap-1"><Zap className="w-3 h-3" />Auto-search every 1 hour</p>
+              <p className="text-blue-600 flex items-center gap-1"><ShieldCheck className="w-3 h-3" />Auto-approve jobs ≥75% match</p>
+            </div>
           </div>
 
           {/* Live Run Logs */}

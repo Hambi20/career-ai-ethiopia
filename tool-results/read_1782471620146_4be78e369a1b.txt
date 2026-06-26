@@ -1,0 +1,541 @@
+     1→▲ Next.js 16.1.3 (Turbopack)
+     2→- Local:         http://localhost:3000
+     3→- Network:       http://21.0.15.94:3000
+     4→- Environments: .env
+     5→
+     6→✓ Starting...
+     7→✓ Ready in 1068ms
+     8→ GET / 200 in 681ms (compile: 417ms, render: 265ms)
+     9→ GET / 200 in 1633ms (compile: 1403ms, render: 230ms)
+    10→ POST /api/auto-apply/run 200 in 191ms (compile: 177ms, render: 14ms)
+    11→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+    12→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+    13→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+    14→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    15→  148 |     try {
+    16→> 149 |       const results = await zai.functions.invoke('web_search', {
+    17→      |                       ^
+    18→  150 |         query,
+    19→  151 |         num,
+    20→  152 |         recency_days: recencyDays,
+    21→[Rate Limit] Global cooldown set, waiting 20s...
+    22→⚠ Blocked cross-origin request from 127.0.0.1 to /_next/* resource. To allow this, configure "allowedDevOrigins" in next.config
+    23→Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+    24→prisma:query SELECT `main`.`UserProfile`.`id`, `main`.`UserProfile`.`fullName`, `main`.`UserProfile`.`email`, `main`.`UserProfile`.`phone`, `main`.`UserProfile`.`location`, `main`.`UserProfile`.`title`, `main`.`UserProfile`.`summary`, `main`.`UserProfile`.`skills`, `main`.`UserProfile`.`education`, `main`.`UserProfile`.`experience`, `main`.`UserProfile`.`resumeUrl`, `main`.`UserProfile`.`createdAt`, `main`.`UserProfile`.`updatedAt` FROM `main`.`UserProfile` WHERE 1=1 ORDER BY `main`.`UserProfile`.`updatedAt` DESC LIMIT ? OFFSET ?
+    25→ GET /api/profile 200 in 67ms (compile: 35ms, render: 32ms)
+    26→ GET /api/applications 200 in 67ms (compile: 58ms, render: 9ms)
+    27→prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`matchReasoning`, `main`.`Application`.`jobDeadline`, `main`.`Application`.`jobDescription`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE 1=1 ORDER BY `main`.`Application`.`createdAt` DESC LIMIT ? OFFSET ?
+    28→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+    29→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+    30→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+    31→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    32→  148 |     try {
+    33→> 149 |       const results = await zai.functions.invoke('web_search', {
+    34→      |                       ^
+    35→  150 |         query,
+    36→  151 |         num,
+    37→  152 |         recency_days: recencyDays,
+    38→[Rate Limit] Global cooldown set, waiting 40s...
+    39→ GET / 200 in 49ms (compile: 3ms, render: 46ms)
+    40→prisma:query SELECT 1
+    41→prisma:query SELECT `main`.`UserProfile`.`id`, `main`.`UserProfile`.`fullName`, `main`.`UserProfile`.`email`, `main`.`UserProfile`.`phone`, `main`.`UserProfile`.`location`, `main`.`UserProfile`.`title`, `main`.`UserProfile`.`summary`, `main`.`UserProfile`.`skills`, `main`.`UserProfile`.`education`, `main`.`UserProfile`.`experience`, `main`.`UserProfile`.`resumeUrl`, `main`.`UserProfile`.`createdAt`, `main`.`UserProfile`.`updatedAt` FROM `main`.`UserProfile` WHERE 1=1 ORDER BY `main`.`UserProfile`.`updatedAt` DESC LIMIT ? OFFSET ?
+    42→ GET /api/profile 200 in 16ms (compile: 3ms, render: 13ms)
+    43→prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`matchReasoning`, `main`.`Application`.`jobDeadline`, `main`.`Application`.`jobDescription`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE 1=1 ORDER BY `main`.`Application`.`createdAt` DESC LIMIT ? OFFSET ?
+    44→ GET /api/applications 200 in 20ms (compile: 9ms, render: 11ms)
+    45→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 7ms (compile: 3ms, render: 4ms)
+    46→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+    47→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+    48→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+    49→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    50→  148 |     try {
+    51→> 149 |       const results = await zai.functions.invoke('web_search', {
+    52→      |                       ^
+    53→  150 |         query,
+    54→  151 |         num,
+    55→  152 |         recency_days: recencyDays,
+    56→[Search Error] Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+    57→[Rate Limit] All retries exhausted, 2-minute global cooldown set
+    58→[Rate Limit] Global cooldown: waiting 105s...
+    59→ GET / 200 in 43ms (compile: 3ms, render: 40ms)
+    60→ GET /api/profile 200 in 11ms (compile: 3ms, render: 7ms)
+    61→prisma:query SELECT 1
+    62→prisma:query SELECT `main`.`UserProfile`.`id`, `main`.`UserProfile`.`fullName`, `main`.`UserProfile`.`email`, `main`.`UserProfile`.`phone`, `main`.`UserProfile`.`location`, `main`.`UserProfile`.`title`, `main`.`UserProfile`.`summary`, `main`.`UserProfile`.`skills`, `main`.`UserProfile`.`education`, `main`.`UserProfile`.`experience`, `main`.`UserProfile`.`resumeUrl`, `main`.`UserProfile`.`createdAt`, `main`.`UserProfile`.`updatedAt` FROM `main`.`UserProfile` WHERE 1=1 ORDER BY `main`.`UserProfile`.`updatedAt` DESC LIMIT ? OFFSET ?
+    63→prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`matchReasoning`, `main`.`Application`.`jobDeadline`, `main`.`Application`.`jobDescription`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE 1=1 ORDER BY `main`.`Application`.`createdAt` DESC LIMIT ? OFFSET ?
+    64→ GET /api/applications 200 in 12ms (compile: 5ms, render: 6ms)
+    65→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1797µs, render: 3ms)
+    66→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+    67→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+    68→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+    69→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    70→  148 |     try {
+    71→> 149 |       const results = await zai.functions.invoke('web_search', {
+    72→      |                       ^
+    73→  150 |         query,
+    74→  151 |         num,
+    75→  152 |         recency_days: recencyDays,
+    76→[Rate Limit] Global cooldown set, waiting 20s...
+    77→ GET / 200 in 43ms (compile: 2ms, render: 41ms)
+    78→ GET /api/profile 200 in 8ms (compile: 1819µs, render: 6ms)
+    79→prisma:query SELECT 1
+    80→prisma:query SELECT `main`.`UserProfile`.`id`, `main`.`UserProfile`.`fullName`, `main`.`UserProfile`.`email`, `main`.`UserProfile`.`phone`, `main`.`UserProfile`.`location`, `main`.`UserProfile`.`title`, `main`.`UserProfile`.`summary`, `main`.`UserProfile`.`skills`, `main`.`UserProfile`.`education`, `main`.`UserProfile`.`experience`, `main`.`UserProfile`.`resumeUrl`, `main`.`UserProfile`.`createdAt`, `main`.`UserProfile`.`updatedAt` FROM `main`.`UserProfile` WHERE 1=1 ORDER BY `main`.`UserProfile`.`updatedAt` DESC LIMIT ? OFFSET ?
+    81→prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`matchReasoning`, `main`.`Application`.`jobDeadline`, `main`.`Application`.`jobDescription`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE 1=1 ORDER BY `main`.`Application`.`createdAt` DESC LIMIT ? OFFSET ?
+    82→ GET /api/applications 200 in 11ms (compile: 5ms, render: 6ms)
+    83→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+    84→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+    85→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+    86→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    87→  148 |     try {
+    88→> 149 |       const results = await zai.functions.invoke('web_search', {
+    89→      |                       ^
+    90→  150 |         query,
+    91→  151 |         num,
+    92→  152 |         recency_days: recencyDays,
+    93→[Rate Limit] Global cooldown set, waiting 40s...
+    94→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+    95→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+    96→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+    97→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    98→  148 |     try {
+    99→> 149 |       const results = await zai.functions.invoke('web_search', {
+   100→      |                       ^
+   101→  150 |         query,
+   102→  151 |         num,
+   103→  152 |         recency_days: recencyDays,
+   104→[Search Error] Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   105→[Rate Limit] All retries exhausted, 2-minute global cooldown set
+   106→ GET / 200 in 36ms (compile: 2ms, render: 34ms)
+   107→ GET /api/profile 200 in 11ms (compile: 2ms, render: 8ms)
+   108→prisma:query SELECT 1
+   109→prisma:query SELECT `main`.`UserProfile`.`id`, `main`.`UserProfile`.`fullName`, `main`.`UserProfile`.`email`, `main`.`UserProfile`.`phone`, `main`.`UserProfile`.`location`, `main`.`UserProfile`.`title`, `main`.`UserProfile`.`summary`, `main`.`UserProfile`.`skills`, `main`.`UserProfile`.`education`, `main`.`UserProfile`.`experience`, `main`.`UserProfile`.`resumeUrl`, `main`.`UserProfile`.`createdAt`, `main`.`UserProfile`.`updatedAt` FROM `main`.`UserProfile` WHERE 1=1 ORDER BY `main`.`UserProfile`.`updatedAt` DESC LIMIT ? OFFSET ?
+   110→prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`matchReasoning`, `main`.`Application`.`jobDeadline`, `main`.`Application`.`jobDescription`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE 1=1 ORDER BY `main`.`Application`.`createdAt` DESC LIMIT ? OFFSET ?
+   111→ GET /api/applications 200 in 14ms (compile: 6ms, render: 8ms)
+   112→[Rate Limit] Global cooldown: waiting 105s...
+   113→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 8ms (compile: 5ms, render: 3ms)
+   114→ GET / 200 in 40ms (compile: 2ms, render: 38ms)
+   115→ GET /api/profile 200 in 10ms (compile: 2ms, render: 8ms)
+   116→prisma:query SELECT 1
+   117→prisma:query SELECT `main`.`UserProfile`.`id`, `main`.`UserProfile`.`fullName`, `main`.`UserProfile`.`email`, `main`.`UserProfile`.`phone`, `main`.`UserProfile`.`location`, `main`.`UserProfile`.`title`, `main`.`UserProfile`.`summary`, `main`.`UserProfile`.`skills`, `main`.`UserProfile`.`education`, `main`.`UserProfile`.`experience`, `main`.`UserProfile`.`resumeUrl`, `main`.`UserProfile`.`createdAt`, `main`.`UserProfile`.`updatedAt` FROM `main`.`UserProfile` WHERE 1=1 ORDER BY `main`.`UserProfile`.`updatedAt` DESC LIMIT ? OFFSET ?
+   118→prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`matchReasoning`, `main`.`Application`.`jobDeadline`, `main`.`Application`.`jobDescription`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE 1=1 ORDER BY `main`.`Application`.`createdAt` DESC LIMIT ? OFFSET ?
+   119→ GET /api/applications 200 in 14ms (compile: 6ms, render: 8ms)
+   120→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1781µs, render: 3ms)
+   121→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   122→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   123→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   124→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   125→  148 |     try {
+   126→> 149 |       const results = await zai.functions.invoke('web_search', {
+   127→      |                       ^
+   128→  150 |         query,
+   129→  151 |         num,
+   130→  152 |         recency_days: recencyDays,
+   131→[Rate Limit] Global cooldown set, waiting 20s...
+   132→ GET / 200 in 33ms (compile: 1853µs, render: 31ms)
+   133→prisma:query SELECT 1
+   134→ GET /api/profile 200 in 8ms (compile: 3ms, render: 6ms)
+   135→prisma:query SELECT `main`.`UserProfile`.`id`, `main`.`UserProfile`.`fullName`, `main`.`UserProfile`.`email`, `main`.`UserProfile`.`phone`, `main`.`UserProfile`.`location`, `main`.`UserProfile`.`title`, `main`.`UserProfile`.`summary`, `main`.`UserProfile`.`skills`, `main`.`UserProfile`.`education`, `main`.`UserProfile`.`experience`, `main`.`UserProfile`.`resumeUrl`, `main`.`UserProfile`.`createdAt`, `main`.`UserProfile`.`updatedAt` FROM `main`.`UserProfile` WHERE 1=1 ORDER BY `main`.`UserProfile`.`updatedAt` DESC LIMIT ? OFFSET ?
+   136→prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`matchReasoning`, `main`.`Application`.`jobDeadline`, `main`.`Application`.`jobDescription`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE 1=1 ORDER BY `main`.`Application`.`createdAt` DESC LIMIT ? OFFSET ?
+   137→ GET /api/applications 200 in 5ms (compile: 1463µs, render: 3ms)
+   138→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   139→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   140→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   141→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   142→  148 |     try {
+   143→> 149 |       const results = await zai.functions.invoke('web_search', {
+   144→      |                       ^
+   145→  150 |         query,
+   146→  151 |         num,
+   147→  152 |         recency_days: recencyDays,
+   148→[Rate Limit] Global cooldown set, waiting 40s...
+   149→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   150→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   151→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   152→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   153→  148 |     try {
+   154→> 149 |       const results = await zai.functions.invoke('web_search', {
+   155→      |                       ^
+   156→  150 |         query,
+   157→  151 |         num,
+   158→  152 |         recency_days: recencyDays,
+   159→[Search Error] Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   160→[Rate Limit] All retries exhausted, 2-minute global cooldown set
+   161→ GET / 200 in 35ms (compile: 2ms, render: 33ms)
+   162→ GET /api/profile 200 in 8ms (compile: 2ms, render: 6ms)
+   163→prisma:query SELECT 1
+   164→prisma:query SELECT `main`.`UserProfile`.`id`, `main`.`UserProfile`.`fullName`, `main`.`UserProfile`.`email`, `main`.`UserProfile`.`phone`, `main`.`UserProfile`.`location`, `main`.`UserProfile`.`title`, `main`.`UserProfile`.`summary`, `main`.`UserProfile`.`skills`, `main`.`UserProfile`.`education`, `main`.`UserProfile`.`experience`, `main`.`UserProfile`.`resumeUrl`, `main`.`UserProfile`.`createdAt`, `main`.`UserProfile`.`updatedAt` FROM `main`.`UserProfile` WHERE 1=1 ORDER BY `main`.`UserProfile`.`updatedAt` DESC LIMIT ? OFFSET ?
+   165→ GET /api/applications 200 in 8ms (compile: 4ms, render: 4ms)
+   166→prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`matchReasoning`, `main`.`Application`.`jobDeadline`, `main`.`Application`.`jobDescription`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE 1=1 ORDER BY `main`.`Application`.`createdAt` DESC LIMIT ? OFFSET ?
+   167→[Rate Limit] Global cooldown: waiting 105s...
+   168→ GET / 200 in 61ms (compile: 2ms, render: 59ms)
+   169→ GET / 200 in 28ms (compile: 1539µs, render: 26ms)
+   170→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   171→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   172→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   173→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   174→  148 |     try {
+   175→> 149 |       const results = await zai.functions.invoke('web_search', {
+   176→      |                       ^
+   177→  150 |         query,
+   178→  151 |         num,
+   179→  152 |         recency_days: recencyDays,
+   180→[Rate Limit] Global cooldown set, waiting 20s...
+   181→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   182→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   183→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   184→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   185→  148 |     try {
+   186→> 149 |       const results = await zai.functions.invoke('web_search', {
+   187→      |                       ^
+   188→  150 |         query,
+   189→  151 |         num,
+   190→  152 |         recency_days: recencyDays,
+   191→[Rate Limit] Global cooldown set, waiting 40s...
+   192→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   193→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   194→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   195→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   196→  148 |     try {
+   197→> 149 |       const results = await zai.functions.invoke('web_search', {
+   198→      |                       ^
+   199→  150 |         query,
+   200→  151 |         num,
+   201→  152 |         recency_days: recencyDays,
+   202→[Search Error] Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   203→[Rate Limit] All retries exhausted, 2-minute global cooldown set
+   204→[Rate Limit] Global cooldown: waiting 105s...
+   205→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   206→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   207→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   208→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   209→  148 |     try {
+   210→> 149 |       const results = await zai.functions.invoke('web_search', {
+   211→      |                       ^
+   212→  150 |         query,
+   213→  151 |         num,
+   214→  152 |         recency_days: recencyDays,
+   215→[Rate Limit] Global cooldown set, waiting 20s...
+   216→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   217→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   218→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   219→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   220→  148 |     try {
+   221→> 149 |       const results = await zai.functions.invoke('web_search', {
+   222→      |                       ^
+   223→  150 |         query,
+   224→  151 |         num,
+   225→  152 |         recency_days: recencyDays,
+   226→[Rate Limit] Global cooldown set, waiting 40s...
+   227→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   228→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   229→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   230→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   231→  148 |     try {
+   232→> 149 |       const results = await zai.functions.invoke('web_search', {
+   233→      |                       ^
+   234→  150 |         query,
+   235→  151 |         num,
+   236→  152 |         recency_days: recencyDays,
+   237→[Search Error] Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   238→[Rate Limit] All retries exhausted, 2-minute global cooldown set
+   239→[Rate Limit] Global cooldown: waiting 105s...
+   240→ GET / 200 in 31ms (compile: 1769µs, render: 29ms)
+   241→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   242→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   243→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   244→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   245→  148 |     try {
+   246→> 149 |       const results = await zai.functions.invoke('web_search', {
+   247→      |                       ^
+   248→  150 |         query,
+   249→  151 |         num,
+   250→  152 |         recency_days: recencyDays,
+   251→[Rate Limit] Global cooldown set, waiting 20s...
+   252→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   253→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   254→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   255→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   256→  148 |     try {
+   257→> 149 |       const results = await zai.functions.invoke('web_search', {
+   258→      |                       ^
+   259→  150 |         query,
+   260→  151 |         num,
+   261→  152 |         recency_days: recencyDays,
+   262→[Rate Limit] Global cooldown set, waiting 40s...
+   263→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   264→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   265→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   266→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   267→  148 |     try {
+   268→> 149 |       const results = await zai.functions.invoke('web_search', {
+   269→      |                       ^
+   270→  150 |         query,
+   271→  151 |         num,
+   272→  152 |         recency_days: recencyDays,
+   273→[Search Error] Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   274→[Rate Limit] All retries exhausted, 2-minute global cooldown set
+   275→[Rate Limit] Global cooldown: waiting 105s...
+   276→ POST /api/auto-apply/run 200 in 5ms (compile: 1952µs, render: 3ms)
+   277→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1855µs, render: 2ms)
+   278→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1576µs, render: 2ms)
+   279→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1698µs, render: 2ms)
+   280→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 3ms, render: 3ms)
+   281→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1647µs, render: 3ms)
+   282→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1726µs, render: 3ms)
+   283→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1982µs, render: 2ms)
+   284→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1833µs, render: 2ms)
+   285→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1906µs, render: 3ms)
+   286→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 3ms)
+   287→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 6ms (compile: 4ms, render: 3ms)
+   288→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1761µs, render: 3ms)
+   289→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1921µs, render: 3ms)
+   290→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1793µs, render: 3ms)
+   291→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   292→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   293→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   294→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   295→  148 |     try {
+   296→> 149 |       const results = await zai.functions.invoke('web_search', {
+   297→      |                       ^
+   298→  150 |         query,
+   299→  151 |         num,
+   300→  152 |         recency_days: recencyDays,
+   301→[Rate Limit] Global cooldown set, waiting 20s...
+   302→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1587µs, render: 2ms)
+   303→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1801µs, render: 2ms)
+   304→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1809µs, render: 2ms)
+   305→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1465µs, render: 2ms)
+   306→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   307→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   308→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   309→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   310→  148 |     try {
+   311→> 149 |       const results = await zai.functions.invoke('web_search', {
+   312→      |                       ^
+   313→  150 |         query,
+   314→  151 |         num,
+   315→  152 |         recency_days: recencyDays,
+   316→[Rate Limit] Global cooldown set, waiting 40s...
+   317→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1539µs, render: 3ms)
+   318→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1627µs, render: 3ms)
+   319→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1936µs, render: 3ms)
+   320→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1845µs, render: 3ms)
+   321→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1902µs, render: 3ms)
+   322→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1856µs, render: 2ms)
+   323→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1781µs, render: 2ms)
+   324→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1535µs, render: 3ms)
+   325→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   326→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   327→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   328→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   329→  148 |     try {
+   330→> 149 |       const results = await zai.functions.invoke('web_search', {
+   331→      |                       ^
+   332→  150 |         query,
+   333→  151 |         num,
+   334→  152 |         recency_days: recencyDays,
+   335→[Search Error] Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   336→[Rate Limit] All retries exhausted, 2-minute global cooldown set
+   337→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1815µs, render: 2ms)
+   338→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1821µs, render: 3ms)
+   339→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1835µs, render: 2ms)
+   340→[Rate Limit] Global cooldown: waiting 105s...
+   341→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1481µs, render: 2ms)
+   342→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 6ms (compile: 3ms, render: 2ms)
+   343→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1954µs, render: 3ms)
+   344→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1902µs, render: 4ms)
+   345→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 3ms)
+   346→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 7ms (compile: 3ms, render: 4ms)
+   347→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 6ms (compile: 3ms, render: 3ms)
+   348→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 6ms (compile: 2ms, render: 4ms)
+   349→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 6ms (compile: 1961µs, render: 4ms)
+   350→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1930µs, render: 3ms)
+   351→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1821µs, render: 4ms)
+   352→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1806µs, render: 3ms)
+   353→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1973µs, render: 3ms)
+   354→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 7ms (compile: 2ms, render: 5ms)
+   355→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1807µs, render: 3ms)
+   356→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 2ms)
+   357→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 6ms (compile: 2ms, render: 4ms)
+   358→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 3ms)
+   359→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1894µs, render: 3ms)
+   360→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1890µs, render: 3ms)
+   361→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1698µs, render: 3ms)
+   362→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   363→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   364→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   365→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   366→  148 |     try {
+   367→> 149 |       const results = await zai.functions.invoke('web_search', {
+   368→      |                       ^
+   369→  150 |         query,
+   370→  151 |         num,
+   371→  152 |         recency_days: recencyDays,
+   372→[Rate Limit] Global cooldown set, waiting 20s...
+   373→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1706µs, render: 3ms)
+   374→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 6ms (compile: 1952µs, render: 4ms)
+   375→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 6ms (compile: 2ms, render: 4ms)
+   376→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1944µs, render: 3ms)
+   377→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   378→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   379→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   380→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   381→  148 |     try {
+   382→> 149 |       const results = await zai.functions.invoke('web_search', {
+   383→      |                       ^
+   384→  150 |         query,
+   385→  151 |         num,
+   386→  152 |         recency_days: recencyDays,
+   387→[Rate Limit] Global cooldown set, waiting 40s...
+   388→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 3ms)
+   389→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1658µs, render: 3ms)
+   390→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 3ms)
+   391→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1700µs, render: 2ms)
+   392→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1855µs, render: 2ms)
+   393→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1742µs, render: 3ms)
+   394→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1761µs, render: 2ms)
+   395→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1738µs, render: 2ms)
+   396→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   397→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   398→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   399→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   400→  148 |     try {
+   401→> 149 |       const results = await zai.functions.invoke('web_search', {
+   402→      |                       ^
+   403→  150 |         query,
+   404→  151 |         num,
+   405→  152 |         recency_days: recencyDays,
+   406→[Search Error] Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   407→[Rate Limit] All retries exhausted, 2-minute global cooldown set
+   408→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1858µs, render: 2ms)
+   409→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1670µs, render: 2ms)
+   410→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1609µs, render: 2ms)
+   411→[Rate Limit] Global cooldown: waiting 105s...
+   412→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1747µs, render: 3ms)
+   413→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 2ms)
+   414→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1969µs, render: 3ms)
+   415→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 2ms, render: 2ms)
+   416→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1523µs, render: 2ms)
+   417→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 2ms)
+   418→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1550µs, render: 3ms)
+   419→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1800µs, render: 3ms)
+   420→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 3ms)
+   421→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 3ms)
+   422→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1999µs, render: 3ms)
+   423→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 6ms (compile: 3ms, render: 3ms)
+   424→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1848µs, render: 3ms)
+   425→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1594µs, render: 3ms)
+   426→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1698µs, render: 3ms)
+   427→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1739µs, render: 3ms)
+   428→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1696µs, render: 2ms)
+   429→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1686µs, render: 2ms)
+   430→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1969µs, render: 3ms)
+   431→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1436µs, render: 2ms)
+   432→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1710µs, render: 3ms)
+   433→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   434→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   435→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   436→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   437→  148 |     try {
+   438→> 149 |       const results = await zai.functions.invoke('web_search', {
+   439→      |                       ^
+   440→  150 |         query,
+   441→  151 |         num,
+   442→  152 |         recency_days: recencyDays,
+   443→[Rate Limit] Global cooldown set, waiting 20s...
+   444→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 3ms)
+   445→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1559µs, render: 3ms)
+   446→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1891µs, render: 2ms)
+   447→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1638µs, render: 2ms)
+   448→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   449→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   450→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   451→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   452→  148 |     try {
+   453→> 149 |       const results = await zai.functions.invoke('web_search', {
+   454→      |                       ^
+   455→  150 |         query,
+   456→  151 |         num,
+   457→  152 |         recency_days: recencyDays,
+   458→[Rate Limit] Global cooldown set, waiting 40s...
+   459→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1723µs, render: 3ms)
+   460→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 3ms)
+   461→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1482µs, render: 2ms)
+   462→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1814µs, render: 2ms)
+   463→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1568µs, render: 2ms)
+   464→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1862µs, render: 2ms)
+   465→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 3ms)
+   466→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1782µs, render: 2ms)
+   467→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   468→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   469→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   470→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   471→  148 |     try {
+   472→> 149 |       const results = await zai.functions.invoke('web_search', {
+   473→      |                       ^
+   474→  150 |         query,
+   475→  151 |         num,
+   476→  152 |         recency_days: recencyDays,
+   477→[Search Error] Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   478→[Rate Limit] All retries exhausted, 2-minute global cooldown set
+   479→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 3ms)
+   480→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1685µs, render: 3ms)
+   481→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 3ms)
+   482→[Rate Limit] Global cooldown: waiting 105s...
+   483→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1861µs, render: 2ms)
+   484→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1835µs, render: 3ms)
+   485→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1751µs, render: 3ms)
+   486→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 2ms, render: 2ms)
+   487→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1728µs, render: 3ms)
+   488→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1560µs, render: 2ms)
+   489→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 3ms)
+   490→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1908µs, render: 3ms)
+   491→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1915µs, render: 3ms)
+   492→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 2ms)
+   493→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1841µs, render: 2ms)
+   494→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1641µs, render: 3ms)
+   495→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 2ms, render: 2ms)
+   496→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1670µs, render: 2ms)
+   497→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1686µs, render: 3ms)
+   498→ GET / 200 in 40ms (compile: 2ms, render: 38ms)
+   499→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1723µs, render: 3ms)
+   500→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1739µs, render: 2ms)
+   501→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 4ms (compile: 1769µs, render: 3ms)
+   502→ GET /api/auto-apply/run?searchId=mqusk9sx4ksk 200 in 5ms (compile: 1667µs, render: 3ms)
+   503→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   504→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   505→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   506→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   507→  148 |     try {
+   508→> 149 |       const results = await zai.functions.invoke('web_search', {
+   509→      |                       ^
+   510→  150 |         query,
+   511→  151 |         num,
+   512→  152 |         recency_days: recencyDays,
+   513→[Rate Limit] Global cooldown set, waiting 20s...
+   514→ GET / 200 in 63ms (compile: 1889µs, render: 61ms)
+   515→ GET / 200 in 31ms (compile: 1432µs, render: 29ms)
+   516→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   517→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   518→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   519→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   520→  148 |     try {
+   521→> 149 |       const results = await zai.functions.invoke('web_search', {
+   522→      |                       ^
+   523→  150 |         query,
+   524→  151 |         num,
+   525→  152 |         recency_days: recencyDays,
+   526→[Rate Limit] Global cooldown set, waiting 40s...
+   527→Failed to invoke remote function: Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   528→    at async webSearchWithRetry (src/app/api/auto-apply/run/route.ts:149:23)
+   529→    at async runSearchInBackground (src/app/api/auto-apply/run/route.ts:247:23)
+   530→  147 |   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+   531→  148 |     try {
+   532→> 149 |       const results = await zai.functions.invoke('web_search', {
+   533→      |                       ^
+   534→  150 |         query,
+   535→  151 |         num,
+   536→  152 |         recency_days: recencyDays,
+   537→[Search Error] Error: Function invoke failed with status 429: {"error":"Too many requests, please try again later"}
+   538→[Rate Limit] All retries exhausted, 2-minute global cooldown set
+   539→[Rate Limit] Global cooldown: waiting 105s...
+   540→mit] Global cooldown: waiting 105s...
+   541→
