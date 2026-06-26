@@ -167,3 +167,28 @@ Stage Summary:
 - Auto-search runs every 1 hour via mini-service on port 3020
 - Category search buttons in UI for targeted searching
 - Mini-service simplified to delegate all search logic to Next.js endpoint
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix search error, expand queries, add full automation (auto-approve, auto-submit, email extraction)
+
+Work Log:
+- Diagnosed the original SyntaxError: route.ts was returning HTML error pages due to previous broken code
+- Rewrote /src/app/api/auto-apply/run/route.ts completely with:
+  - 16 queries for "all", 16 for "ethiopia", 8 for "linkedin", 12 for "remote"
+  - Batch LLM evaluation (1 call for all results instead of per-query)
+  - Auto-approve jobs with score >= 60
+  - Auto-submit jobs with score >= 80 (with cover letter generation)
+  - Email extraction from job listings
+  - Rate limiting: 45s between SDK calls, 5min 429 cooldown
+- Updated mini-service initial delay from 5min to 30sec
+- Updated page.tsx: automation dashboard with 4 feature cards, source badges, toast notifications
+- Updated footer with automation summary
+- Verified in browser: page loads correctly, search starts with 16 queries, logs show progress, 11 pending jobs from previous searches displayed, footer shows automation info
+
+Stage Summary:
+- Search API no longer returns HTML errors — returns proper JSON
+- System is fully automated: auto-search (hourly) + auto-approve (≥60%) + auto-submit (≥80%) + auto-cover-letter + email extraction
+- Mini-service running on port 3020 with 30s startup delay and 1-hour recurring interval
+- Browser verified: page renders, buttons work, live logs show, automation section visible, responsive on mobile
+

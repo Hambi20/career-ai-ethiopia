@@ -443,15 +443,15 @@ console.log(`
 ╚═══════════════════════════════════════════════════════════════════╝
 `);
 
-// Run initial search cycle on startup (wait 5 min for rate limits to clear)
-console.log("[Startup] Initial search cycle will begin in 5 minutes...\n");
+// Run initial search cycle on startup (wait 30s for Next.js to be ready)
+console.log("[Startup] Initial search cycle will begin in 30 seconds...\n");
 setTimeout(() => {
   runSearchCycle().catch((err) => {
     console.error("[Startup] Initial cycle failed:", err);
     isRunning = false;
     currentCycle = null;
   });
-}, 300000);
+}, 30000);
 
 // Schedule recurring cycles every 1 hour
 setInterval(() => {

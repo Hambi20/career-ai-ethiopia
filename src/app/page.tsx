@@ -347,8 +347,13 @@ function AutoApplyTab({
             clearInterval(poll);
             setIsRunningCycle(false);
             const autoApproved = status.results?.autoApproved || 0;
+            const autoSubmitted = status.results?.autoSubmitted || 0;
             const saved = status.results?.totalSaved || 0;
-            toast.success(`[${catLabel}] Found ${status.results?.totalFound || 0} jobs, ${status.results?.totalExpired || 0} expired, ${saved} new${autoApproved > 0 ? ` (${autoApproved} auto-approved)` : ''}`);
+            const found = status.results?.totalFound || 0;
+            toast.success(`[${catLabel}] Found ${found} jobs, ${saved} new saved${autoApproved > 0 ? `, ${autoApproved} auto-approved` : ''}${autoSubmitted > 0 ? `, ${autoSubmitted} auto-submitted` : ''}`);
+            if (autoSubmitted > 0) {
+              setTimeout(() => toast.info(`${autoSubmitted} high-match jobs were auto-submitted with cover letters!`), 1500);
+            }
             refreshApps();
           } else if (status.status === 'failed') {
             clearInterval(poll);
@@ -478,10 +483,11 @@ function AutoApplyTab({
               <div>
                 <h3 className="font-semibold text-lg">Smart Job Search</h3>
                 <p className="text-sm text-muted-foreground">
-                  {isRunningCycle ? 'Searching 20 queries across 20+ sources...' :
+                  {isRunningCycle ? 'Searching 12-16 queries with AI batch evaluation...' :
                     pendingApps.length > 0 ? `${pendingApps.length} jobs waiting for your review` :
                       approvedApps.length > 0 ? `${approvedApps.length} jobs approved — ready to send` :
-                        'Click to search job sites & Telegram for matching jobs'}
+                        submittedApps.length > 0 ? `${submittedApps.length} applications submitted!` :
+                        'Click a button to start automated job search'}
                 </p>
                 {!isRunningCycle && (
                   <p className="text-xs text-emerald-600 mt-0.5">Auto-search in {countdownStr}</p>
@@ -511,18 +517,32 @@ function AutoApplyTab({
             </div>
           </div>
 
-          {/* Search info */}
+          {/* Automation Info */}
           <div className="mt-4 p-3 rounded-lg bg-muted/50 text-xs text-muted-foreground">
-            <p className="font-medium mb-1">Scrapes job sites directly + web search backup:</p>
+            <p className="font-medium mb-1">🤖 Fully Automated Pipeline:</p>
             <div className="flex flex-wrap gap-1.5">
-              {['EthioJobs.net', 'Mekanisa.com', 'Jobs.et', 'GeezJob.com', 'EthioVacancy.com', 'AddisJobs.com', 'HarmeJobs.com', 'CVBankEthiopia', 'RemoteOK', 'WeWorkRemotely', 'Upwork', 'LinkedIn'].map(s => (
+              {['EthioJobs.net', 'Mekanisa.com', 'Jobs.et', 'GeezJob.com', 'EthioVacancy.com', 'HarmeJobs.com', 'Reporter', 'NewJobs', 'ZameJobs', 'LinkedIn', 'RemoteOK', 'WeWorkRemotely', 'FlexJobs', 'Upwork', 'Remotive'].map(s => (
                 <Badge key={s} variant="outline" className="text-[10px]">{s}</Badge>
               ))}
             </div>
-            <p className="mt-2">Matching: Sales, Marketing, Business Dev, Data Entry, Remote Work, Virtual Assistant + related roles</p>
-            <div className="flex items-center gap-3 mt-2">
-              <p className="text-emerald-600 flex items-center gap-1"><Zap className="w-3 h-3" />Auto-search every 1 hour</p>
-              <p className="text-blue-600 flex items-center gap-1"><ShieldCheck className="w-3 h-3" />Auto-approve jobs ≥75% match</p>
+            <p className="mt-2">Matching: Sales, Marketing, Business Dev, Data Entry, Remote Work, Virtual Assistant, Customer Service + related</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+              <div className="flex items-center gap-2 p-2 rounded bg-emerald-50 dark:bg-emerald-950/20">
+                <Zap className="w-3.5 h-3.5 text-emerald-600" />
+                <div><p className="font-medium text-emerald-700 dark:text-emerald-300">Auto-search every 1 hour</p><p className="text-[10px]">Runs on background scheduler</p></div>
+              </div>
+              <div className="flex items-center gap-2 p-2 rounded bg-blue-50 dark:bg-blue-950/20">
+                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                <div><p className="font-medium text-blue-700 dark:text-blue-300">Auto-approve ≥60% match</p><p className="text-[10px]">AI evaluates and approves</p></div>
+              </div>
+              <div className="flex items-center gap-2 p-2 rounded bg-purple-50 dark:bg-purple-950/20">
+                <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" />
+                <div><p className="font-medium text-purple-700 dark:text-purple-300">Auto-submit ≥80% match</p><p className="text-[10px]">Cover letter + marked as sent</p></div>
+              </div>
+              <div className="flex items-center gap-2 p-2 rounded bg-amber-50 dark:bg-amber-950/20">
+                <Mail className="w-3.5 h-3.5 text-amber-600" />
+                <div><p className="font-medium text-amber-700 dark:text-amber-300">Email extraction</p><p className="text-[10px]">Finds apply emails in listings</p></div>
+              </div>
             </div>
           </div>
 
@@ -1325,7 +1345,7 @@ export default function Home() {
             Hambisa Bekuma Tefera — Marketing &amp; Sales Manager • Addis Ababa, Ethiopia • +251 952 341 525
           </p>
           <p className="text-[10px] text-muted-foreground/60 mt-1">
-            Auto-searches every 1 hour across 20+ sources: EthioJobs, Mekanisa, Jobs.et, GeezJob, HarmeJobs, EthioVacancy, Reporter, LinkedIn, RemoteOK, WeWorkRemotely, Telegram Groups &amp; more
+            🤖 Fully automated: Searches every 1 hour • Auto-approves ≥60% match • Auto-submits ≥80% match • Generates cover letters • Extracts apply emails
           </p>
         </div>
       </footer>
