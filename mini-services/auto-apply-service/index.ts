@@ -38,7 +38,7 @@ process.on("uncaughtException", (err) => {
 // ---------------------------------------------------------------------------
 
 const PORT = 3020;
-const NEXTJS_RUN_API = `http://${process.env.NEXTJS_HOST || "127.0.0.1"}:3000/api/auto-apply/run?full=true`;
+const NEXTJS_RUN_API = `http://${process.env.NEXTJS_HOST || "127.0.0.1"}:3000/api/auto-apply/run`;
 const AUTO_SEARCH_INTERVAL_MS = 1 * 60 * 60 * 1000; // 1 hour
 
 // ---------------------------------------------------------------------------
@@ -132,47 +132,91 @@ async function runSearchCycle(): Promise<CycleLog> {
   console.log(`${"=".repeat(64)}\n`);
 
   try {
-    console.log("[Cycle] Calling Next.js auto-apply/run endpoint...");
+    console.log("[Cycle] Calling Next.js auto-apply/run endpoint (async)...");
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 600_000); // 10 min timeout
-
-    const res = await fetch(NEXTJS_RUN_API, {
+    // Step 1: Start the search (returns immediately with searchId)
+    const startRes = await fetch(NEXTJS_RUN_API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
     });
 
-    clearTimeout(timeout);
-
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Next.js returned ${res.status}: ${body}`);
+    if (!startRes.ok) {
+      const body = await startRes.text();
+      throw new Error(`Next.js returned ${startRes.status}: ${body}`);
     }
 
-    const data = await res.json();
+    const startData = await startRes.json();
+    if (!startData.success) {
+      throw new Error("Failed to start search: " + (startData.error || "unknown"));
+    }
 
-    cycle.totalFound = data.totalFound || 0;
-    cycle.totalExpired = data.totalExpired || 0;
-    cycle.totalMatched = data.totalMatched || 0;
-    cycle.totalSaved = data.totalSaved || 0;
-    cycle.logs = data.logs || [];
-    cycle.success = true;
+    const searchId = startData.searchId;
+    console.log(`[Cycle] Search started with ID: ${searchId}`);
+    cycle.logs.push(`Search ID: ${searchId}`);
 
-    // Update live status
+    // Step 2: Poll for progress every 5 seconds until done
+    const maxWait = 600_000; // 10 minutes max
+    const pollInterval = 5000; // 5 seconds
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < maxWait) {
+      await sleep(pollInterval);
+
+      try {
+        const statusRes = await fetch(`${NEXTJS_RUN_API}?searchId=${searchId}`);
+        if (!statusRes.ok) continue;
+
+        const status = await statusRes.json();
+
+        // Update live status
+        cycle.totalFound = status.results?.totalFound || 0;
+        cycle.totalExpired = status.results?.totalExpired || 0;
+        cycle.totalMatched = status.results?.totalMatched || 0;
+        cycle.totalSaved = status.results?.totalSaved || 0;
+        cycle.logs = status.logs || [];
+
+        if (currentCycle) {
+          currentCycle.totalJobsFound = cycle.totalFound;
+          currentCycle.matched = cycle.totalMatched;
+          currentCycle.saved = cycle.totalSaved;
+        }
+
+        if (status.status === "completed") {
+          cycle.success = true;
+          console.log(`[Cycle] Search completed: found=${cycle.totalFound}, saved=${cycle.totalSaved}`);
+          break;
+        }
+
+        if (status.status === "failed") {
+          cycle.success = false;
+          cycle.error = status.error || "Search failed";
+          cycle.logs.push("Error: " + cycle.error);
+          console.error(`[Cycle] Search failed: ${cycle.error}`);
+          break;
+        }
+
+        // Log progress
+        const progress = status.progress || {};
+        console.log(`[Cycle] Progress: ${progress.queriesDone || 0}/${progress.queriesTotal || 0} queries, found=${cycle.totalFound}`);
+      } catch (pollErr) {
+        console.error(`[Cycle] Poll error: ${pollErr}`);
+      }
+    }
+
+    if (Date.now() - startTime >= maxWait) {
+      cycle.success = false;
+      cycle.error = "Timed out after 10 minutes";
+      cycle.logs.push("Timeout: search did not complete in 10 minutes");
+    }
+
+    // Log progress
     if (currentCycle) {
       currentCycle.totalJobsFound = cycle.totalFound;
       currentCycle.matched = cycle.totalMatched;
       currentCycle.saved = cycle.totalSaved;
     }
 
-    console.log(`\n[Cycle] Next.js response received:`);
-    console.log(`  Total found: ${cycle.totalFound}`);
-    console.log(`  Expired: ${cycle.totalExpired}`);
-    console.log(`  Matched (≥40): ${cycle.totalMatched}`);
-    console.log(`  New saved for review: ${cycle.totalSaved}`);
-
-    // Print last few log lines
+    console.log(`\n[Cycle] Next.js response: found=${cycle.totalFound}, saved=${cycle.totalSaved}`);
     if (cycle.logs.length > 0) {
       console.log(`\n[Cycle] Last log entries:`);
       for (const log of cycle.logs.slice(-5)) {
@@ -399,15 +443,15 @@ console.log(`
 ╚═══════════════════════════════════════════════════════════════════╝
 `);
 
-// Run initial search cycle on startup (with delay for Next.js to be ready)
-console.log("[Startup] Initial search cycle will begin in 10 seconds...\n");
+// Run initial search cycle on startup (wait 5 min for rate limits to clear)
+console.log("[Startup] Initial search cycle will begin in 5 minutes...\n");
 setTimeout(() => {
   runSearchCycle().catch((err) => {
     console.error("[Startup] Initial cycle failed:", err);
     isRunning = false;
     currentCycle = null;
   });
-}, 10000);
+}, 300000);
 
 // Schedule recurring cycles every 1 hour
 setInterval(() => {

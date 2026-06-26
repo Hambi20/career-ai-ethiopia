@@ -315,28 +315,53 @@ function AutoApplyTab({
   const approvedApps = applications.filter(a => a.status === 'approved');
   const submittedApps = applications.filter(a => a.status === 'submitted');
 
-  // Trigger search with optional category filter
+  // Trigger async search with polling
   const triggerRun = async (category?: string) => {
     if (isRunningCycle) return;
     setIsRunningCycle(true);
     const catLabel = category === 'linkedin' ? 'LinkedIn' : category === 'remote' ? 'Remote Data Entry' : category === 'ethiopia' ? 'Ethiopian Sites' : 'All Sources';
-    setRunLogs([`🔍 Starting ${catLabel} job search...`, 'This will search multiple websites and Telegram channels...', 'Matching against your experience profile...', 'Please wait — this takes 2-5 minutes...']);
+    setRunLogs([`🔍 Starting ${catLabel} job search...`, 'Please wait — results appear here live...']);
     try {
-      const queryStr = category ? `?full=true&category=${category}` : '?full=true';
+      // Step 1: Start the search (returns immediately)
+      const queryStr = category ? `?category=${category}` : '';
       const res = await fetch(`/api/auto-apply/run${queryStr}`, { method: 'POST' });
       const data = await res.json();
-      if (data.success) {
-        setRunLogs(data.logs || []);
-        toast.success(`[${catLabel}] Found ${data.totalFound} jobs, ${data.totalExpired} expired, ${data.totalSaved} new for review`);
-        refreshApps();
-      } else {
-        setRunLogs(['❌ ' + (data.error || 'Unknown error')]);
-        toast.error(data.error || 'Failed');
+      if (!data.success) {
+        setRunLogs(['❌ ' + (data.error || 'Failed to start search')]);
+        toast.error(data.error || 'Failed to start');
+        setIsRunningCycle(false);
+        return;
       }
+      if (data.alreadyRunning) {
+        setRunLogs(['⚠️ A search is already running, polling its progress...']);
+      }
+      const searchId = data.searchId;
+
+      // Step 2: Poll for results every 3 seconds
+      const poll = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/auto-apply/run?searchId=${searchId}`);
+          const status = await statusRes.json();
+          if (status.logs) setRunLogs(status.logs);
+          if (status.status === 'completed') {
+            clearInterval(poll);
+            setIsRunningCycle(false);
+            toast.success(`[${catLabel}] Found ${status.results?.totalFound || 0} jobs, ${status.results?.totalExpired || 0} expired, ${status.results?.totalSaved || 0} new for review`);
+            refreshApps();
+          } else if (status.status === 'failed') {
+            clearInterval(poll);
+            setIsRunningCycle(false);
+            toast.error('Search failed: ' + (status.error || 'Unknown error'));
+          }
+        } catch {
+          // Keep polling even if one poll fails
+        }
+      }, 3000);
     } catch (e) {
       setRunLogs(['❌ ' + String(e)]);
-      toast.error('Failed to run search');
-    } finally { setIsRunningCycle(false); }
+      toast.error('Failed to start search');
+      setIsRunningCycle(false);
+    }
   };
 
   // Approve single
@@ -451,7 +476,7 @@ function AutoApplyTab({
               <div>
                 <h3 className="font-semibold text-lg">Smart Job Search</h3>
                 <p className="text-sm text-muted-foreground">
-                  {isRunningCycle ? 'Searching 42+ queries across 20+ sources...' :
+                  {isRunningCycle ? 'Searching 20 queries across 20+ sources...' :
                     pendingApps.length > 0 ? `${pendingApps.length} jobs waiting for your review` :
                       approvedApps.length > 0 ? `${approvedApps.length} jobs approved — ready to send` :
                         'Click to search job sites & Telegram for matching jobs'}
@@ -486,7 +511,7 @@ function AutoApplyTab({
 
           {/* Search info */}
           <div className="mt-4 p-3 rounded-lg bg-muted/50 text-xs text-muted-foreground">
-            <p className="font-medium mb-1">Searches across 20+ sources with 42+ queries:</p>
+            <p className="font-medium mb-1">Searches across 20+ sources with 20 smart queries:</p>
             <div className="flex flex-wrap gap-1.5">
               {['EthioJobs.net', 'Mekanisa.com', 'Jobs.et', 'AddisJobs.com', 'JobWebEthiopia', 'EthiopianJobs.com', 'EthioCareers.com', 'GeezJob.com', 'HarmeJobs.com', 'EthioVacancy.com', 'ReporterEthiopia.com', 'VacancyEth.com', 'ZameJobs.com', 'HiredET.com', 'LinkedIn', 'RemoteOK', 'WeWorkRemotely', 'Upwork', 'Telegram Groups'].map(s => (
                 <Badge key={s} variant="outline" className="text-[10px]">{s}</Badge>
