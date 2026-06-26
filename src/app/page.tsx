@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -75,7 +75,56 @@ function useLocalState() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [runLogs, setRunLogs] = useState<string[]>([]);
   const [isRunningCycle, setIsRunningCycle] = useState(false);
+  const [lastAutoSearch, setLastAutoSearch] = useState<number>(Date.now());
+  const [nextSearchIn, setNextSearchIn] = useState<number>(3600000);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const autoSearchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Auto-search every 1 hour
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNextSearchIn(prev => Math.max(0, prev - 10000));
+    }, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Trigger auto-search when countdown hits 0
+  useEffect(() => {
+    if (nextSearchIn <= 0 && !isRunningCycle) {
+      setLastAutoSearch(Date.now());
+      setNextSearchIn(3600000); // reset to 1 hour
+      // Auto trigger search via fetch
+      fetch('/api/auto-apply/run?full=true', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            toast.success(`Auto-search found ${data.totalSaved} new jobs!`);
+            fetch('/api/applications').then(r => r.json()).then(d => {
+              if (d.success) setApplications(d.applications);
+            });
+          }
+        })
+        .catch(() => {});
+      setIsRunningCycle(true);
+      setTimeout(() => setIsRunningCycle(false), 120000); // assume done after 2 min
+    }
+  }, [nextSearchIn, isRunningCycle, setApplications]);
+
+  // Auto-refresh applications every 2 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch('/api/applications').then(r => r.json()).then(d => {
+        if (d.success) setApplications(d.applications);
+      }).catch(() => {});
+    }, 120000);
+    return () => clearInterval(interval);
+  }, [setApplications]);
+
+  const countdownStr = useMemo(() => {
+    const mins = Math.floor(nextSearchIn / 60000);
+    const secs = Math.floor((nextSearchIn % 60000) / 1000);
+    return `${mins}m ${secs}s`;
+  }, [nextSearchIn]);
 
   return {
     activeTab, setActiveTab,
@@ -85,6 +134,7 @@ function useLocalState() {
     coverLetterForm, setCoverLetterForm, expandedCoverLetter, setExpandedCoverLetter,
     pdfDialogApp, setPdfDialogApp, pdfData, setPdfData, isGeneratingPdf, setIsGeneratingPdf,
     runLogs, setRunLogs, isRunningCycle, setIsRunningCycle,
+    lastAutoSearch, nextSearchIn, countdownStr,
     chatEndRef,
   };
 }
@@ -240,6 +290,7 @@ function AutoApplyTab({
   pdfDialogApp, setPdfDialogApp, pdfData, setPdfData, isGeneratingPdf, setIsGeneratingPdf,
   isRunningCycle, setIsRunningCycle, runLogs, setRunLogs,
   expandedCoverLetter, setExpandedCoverLetter,
+  countdownStr,
 }: {
   applications: Application[]; setApplications: (a: Application[]) => void;
   pdfDialogApp: Application | null; setPdfDialogApp: (a: Application | null) => void;
@@ -248,6 +299,7 @@ function AutoApplyTab({
   isRunningCycle: boolean; setIsRunningCycle: (v: boolean) => void;
   runLogs: string[]; setRunLogs: (l: string[]) => void;
   expandedCoverLetter: string | null; setExpandedCoverLetter: (id: string | null) => void;
+  countdownStr: string;
 }) {
   const [isApproving, setIsApproving] = useState<string | null>(null);
 
@@ -397,11 +449,17 @@ function AutoApplyTab({
               <div>
                 <h3 className="font-semibold text-lg">Smart Job Search</h3>
                 <p className="text-sm text-muted-foreground">
-                  {isRunningCycle ? 'Searching 30+ queries across job sites & Telegram...' :
+                  {isRunningCycle ? 'Searching 36+ queries across job sites & Telegram...' :
                     pendingApps.length > 0 ? `${pendingApps.length} jobs waiting for your review` :
                       approvedApps.length > 0 ? `${approvedApps.length} jobs approved — ready to send` :
                         'Click to search job sites & Telegram for matching jobs'}
                 </p>
+                {!isRunningCycle && (
+                  <p className="text-xs text-emerald-600 mt-0.5">Auto-search in {countdownStr}</p>
+                )}
+                {isRunningCycle && (
+                  <p className="text-xs text-orange-600 mt-0.5">Search running...</p>
+                )}
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -417,9 +475,9 @@ function AutoApplyTab({
 
           {/* Search info */}
           <div className="mt-4 p-3 rounded-lg bg-muted/50 text-xs text-muted-foreground">
-            <p className="font-medium mb-1">Searches across:</p>
+            <p className="font-medium mb-1">Searches across 14+ sources:</p>
             <div className="flex flex-wrap gap-1.5">
-              {['EthioJobs.net', 'Mekanisa.com', 'Jobs.et', 'AddisJobs.com', 'JobWebEthiopia', 'EthioCareers', 'Telegram Job Groups', 'Google Web'].map(s => (
+              {['EthioJobs.net', 'Mekanisa.com', 'Jobs.et', 'AddisJobs.com', 'JobWebEthiopia', 'EthiopianJobs.com', 'EthioCareers.com', 'CVBankEthiopia', 'VacancyEth.com', 'HabeshaLinks.com', 'Mereja.com', 'Borkena.com', 'Telegram Groups', 'Google Web'].map(s => (
                 <Badge key={s} variant="outline" className="text-[10px]">{s}</Badge>
               ))}
             </div>
@@ -1197,6 +1255,7 @@ export default function Home() {
             isRunningCycle={s.isRunningCycle} setIsRunningCycle={s.setIsRunningCycle}
             runLogs={s.runLogs} setRunLogs={s.setRunLogs}
             expandedCoverLetter={s.expandedCoverLetter} setExpandedCoverLetter={s.setExpandedCoverLetter}
+            countdownStr={s.countdownStr}
           />
         )}
         {s.activeTab === 'applications' && <ApplicationsTab applications={s.applications} setApplications={s.setApplications} />}
@@ -1224,7 +1283,7 @@ export default function Home() {
             Hambisa Bekuma Tefera — Marketing &amp; Sales Manager • Addis Ababa, Ethiopia • +251 952 341 525
           </p>
           <p className="text-[10px] text-muted-foreground/60 mt-1">
-            Searches EthioJobs, Mekanisa, Jobs.et, AddisJobs, Telegram Groups &amp; more
+            Auto-searches every 1 hour across EthioJobs, Mekanisa, Jobs.et, AddisJobs, JobWebEthiopia, EthiopianJobs, EthioCareers, CVBankEthiopia, VacancyEth, HabeshaLinks, Mereja, Borkena, Telegram Groups &amp; more
           </p>
         </div>
       </footer>

@@ -30,7 +30,7 @@ process.on("uncaughtException", (err) => {
 
 const PORT = 3020;
 const NEXTJS_API = `http://${process.env.NEXTJS_HOST || "127.0.0.1"}:3000/api/applications`;
-const AUTO_SEARCH_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
+const AUTO_SEARCH_INTERVAL_MS = 1 * 60 * 60 * 1000; // 1 hour
 const MATCH_THRESHOLD = 50;
 
 // Ethiopian job sites to target in search queries
@@ -42,6 +42,11 @@ const ETHIOPIAN_JOB_SITES = [
   "ethiopianjobs.com",
   "jobwebethiopia.com",
   "ethiocareers.com",
+  "cvbankethiopia.com",
+  "vacancyeth.com",
+  "habeshalinks.com",
+  "mereja.com",
+  "borkena.com",
 ];
 
 // ---------------------------------------------------------------------------

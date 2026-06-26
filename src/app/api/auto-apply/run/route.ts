@@ -25,6 +25,20 @@ EDUCATION: MBA (2018), BSc Agribusiness (2014)
 LANGUAGES: Amharic (Native), English (Professional), Afaan Oromo (Fluent), Somali (Conversational)
 `;
 
+// All Ethiopian job sites to search across
+const ALL_JOB_SITES = [
+  'ethiojobs.net', 'mekanisa.com', 'jobs.et', 'addisjobs.com',
+  'jobwebethiopia.com', 'ethiopianjobs.com', 'ethiocareers.com',
+  'cvbankethiopia.com', 'job Ethiopia vacancy.com',
+  'ethiojobs.com.et', ' vacancyeth.com',
+  'habeshalinks.com', 'mereja.com', 'borkena.com',
+];
+
+function buildSiteFilter(count: number): string {
+  const sites = ALL_JOB_SITES.slice(0, count);
+  return ' site:' + sites.join(' OR site:');
+}
+
 // Broad search queries covering marketing, sales, business dev, commercial, and Telegram channels
 const SEARCH_QUERIES = [
   // Direct title matches
@@ -51,21 +65,30 @@ const SEARCH_QUERIES = [
   'trade marketing manager Ethiopia job',
   'channel sales manager Ethiopia vacancy',
   'customer relationship manager Ethiopia sales',
+  'promotions manager Ethiopia job vacancy',
+  'product manager Ethiopia sales marketing',
+  'digital marketing manager Ethiopia job',
+  'merchandiser Ethiopia sales vacancy',
+  'sales consultant Ethiopia Addis Ababa',
+  'retail manager Ethiopia job vacancy',
   // Telegram & social media job groups
   'telegram job vacancy Ethiopia sales marketing',
   'Ethiopia job telegram channel sales manager',
   'Ethiopian telegram group job vacancy marketing',
   'zeregna job telegram sales marketing Ethiopia',
   'job vacancy Ethiopia telegram 2025 sales',
+  'telegram vacancy Ethiopia sales position',
   // Broader web search without site filter (catches everything)
-  'Ethiopia sales marketing manager job hiring 2025',
+  'Ethiopia sales marketing manager job hiring 2025 2026',
   'Addis Ababa sales representative job urgent hiring',
   'Ethiopian job site sales manager vacancy fresh',
+  'urgent hiring sales marketing Ethiopia 2026',
+  'latest job vacancy sales Ethiopia this week',
 ];
 
 // Split into two groups: job site queries and broad/telegram queries
-const JOB_SITE_QUERIES = SEARCH_QUERIES.slice(0, 16);
-const BROAD_QUERIES = SEARCH_QUERIES.slice(16);
+const JOB_SITE_QUERIES = SEARCH_QUERIES.slice(0, 20);
+const BROAD_QUERIES = SEARCH_QUERIES.slice(20);
 
 interface SearchResult {
   url: string; name: string; snippet: string; host_name: string; date?: string;
@@ -197,7 +220,7 @@ async function runAutoApply(request: NextRequest) {
         logs.push(`\n[${qi + 1}/${queries.length}] Searching: "${query.substring(0, 60)}" ${isBroad ? '(broad)' : ''}`);
 
         // Job site queries get site filter, broad queries don't
-        const siteFilter = isBroad ? '' : ' site:ethiojobs.net OR site:mekanisa.com OR site:jobs.et OR site:addisjobs.com OR site:jobwebethiopia.com OR site:ethiopianjobs.com OR site:ethiocareers.com';
+        const siteFilter = isBroad ? '' : buildSiteFilter(14);
         const results = await zai.functions.invoke('web_search', {
           query: `${query}${siteFilter}`,
           num: isBroad ? 5 : 8,
