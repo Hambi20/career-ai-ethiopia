@@ -29,7 +29,7 @@ process.on("uncaughtException", (err) => {
 // ---------------------------------------------------------------------------
 
 const PORT = 3020;
-const NEXTJS_API = `http://${process.env.NEXTJS_HOST || "127.0.0.1"}:3000/api/applications?XTransformPort=3000`;
+const NEXTJS_API = `http://${process.env.NEXTJS_HOST || "127.0.0.1"}:3000/api/applications`;
 const AUTO_SEARCH_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
 const MATCH_THRESHOLD = 50;
 

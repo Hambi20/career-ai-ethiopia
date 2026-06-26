@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Server-to-server call: use direct localhost, no XTransformPort needed
+const SERVICE_URL = 'http://127.0.0.1:3020';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -10,7 +13,7 @@ export async function GET(request: NextRequest) {
     params.set('limit', limit);
     if (minScore) params.set('minScore', minScore);
 
-    const res = await fetch(`http://localhost:3020/api/logs?XTransformPort=3020&${params.toString()}`, {
+    const res = await fetch(`${SERVICE_URL}/api/logs?${params.toString()}`, {
       signal: AbortSignal.timeout(5000),
     });
 

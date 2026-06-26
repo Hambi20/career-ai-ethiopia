@@ -40,6 +40,8 @@ export async function POST(request: NextRequest) {
         url: data.url || null,
         coverLetter: data.coverLetter || null,
         notes: data.notes || null,
+        matchScore: data.matchScore || null,
+        source: data.source || null,
         appliedAt: data.appliedAt ? new Date(data.appliedAt) : null,
       },
     });
@@ -76,6 +78,8 @@ export async function PUT(request: NextRequest) {
         url: data.url,
         coverLetter: data.coverLetter,
         notes: data.notes,
+        matchScore: data.matchScore,
+        source: data.source,
         appliedAt: data.appliedAt ? new Date(data.appliedAt) : null,
       },
     });

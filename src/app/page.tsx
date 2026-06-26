@@ -9,35 +9,17 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import {
-  Search, Bookmark, FileText, Bot, User, MapPin, Building2, Clock,
-  ExternalLink, BookmarkCheck, Send, Plus, Trash2, Copy, Check, ChevronRight,
-  Sparkles, Briefcase, GraduationCap, Award, X, Loader2, Globe, Mail, Phone,
-  Calendar, Tag, MessageSquare, Target, Zap, Play, BarChart3, Activity,
-  CheckCircle2, XCircle, AlertCircle, TrendingUp, Eye, RefreshCw, Radar, AutoIcon
+  FileText, Bot, User, MapPin, Building2,
+  ExternalLink, Send, Plus, Trash2, Copy, Check, ChevronRight,
+  Sparkles, Briefcase, X, Loader2, Mail, Phone,
+  Calendar, Target, Zap, Play, BarChart3, Activity,
+  CheckCircle2, XCircle, AlertCircle, Eye, RefreshCw, Radar
 } from 'lucide-react';
-import Image from 'next/image';
 
 // ========== TYPES ==========
-interface JobResult {
-  id: string; title: string; company: string | null; location: string | null;
-  type: string | null; salary: string | null; description: string;
-  url: string; source: string | null; postedDate: string | null;
-  deadline: string | null; category: string | null;
-}
-
-interface SavedJob {
-  id: string; title: string; company: string | null; location: string | null;
-  type: string | null; description: string | null; url: string;
-  source: string | null; postedDate: string | null; deadline: string | null;
-  category: string | null; createdAt: string;
-}
-
 interface Application {
   id: string; jobId: string | null; jobTitle: string; company: string | null;
   location: string | null; status: string; url: string | null;
@@ -67,18 +49,6 @@ type Tab = 'dashboard' | 'applications' | 'auto-apply' | 'cover-letters' | 'ai-c
 // ========== STATE ==========
 function useLocalState() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchLocation, setSearchLocation] = useState('');
-  const [searchCategory, setSearchCategory] = useState('');
-  const [searchType, setSearchType] = useState('');
-  const [searchResults, setSearchResults] = useState<JobResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [selectedJob, setSelectedJob] = useState<JobResult | null>(null);
-  const [jobDetail, setJobDetail] = useState<Record<string, unknown> | null>(null);
-  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-  const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
-  const [savedJobs, setSavedJobs] = useState<SavedJob[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -90,24 +60,16 @@ function useLocalState() {
   const [autoStatus, setAutoStatus] = useState<AutoApplyStatus | null>(null);
   const [autoLogs, setAutoLogs] = useState<Array<Record<string, unknown>>>([]);
   const [isTriggeringSearch, setIsTriggeringSearch] = useState(false);
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [newApp, setNewApp] = useState({ jobTitle: '', company: '', location: '', status: 'preparing', url: '', notes: '' });
   const [coverLetterForm, setCoverLetterForm] = useState({ jobTitle: '', company: '', jobDescription: '' });
   const [expandedCoverLetter, setExpandedCoverLetter] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   return {
     activeTab, setActiveTab,
-    searchQuery, setSearchQuery, searchLocation, setSearchLocation,
-    searchCategory, setSearchCategory, searchType, setSearchType,
-    searchResults, setSearchResults, isSearching, setIsSearching, hasSearched, setHasSearched,
-    selectedJob, setSelectedJob, jobDetail, setJobDetail, isLoadingDetail, setIsLoadingDetail,
-    bookmarkedIds, setBookmarkedIds, savedJobs, setSavedJobs,
     applications, setApplications, profile, setProfile,
     chatMessages, setChatMessages, isChatLoading, setIsChatLoading, chatContext, setChatContext,
     message, setMessage, generatedCoverLetter, setGeneratedCoverLetter, isGeneratingCoverLetter, setIsGeneratingCoverLetter,
     autoStatus, setAutoStatus, autoLogs, setAutoLogs, isTriggeringSearch, setIsTriggeringSearch,
-    showAddDialog, setShowAddDialog, newApp, setNewApp,
     coverLetterForm, setCoverLetterForm, expandedCoverLetter, setExpandedCoverLetter,
     chatEndRef,
   };
@@ -261,6 +223,205 @@ function DashboardTab({ applications, profile }: { applications: Application[]; 
   );
 }
 
+// ========== APPLICATIONS TAB ==========
+function ApplicationsTab({ applications, setApplications }: {
+  applications: Application[]; setApplications: (apps: Application[]) => void;
+}) {
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterText, setFilterText] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const [newApp, setNewApp] = useState({ jobTitle: '', company: '', location: '', status: 'preparing', url: '' });
+
+  const refreshApps = useCallback(async () => {
+    try {
+      const res = await fetch('/api/applications');
+      const data = await res.json();
+      if (data.success) setApplications(data.applications);
+    } catch { /* ignore */ }
+  }, [setApplications]);
+
+  const filtered = applications.filter((app) => {
+    if (filterStatus !== 'all' && app.status !== filterStatus) return false;
+    if (filterText) {
+      const t = filterText.toLowerCase();
+      return app.jobTitle.toLowerCase().includes(t) || (app.company || '').toLowerCase().includes(t);
+    }
+    return true;
+  });
+
+  const statusCounts = { all: applications.length, 'auto-applied': 0, applied: 0, submitted: 0, preparing: 0, interview: 0, offered: 0, rejected: 0, withdrawn: 0 };
+  applications.forEach((a) => { const s = a.status as keyof typeof statusCounts; if (s in statusCounts) statusCounts[s]++; });
+
+  const updateStatus = async (id: string, status: string) => {
+    setIsUpdating(id);
+    try {
+      await fetch('/api/applications', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) });
+      toast.success('Status updated');
+      refreshApps();
+    } catch { toast.error('Failed to update'); }
+    finally { setIsUpdating(null); }
+  };
+
+  const deleteApp = async (id: string) => {
+    try {
+      await fetch(`/api/applications?id=${id}`, { method: 'DELETE' });
+      toast.success('Application deleted');
+      refreshApps();
+    } catch { toast.error('Failed to delete'); }
+  };
+
+  const addApp = async () => {
+    if (!newApp.jobTitle.trim()) { toast.error('Job title required'); return; }
+    try {
+      await fetch('/api/applications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newApp) });
+      toast.success('Application added');
+      setShowAddDialog(false);
+      setNewApp({ jobTitle: '', company: '', location: '', status: 'preparing', url: '' });
+      refreshApps();
+    } catch { toast.error('Failed to add'); }
+  };
+
+  const statusColor = (s: string) => s === 'auto-applied' || s === 'applied' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' :
+    s === 'submitted' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+    s === 'interview' ? 'bg-purple-100 text-purple-800' :
+    s === 'offered' ? 'bg-amber-100 text-amber-800' :
+    s === 'rejected' ? 'bg-red-100 text-red-800' :
+    s === 'withdrawn' ? 'bg-gray-200 text-gray-600' : 'bg-gray-100 text-gray-800';
+
+  return (
+    <div className="space-y-4">
+      {/* Stats */}
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+        {Object.entries(statusCounts).filter(([k]) => k !== 'all' && statusCounts[k as keyof typeof statusCounts] > 0).slice(0, 5).map(([key, count]) => (
+          <Card key={key} className={filterStatus === key ? 'border-emerald-500' : ''} onClick={() => setFilterStatus(key === filterStatus ? 'all' : key)}>
+            <CardContent className="p-3 text-center cursor-pointer">
+              <p className="text-lg font-bold">{count}</p>
+              <p className="text-[10px] text-muted-foreground capitalize">{key.replace('-', ' ')}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Filters + Add */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Input placeholder="Search by title or company..." value={filterText} onChange={(e) => setFilterText(e.target.value)} className="flex-1 h-9 text-sm" />
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-40 h-9 text-xs"><SelectValue placeholder="All Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="auto-applied">Auto-Applied</SelectItem>
+            <SelectItem value="applied">Applied</SelectItem>
+            <SelectItem value="submitted">Submitted</SelectItem>
+            <SelectItem value="interview">Interview</SelectItem>
+            <SelectItem value="offered">Offered</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
+            <SelectItem value="withdrawn">Withdrawn</SelectItem>
+            <SelectItem value="preparing">Preparing</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button onClick={() => setShowAddDialog(true)} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 h-9"><Plus className="w-3.5 h-3.5" />Add</Button>
+      </div>
+
+      {/* List */}
+      <Card>
+        <CardContent className="p-3">
+          {filtered.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <FileText className="w-10 h-10 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">{applications.length === 0 ? 'No applications yet. Auto-apply will create them.' : 'No applications match filters.'}</p>
+            </div>
+          ) : (
+            <ScrollArea className="max-h-[600px]">
+              <div className="space-y-2">
+                {filtered.map((app) => (
+                  <div key={app.id} className="border rounded-lg overflow-hidden">
+                    <div className="flex items-center gap-2.5 p-3 hover:bg-muted/30 transition-colors">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                        {app.matchScore && app.matchScore >= 70 ? <Check className="w-4 h-4 text-emerald-600" /> : <Briefcase className="w-4 h-4 text-emerald-600" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium truncate">{app.jobTitle}</p>
+                          {app.matchScore && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{app.matchScore}%</Badge>}
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                          {app.company && <span className="text-xs text-muted-foreground flex items-center gap-0.5"><Building2 className="w-2.5 h-2.5" />{app.company}</span>}
+                          {app.location && <span className="text-xs text-muted-foreground flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" />{app.location}</span>}
+                          {app.source && <span className="text-[10px] text-muted-foreground">{app.source}</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <Badge className={`text-[10px] px-2 py-0 border-0 ${statusColor(app.status)}`}>{app.status}</Badge>
+                        <span className="text-[10px] text-muted-foreground hidden sm:inline">{new Date(app.createdAt).toLocaleDateString()}</span>
+                        <div className="flex items-center gap-0.5 ml-1">
+                          <Select value={app.status} onValueChange={(v) => updateStatus(app.id, v)}>
+                            <SelectTrigger className="w-7 h-7 p-0 border-0" disabled={isUpdating === app.id}>
+                              {isUpdating === app.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="preparing">Preparing</SelectItem>
+                              <SelectItem value="auto-applied">Auto-Applied</SelectItem>
+                              <SelectItem value="submitted">Submitted</SelectItem>
+                              <SelectItem value="interview">Interview</SelectItem>
+                              <SelectItem value="offered">Offered</SelectItem>
+                              <SelectItem value="rejected">Rejected</SelectItem>
+                              <SelectItem value="withdrawn">Withdrawn</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {app.url && <Button asChild variant="ghost" size="sm" className="h-7 w-7 p-0"><a href={app.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3 h-3" /></a></Button>}
+                          {app.coverLetter && <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setExpandedId(expandedId === app.id ? null : app.id)}><Eye className="w-3 h-3" /></Button>}
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500" onClick={() => deleteApp(app.id)}><Trash2 className="w-3 h-3" /></Button>
+                        </div>
+                      </div>
+                    </div>
+                    {expandedId === app.id && app.coverLetter && (
+                      <div className="px-3 pb-3 border-t bg-muted/20">
+                        <div className="flex items-center justify-between mb-1.5 mt-2">
+                          <p className="text-xs font-semibold text-emerald-600">Cover Letter</p>
+                          <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => { navigator.clipboard.writeText(app.coverLetter || ''); toast.success('Copied!'); }}><Copy className="w-3 h-3" />Copy</Button>
+                        </div>
+                        <ScrollArea className="max-h-48"><p className="text-xs whitespace-pre-line leading-relaxed font-serif text-muted-foreground">{app.coverLetter}</p></ScrollArea>
+                      </div>
+                    )}
+                    {expandedId === app.id && app.notes && !app.coverLetter && (
+                      <div className="px-3 pb-2 border-t bg-muted/20"><p className="text-[11px] text-muted-foreground mt-2">{app.notes}</p></div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Application</DialogTitle>
+            <DialogDescription>Manually track a new job application</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div><Label>Job Title *</Label><Input value={newApp.jobTitle} onChange={(e) => setNewApp({ ...newApp, jobTitle: e.target.value })} placeholder="e.g., Sales Manager" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Company</Label><Input value={newApp.company} onChange={(e) => setNewApp({ ...newApp, company: e.target.value })} placeholder="Company name" /></div>
+              <div><Label>Location</Label><Input value={newApp.location} onChange={(e) => setNewApp({ ...newApp, location: e.target.value })} placeholder="Addis Ababa" /></div>
+            </div>
+            <div><Label>Job URL</Label><Input value={newApp.url} onChange={(e) => setNewApp({ ...newApp, url: e.target.value })} placeholder="https://..." /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
+            <Button onClick={addApp} className="bg-emerald-600 hover:bg-emerald-700 text-white">Add Application</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ========== AUTO-APPLY TAB ==========
 function AutoApplyTab({
   autoStatus, autoLogs, isTriggeringSearch, setIsTriggeringSearch,
@@ -386,7 +547,7 @@ function AutoApplyTab({
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2"><ScrollArea className="w-4 h-4 text-emerald-600" /> Application Log</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2"><Activity className="w-4 h-4 text-emerald-600" /> Application Log</CardTitle>
             <Button variant="outline" size="sm" onClick={fetchLogs} className="gap-1 text-xs"><RefreshCw className="w-3 h-3" />Refresh</Button>
           </div>
         </CardHeader>
@@ -745,7 +906,7 @@ export default function Home() {
       <Header activeTab={s.activeTab} setActiveTab={s.setActiveTab} />
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-6">
         {s.activeTab === 'dashboard' && <DashboardTab applications={s.applications} profile={s.profile} />}
-        {s.activeTab === 'applications' && <DashboardTab applications={s.applications} profile={s.profile} />}
+        {s.activeTab === 'applications' && <ApplicationsTab applications={s.applications} setApplications={s.setApplications} />}
         {s.activeTab === 'auto-apply' && <AutoApplyTab autoStatus={s.autoStatus} autoLogs={s.autoLogs} isTriggeringSearch={s.isTriggeringSearch} setIsTriggeringSearch={s.setIsTriggeringSearch} applications={s.applications} expandedCoverLetter={s.expandedCoverLetter} setExpandedCoverLetter={s.setExpandedCoverLetter} />}
         {s.activeTab === 'cover-letters' && <CoverLettersTab applications={s.applications} profile={s.profile} expandedCoverLetter={s.expandedCoverLetter} setExpandedCoverLetter={s.setExpandedCoverLetter} isGeneratingCoverLetter={s.isGeneratingCoverLetter} setIsGeneratingCoverLetter={s.setIsGeneratingCoverLetter} coverLetterForm={s.coverLetterForm} setCoverLetterForm={s.setCoverLetterForm} generatedCoverLetter={s.generatedCoverLetter} setGeneratedCoverLetter={s.setGeneratedCoverLetter} />}
         {s.activeTab === 'ai-chat' && <AIChatTab chatMessages={s.chatMessages} setChatMessages={s.setChatMessages} isChatLoading={s.isChatLoading} setIsChatLoading={s.setIsChatLoading} chatContext={s.chatContext} setChatContext={s.setChatContext} message={s.message} setMessage={s.setMessage} chatEndRef={s.chatEndRef} profile={s.profile} />}

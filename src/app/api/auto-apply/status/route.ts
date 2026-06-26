@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+// Server-to-server call: use direct localhost, no XTransformPort needed
+const SERVICE_URL = 'http://127.0.0.1:3020';
+
+export async function GET() {
   try {
-    const res = await fetch('http://localhost:3020/api/status?XTransformPort=3020', {
+    const res = await fetch(`${SERVICE_URL}/api/status`, {
       signal: AbortSignal.timeout(5000),
     });
 
@@ -25,9 +28,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    const res = await fetch('http://localhost:3020/api/auto-search?XTransformPort=3020', {
+    const res = await fetch(`${SERVICE_URL}/api/auto-search`, {
       method: 'POST',
       signal: AbortSignal.timeout(5000),
     });
