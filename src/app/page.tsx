@@ -16,7 +16,8 @@ import {
   ExternalLink, Send, Plus, Trash2, Copy, Check, ChevronRight,
   Sparkles, Briefcase, X, Loader2, Mail, Phone,
   Calendar, Target, Zap, Play, BarChart3, Activity,
-  CheckCircle2, XCircle, AlertCircle, Eye, RefreshCw, Radar
+  CheckCircle2, XCircle, AlertCircle, Eye, RefreshCw, Radar,
+  Download, Printer, FileDown
 } from 'lucide-react';
 
 // ========== TYPES ==========
@@ -28,15 +29,6 @@ interface Application {
 }
 
 interface ChatMessage { id: string; role: 'user' | 'assistant'; content: string; createdAt: string; }
-
-interface AutoApplyStatus {
-  serviceRunning: boolean;
-  status?: string;
-  currentCycle?: { cycleNumber: number; phase: string; jobsFound: number; jobsMatched: number; jobsApplied: number; startedAt: string };
-  lastCycle?: { cycleNumber: number; completedAt: string; jobsFound: number; jobsMatched: number; jobsApplied: number; duration: string };
-  stats?: { totalCycles: number; totalJobsFound: number; totalJobsApplied: number; lastRun: string | null };
-  recentLogs?: Array<{ timestamp: string; action: string; jobTitle: string; company: string; matchScore: number; status: string }>;
-}
 
 interface UserProfile {
   id: string; fullName: string | null; email: string | null; phone: string | null;
@@ -57,11 +49,13 @@ function useLocalState() {
   const [message, setMessage] = useState('');
   const [generatedCoverLetter, setGeneratedCoverLetter] = useState<string | null>(null);
   const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
-  const [autoStatus, setAutoStatus] = useState<AutoApplyStatus | null>(null);
-  const [autoLogs, setAutoLogs] = useState<Array<Record<string, unknown>>>([]);
-  const [isTriggeringSearch, setIsTriggeringSearch] = useState(false);
   const [coverLetterForm, setCoverLetterForm] = useState({ jobTitle: '', company: '', jobDescription: '' });
   const [expandedCoverLetter, setExpandedCoverLetter] = useState<string | null>(null);
+  const [pdfDialogApp, setPdfDialogApp] = useState<Application | null>(null);
+  const [pdfData, setPdfData] = useState<{ cvHtml: string; coverLetterHtml: string } | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [runLogs, setRunLogs] = useState<string[]>([]);
+  const [isRunningCycle, setIsRunningCycle] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   return {
@@ -69,8 +63,9 @@ function useLocalState() {
     applications, setApplications, profile, setProfile,
     chatMessages, setChatMessages, isChatLoading, setIsChatLoading, chatContext, setChatContext,
     message, setMessage, generatedCoverLetter, setGeneratedCoverLetter, isGeneratingCoverLetter, setIsGeneratingCoverLetter,
-    autoStatus, setAutoStatus, autoLogs, setAutoLogs, isTriggeringSearch, setIsTriggeringSearch,
     coverLetterForm, setCoverLetterForm, expandedCoverLetter, setExpandedCoverLetter,
+    pdfDialogApp, setPdfDialogApp, pdfData, setPdfData, isGeneratingPdf, setIsGeneratingPdf,
+    runLogs, setRunLogs, isRunningCycle, setIsRunningCycle,
     chatEndRef,
   };
 }
@@ -424,228 +419,214 @@ function ApplicationsTab({ applications, setApplications }: {
 
 // ========== AUTO-APPLY TAB ==========
 function AutoApplyTab({
-  autoStatus, autoLogs, isTriggeringSearch, setIsTriggeringSearch,
-  applications, expandedCoverLetter, setExpandedCoverLetter
+  isRunningCycle, setIsRunningCycle, runLogs, setRunLogs,
+  applications, setApplications,
+  pdfDialogApp, setPdfDialogApp, pdfData, setPdfData, isGeneratingPdf, setIsGeneratingPdf,
+  expandedCoverLetter, setExpandedCoverLetter
 }: {
-  autoStatus: AutoApplyStatus | null; autoLogs: Array<Record<string, unknown>>;
-  isTriggeringSearch: boolean; setIsTriggeringSearch: (v: boolean) => void;
-  applications: Application[]; expandedCoverLetter: string | null; setExpandedCoverLetter: (id: string | null) => void;
+  isRunningCycle: boolean; setIsRunningCycle: (v: boolean) => void;
+  runLogs: string[]; setRunLogs: (l: string[]) => void;
+  applications: Application[]; setApplications: (a: Application[]) => void;
+  pdfDialogApp: Application | null; setPdfDialogApp: (a: Application | null) => void;
+  pdfData: { cvHtml: string; coverLetterHtml: string } | null; setPdfData: (d: any) => void;
+  isGeneratingPdf: boolean; setIsGeneratingPdf: (v: boolean) => void;
+  expandedCoverLetter: string | null; setExpandedCoverLetter: (id: string | null) => void;
 }) {
-  const [logs, setLocalLogs] = useState(autoLogs);
+  const refreshApps = useCallback(async () => {
+    try { const res = await fetch('/api/applications'); const data = await res.json(); if (data.success) setApplications(data.applications); } catch { /* */ }
+  }, [setApplications]);
 
-  const fetchLogs = useCallback(async () => {
+  const triggerRun = async () => {
+    if (isRunningCycle) return;
+    setIsRunningCycle(true);
+    setRunLogs(['⏳ Starting auto-apply cycle...']);
     try {
-      const res = await fetch('/api/auto-apply/logs');
+      const res = await fetch('/api/auto-apply/run?full=true', { method: 'POST' });
       const data = await res.json();
-      if (data.success && data.logs) setLocalLogs(data.logs);
-    } catch { /* ignore */ }
-  }, []);
-
-  const triggerSearch = async () => {
-    setIsTriggeringSearch(true);
-    try {
-      const res = await fetch('/api/auto-apply/status', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) toast.success('Auto-search triggered! It will run in background.');
-      else toast.error(data.error || 'Failed to trigger');
-    } catch { toast.error('Service not reachable'); }
-    finally {
-      setTimeout(() => setIsTriggeringSearch(false), 2000);
-      setTimeout(fetchLogs, 30000);
-    }
+      if (data.success) {
+        setRunLogs(data.logs || []);
+        toast.success(`Found ${data.totalFound} jobs, matched ${data.totalMatched}, saved ${data.totalSaved}`);
+        refreshApps();
+      } else {
+        setRunLogs(['❌ ' + (data.error || 'Unknown error')]);
+        toast.error(data.error || 'Failed');
+      }
+    } catch (e) {
+      setRunLogs(['❌ ' + String(e)]);
+      toast.error('Failed to run auto-apply');
+    } finally { setIsRunningCycle(false); }
   };
 
-  const statusIcon = !autoStatus?.serviceRunning ? <XCircle className="w-5 h-5 text-red-500" /> :
-    autoStatus?.status === 'idle' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> :
-    <Loader2 className="w-5 h-5 text-orange-500 animate-spin" />;
+  const downloadPdf = async (app: Application) => {
+    setIsGeneratingPdf(true);
+    setPdfDialogApp(app);
+    setPdfData(null);
+    try {
+      const id = app.id === 'cv' ? 'cv' : app.id;
+      const res = await fetch(`/api/auto-apply/generate-pdf?id=${id}&type=${app.id === 'cv' ? 'cv-only' : 'both'}`);
+      const data = await res.json();
+      if (data.success) setPdfData({ cvHtml: data.cvHtml, coverLetterHtml: data.coverLetterHtml });
+      else toast.error('Failed to generate PDF');
+    } catch { toast.error('Error generating'); }
+    finally { setIsGeneratingPdf(false); }
+  };
 
-  const statusText = !autoStatus?.serviceRunning ? 'Service Offline' :
-    autoStatus?.status === 'idle' ? 'Ready & Waiting' :
-    `Running: ${autoStatus?.currentCycle?.phase || 'Searching...'}`;
+  const printPdf = (html: string, title: string) => {
+    const win = window.open('', '_blank');
+    if (win) { win.document.write(html); win.document.title = title; win.document.close(); setTimeout(() => win.print(), 500); }
+  };
+
+  const autoApps = applications.filter(a => a.status === 'auto-applied' || a.status === 'applied').sort((a, b) => b.matchScore - a.matchScore);
 
   return (
     <div className="space-y-6">
-      {/* Status Card */}
+      {/* Run Button + Status */}
       <Card className="border-emerald-200 dark:border-emerald-800">
         <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              {statusIcon}
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isRunningCycle ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}>
+                {isRunningCycle ? <Loader2 className="w-6 h-6 text-orange-500 animate-spin" /> : <Zap className="w-6 h-6 text-emerald-600" />}
+              </div>
               <div>
-                <h3 className="font-semibold">Auto-Apply Service</h3>
-                <p className="text-sm text-muted-foreground">{statusText}</p>
+                <h3 className="font-semibold text-lg">Auto-Apply Engine</h3>
+                <p className="text-sm text-muted-foreground">
+                  {isRunningCycle ? 'Searching & scoring jobs...' : `Ready — ${autoApps.length} jobs auto-applied so far`}
+                </p>
               </div>
             </div>
-            <Button onClick={triggerSearch} disabled={isTriggeringSearch || !autoStatus?.serviceRunning || autoStatus?.status !== 'idle'} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
-              {isTriggeringSearch ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-              {isTriggeringSearch ? 'Starting...' : 'Run Now'}
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={() => downloadPdf({ id: 'cv', jobTitle: 'CV', company: '', location: '', status: '', url: null, coverLetter: null, notes: null, appliedAt: null, createdAt: new Date().toISOString(), jobId: null, matchScore: null, source: null } as unknown as Application)} variant="outline" className="gap-1.5 text-xs">
+                <Download className="w-3.5 h-3.5" />Download My CV
+              </Button>
+              <Button onClick={triggerRun} disabled={isRunningCycle} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+                {isRunningCycle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                {isRunningCycle ? 'Running...' : 'Search & Apply Now'}
+              </Button>
+            </div>
           </div>
 
-          {autoStatus?.stats && (
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center p-3 rounded-lg bg-muted/50">
-                <p className="text-2xl font-bold text-emerald-600">{autoStatus.stats.totalJobsFound}</p>
-                <p className="text-xs text-muted-foreground">Jobs Found</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-muted/50">
-                <p className="text-2xl font-bold text-blue-600">{autoStatus.stats.totalJobsApplied}</p>
-                <p className="text-xs text-muted-foreground">Applications Sent</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-muted/50">
-                <p className="text-2xl font-bold text-orange-600">{autoStatus.stats.totalCycles}</p>
-                <p className="text-xs text-muted-foreground">Search Cycles</p>
-              </div>
-            </div>
-          )}
-
-          {autoStatus?.lastCycle && (
-            <div className="mt-4 p-3 rounded-lg bg-muted/30 border">
-              <p className="text-xs text-muted-foreground mb-1">Last Cycle #{autoStatus.lastCycle.cycleNumber} — {autoStatus.lastCycle.completedAt}</p>
-              <div className="flex gap-4 text-xs">
-                <span>Found: <strong>{autoStatus.lastCycle.jobsFound}</strong></span>
-                <span>Matched: <strong>{autoStatus.lastCycle.jobsMatched}</strong></span>
-                <span>Applied: <strong>{autoStatus.lastCycle.jobsApplied}</strong></span>
-                <span>Duration: <strong>{autoStatus.lastCycle.duration}</strong></span>
-              </div>
+          {/* Live Run Logs */}
+          {runLogs.length > 0 && (
+            <div className="mt-4 p-3 rounded-lg bg-gray-950 text-emerald-400 font-mono text-[11px] leading-relaxed max-h-60 overflow-y-auto">
+              {runLogs.map((log, i) => <div key={i}>{log}</div>)}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Schedule Info */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2"><Radar className="w-4 h-4 text-emerald-600" /> How It Works</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid sm:grid-cols-2 gap-4">
-            {[
-              { step: '1', title: 'Auto-Search', desc: 'Searches 8+ queries across Ethiopian job sites every 4 hours' },
-              { step: '2', title: 'Smart Matching', desc: 'LLM scores each job 0-100 against your CV skills & experience' },
-              { step: '3', title: 'Cover Letters', desc: 'Generates tailored cover letter for jobs matching 50+ score' },
-              { step: '4', title: 'Application', desc: 'Saves application with cover letter ready for submission' },
-            ].map((item) => (
-              <div key={item.step} className="flex gap-3 p-3 rounded-lg bg-muted/30">
-                <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 font-bold text-sm flex-shrink-0">{item.step}</div>
-                <div>
-                  <h4 className="text-sm font-semibold">{item.title}</h4>
-                  <p className="text-xs text-muted-foreground">{item.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-            <p className="text-xs text-amber-800 dark:text-amber-300">
-              <strong>💡 Note:</strong> The system finds and prepares applications automatically. For actual submission to company websites, you may need to visit the link and apply directly — some sites require manual forms.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-emerald-600">{autoApps.length}</p><p className="text-xs text-muted-foreground">Auto-Applied</p></CardContent></Card>
+        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-blue-600">{autoApps.filter(a => (a.matchScore || 0) >= 70).length}</p><p className="text-xs text-muted-foreground">High Match (70+)</p></CardContent></Card>
+        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-purple-600">{autoApps.filter(a => a.coverLetter).length}</p><p className="text-xs text-muted-foreground">Cover Letters</p></CardContent></Card>
+      </div>
 
-      {/* Application Log */}
+      {/* Job Packages — Ready to Send */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2"><Activity className="w-4 h-4 text-emerald-600" /> Application Log</CardTitle>
-            <Button variant="outline" size="sm" onClick={fetchLogs} className="gap-1 text-xs"><RefreshCw className="w-3 h-3" />Refresh</Button>
-          </div>
+          <CardTitle className="text-base flex items-center gap-2"><Sparkles className="w-4 h-4 text-emerald-600" /> Job Packages — Ready to Apply</CardTitle>
+          <CardDescription>Click &quot;Prepare PDF&quot; to generate CV + Cover Letter for each job</CardDescription>
         </CardHeader>
         <CardContent>
-          {logs.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-8">No application logs yet. Trigger a search or wait for the next cycle.</p>
+          {autoApps.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Briefcase className="w-12 h-12 mx-auto mb-3 opacity-20" />
+              <p className="text-sm font-medium">No jobs found yet</p>
+              <p className="text-xs mt-1">Click &quot;Search &amp; Apply Now&quot; to start finding jobs</p>
+            </div>
           ) : (
             <ScrollArea className="max-h-[500px]">
-              <div className="space-y-2">
-                {logs.map((log, i) => {
-                  const logAny = log as Record<string, string | number | null>;
-                  return (
-                    <div key={i} className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/30 transition-colors">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        logAny.status === 'applied' ? 'bg-emerald-100 dark:bg-emerald-900/30' :
-                        logAny.status === 'matched' ? 'bg-blue-100 dark:bg-blue-900/30' :
-                        logAny.status === 'skipped' ? 'bg-gray-100 dark:bg-gray-900/30' :
-                        'bg-orange-100 dark:bg-orange-900/30'
-                      }`}>
-                        {logAny.status === 'applied' ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> :
-                         logAny.status === 'matched' ? <Target className="w-4 h-4 text-blue-600" /> :
-                         logAny.status === 'skipped' ? <XCircle className="w-4 h-4 text-gray-400" /> :
-                         <AlertCircle className="w-4 h-4 text-orange-500" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium truncate">{String(logAny.jobTitle || 'Unknown')}</p>
-                          <Badge className={`text-[10px] px-1.5 py-0 border-0 ${
-                            logAny.status === 'applied' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30' :
-                            logAny.status === 'matched' ? 'bg-blue-100 text-blue-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>{String(logAny.status || '')}</Badge>
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {logAny.company && <span className="text-xs text-muted-foreground">{String(logAny.company)}</span>}
-                          {logAny.matchScore != null && <span className="text-xs text-muted-foreground">Score: {String(logAny.matchScore)}%</span>}
-                          {logAny.timestamp && <span className="text-[10px] text-muted-foreground">{String(logAny.timestamp)}</span>}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Applications with Cover Letters */}
-      {applications.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2"><Sparkles className="w-4 h-4 text-emerald-600" /> Applications with Cover Letters</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="max-h-[500px]">
               <div className="space-y-3">
-                {applications.filter(a => a.coverLetter).map((app) => (
+                {autoApps.map((app) => (
                   <div key={app.id} className="border rounded-lg overflow-hidden">
-                    <div className="flex items-center justify-between p-3 bg-muted/30">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-medium truncate">{app.jobTitle}</h4>
-                          {app.matchScore && <Badge variant="outline" className="text-[10px]">{app.matchScore}%</Badge>}
-                        </div>
-                        {app.company && <p className="text-xs text-muted-foreground">{app.company} {app.location ? `• ${app.location}` : ''}</p>}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 p-3 bg-muted/30">
+                      <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                        {app.matchScore && app.matchScore >= 70 ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Briefcase className="w-5 h-5 text-emerald-600" />}
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-sm font-medium truncate">{app.jobTitle}</h4>
+                          {app.matchScore && <Badge variant="outline" className="text-[10px]">{app.matchScore}% match</Badge>}
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                          {app.company && <span className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="w-2.5 h-2.5" />{app.company}</span>}
+                          {app.source && <span className="text-[10px] text-muted-foreground">via {app.source}</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <Button size="sm" className="h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => downloadPdf(app)}>
+                          <FileDown className="w-3 h-3" />Prepare PDF
+                        </Button>
                         {app.url && (
-                          <Button asChild variant="outline" size="sm" className="h-7 text-xs gap-1">
-                            <a href={app.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3 h-3" />Apply</a>
+                          <Button asChild variant="outline" size="sm" className="h-8 text-xs gap-1">
+                            <a href={app.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3 h-3" />Visit Site</a>
                           </Button>
                         )}
-                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setExpandedCoverLetter(expandedCoverLetter === app.id ? null : app.id)}>
-                          <Eye className="w-3 h-3" />{expandedCoverLetter === app.id ? 'Hide' : 'View'}
+                        <Button variant="ghost" size="sm" className="h-8 text-xs gap-1" onClick={() => setExpandedCoverLetter(expandedCoverLetter === app.id ? null : app.id)}>
+                          <Eye className="w-3 h-3" />Letter
                         </Button>
                       </div>
                     </div>
                     {expandedCoverLetter === app.id && app.coverLetter && (
-                      <div className="p-4 border-t bg-background">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-xs font-semibold text-emerald-600">Generated Cover Letter</p>
-                          <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => { navigator.clipboard.writeText(app.coverLetter || ''); toast.success('Copied!'); }}>
-                            <Copy className="w-3 h-3" />Copy
-                          </Button>
+                      <div className="px-3 pb-3 border-t bg-background">
+                        <div className="flex items-center justify-between mb-1.5 mt-2">
+                          <p className="text-xs font-semibold text-emerald-600">Cover Letter</p>
+                          <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => { navigator.clipboard.writeText(app.coverLetter || ''); toast.success('Copied!'); }}><Copy className="w-3 h-3" />Copy</Button>
                         </div>
-                        <ScrollArea className="max-h-60">
-                          <p className="text-xs whitespace-pre-line leading-relaxed font-serif text-muted-foreground">{app.coverLetter}</p>
-                        </ScrollArea>
+                        <ScrollArea className="max-h-48"><p className="text-xs whitespace-pre-line leading-relaxed font-serif text-muted-foreground">{app.coverLetter}</p></ScrollArea>
                       </div>
                     )}
                   </div>
                 ))}
               </div>
             </ScrollArea>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
+
+      {/* PDF Preview Dialog */}
+      <Dialog open={!!pdfDialogApp} onOpenChange={() => setPdfDialogApp(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle>Application Package — {pdfDialogApp?.jobTitle}</DialogTitle>
+            <DialogDescription>{pdfDialogApp?.company} • {pdfDialogApp?.matchScore}% match</DialogDescription>
+          </DialogHeader>
+          {isGeneratingPdf ? (
+            <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>
+          ) : pdfData ? (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => pdfData.cvHtml && printPdf(pdfData.cvHtml, 'Hambisa_CV.pdf')}>
+                  <Printer className="w-3.5 h-3.5" />Print CV
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => pdfData.coverLetterHtml && printPdf(pdfData.coverLetterHtml, 'Cover_Letter.pdf')}>
+                  <Printer className="w-3.5 h-3.5" />Print Cover Letter
+                </Button>
+                {pdfDialogApp?.url && (
+                  <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1">
+                    <a href={pdfDialogApp.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3.5 h-3.5" />Go to Job Site</a>
+                  </Button>
+                )}
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                {pdfData.cvHtml && (
+                  <div>
+                    <p className="text-xs font-semibold mb-2 text-emerald-600">📄 Curriculum Vitae</p>
+                    <div className="border rounded-lg h-[400px] overflow-auto bg-white" dangerouslySetInnerHTML={{ __html: pdfData.cvHtml }} />
+                  </div>
+                )}
+                {pdfData.coverLetterHtml && (
+                  <div>
+                    <p className="text-xs font-semibold mb-2 text-emerald-600">✉️ Cover Letter</p>
+                    <div className="border rounded-lg h-[400px] overflow-auto bg-white" dangerouslySetInnerHTML={{ __html: pdfData.coverLetterHtml }} />
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -887,27 +868,13 @@ export default function Home() {
     })();
   }, []);
 
-  // Fetch auto-apply status
-  useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const res = await fetch('/api/auto-apply/status');
-        const data = await res.json();
-        s.setAutoStatus(data);
-      } catch { /* ignore */ }
-    };
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 15000);
-    return () => clearInterval(interval);
-  }, []);
-
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header activeTab={s.activeTab} setActiveTab={s.setActiveTab} />
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-6">
         {s.activeTab === 'dashboard' && <DashboardTab applications={s.applications} profile={s.profile} />}
         {s.activeTab === 'applications' && <ApplicationsTab applications={s.applications} setApplications={s.setApplications} />}
-        {s.activeTab === 'auto-apply' && <AutoApplyTab autoStatus={s.autoStatus} autoLogs={s.autoLogs} isTriggeringSearch={s.isTriggeringSearch} setIsTriggeringSearch={s.setIsTriggeringSearch} applications={s.applications} expandedCoverLetter={s.expandedCoverLetter} setExpandedCoverLetter={s.setExpandedCoverLetter} />}
+        {s.activeTab === 'auto-apply' && <AutoApplyTab isRunningCycle={s.isRunningCycle} setIsRunningCycle={s.setIsRunningCycle} runLogs={s.runLogs} setRunLogs={s.setRunLogs} applications={s.applications} setApplications={s.setApplications} pdfDialogApp={s.pdfDialogApp} setPdfDialogApp={s.setPdfDialogApp} pdfData={s.pdfData} setPdfData={s.setPdfData} isGeneratingPdf={s.isGeneratingPdf} setIsGeneratingPdf={s.setIsGeneratingPdf} expandedCoverLetter={s.expandedCoverLetter} setExpandedCoverLetter={s.setExpandedCoverLetter} />}
         {s.activeTab === 'cover-letters' && <CoverLettersTab applications={s.applications} profile={s.profile} expandedCoverLetter={s.expandedCoverLetter} setExpandedCoverLetter={s.setExpandedCoverLetter} isGeneratingCoverLetter={s.isGeneratingCoverLetter} setIsGeneratingCoverLetter={s.setIsGeneratingCoverLetter} coverLetterForm={s.coverLetterForm} setCoverLetterForm={s.setCoverLetterForm} generatedCoverLetter={s.generatedCoverLetter} setGeneratedCoverLetter={s.setGeneratedCoverLetter} />}
         {s.activeTab === 'ai-chat' && <AIChatTab chatMessages={s.chatMessages} setChatMessages={s.setChatMessages} isChatLoading={s.isChatLoading} setIsChatLoading={s.setIsChatLoading} chatContext={s.chatContext} setChatContext={s.setChatContext} message={s.message} setMessage={s.setMessage} chatEndRef={s.chatEndRef} profile={s.profile} />}
       </main>
