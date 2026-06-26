@@ -7,20 +7,18 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import {
   Search, Bookmark, FileText, Bot, User, MapPin, Building2, Clock, DollarSign,
-  ExternalLink, BookmarkCheck, Send, Plus, Trash2, Edit, Copy, Check, ChevronRight,
+  ExternalLink, BookmarkCheck, Send, Plus, Trash2, Copy, Check, ChevronRight,
   Sparkles, Briefcase, GraduationCap, Award, X, Loader2, Globe, Mail, Phone,
-  RefreshCw, Download, Calendar, Tag, MessageSquare, Target, TrendingUp, Zap
+  Calendar, Tag, MessageSquare, Target, TrendingUp, Zap
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -789,11 +787,9 @@ function ApplicationsTab() {
       <div className="flex items-center justify-between">
         <h3 className="font-semibold">My Applications ({applications.length})</h3>
         <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1">
-              <Plus className="w-4 h-4" /> Add Application
-            </Button>
-          </DialogTrigger>
+          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1" onClick={() => setShowAddDialog(true)}>
+            <Plus className="w-4 h-4" /> Add Application
+          </Button>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add Application</DialogTitle>
@@ -943,7 +939,9 @@ function AIAssistantTab() {
     setMessage('');
     setIsChatLoading(true);
 
-    setChatMessages([...chatMessages, { id: `msg-${Date.now()}`, role: 'user', content: userMessage, createdAt: new Date().toISOString() }]);
+    const userMsg: ChatMessage = { id: `msg-${Date.now()}`, role: 'user', content: userMessage, createdAt: new Date().toISOString() };
+    const updated = [...chatMessages, userMsg];
+    setChatMessages(updated);
 
     try {
       const res = await fetch('/api/ai/chat', {
@@ -953,7 +951,7 @@ function AIAssistantTab() {
       });
       const data = await res.json();
       if (data.success) {
-        setChatMessages([...chatMessages, { id: `msg-${Date.now()}`, role: 'user', content: userMessage, createdAt: new Date().toISOString() }, { id: `msg-${Date.now() + 1}`, role: 'assistant', content: data.response, createdAt: new Date().toISOString() }]);
+        setChatMessages([...updated, { id: `msg-${Date.now() + 1}`, role: 'assistant' as const, content: data.response, createdAt: new Date().toISOString() }]);
       }
     } catch {
       toast.error('Failed to get AI response');
