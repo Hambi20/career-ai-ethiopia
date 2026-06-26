@@ -35,3 +35,28 @@ Stage Summary:
 - Ethiopian job market focused: searches EthioJobs, Mekanisa, Jobs.et and more
 - AI-powered: cover letter generation, career advice, interview coaching
 - All client-side errors resolved
+
+---
+Task ID: 3
+Agent: Main Orchestrator
+Task: Build personalized auto-apply system for Hambisa Bekuma Tefera
+
+Work Log:
+- Read CV using VLM (converted PDF to PNG via ghostscript first)
+- Extracted full CV: 8+ years sales experience, MBA, 4 languages, 4 companies
+- Built auto-apply mini-service on port 3020 with search+score+cover letter pipeline
+- Created /api/auto-apply/search API route (integrated auto-search in Next.js)
+- Created /api/dashboard/stats API route for database-driven stats
+- Updated database schema with matchScore, source fields
+- Completely rebuilt page.tsx as personalized dashboard for Hambisa
+- Dashboard tabs: Overview, Applications, Auto-Apply Status, Cover Letters, AI Coach
+- Fixed allowedDevOrigins for preview panel
+- Auto-apply service confirmed working: scoring jobs at 85%, generating cover letters
+
+Stage Summary:
+- CV parsed: Hambisa Bekuma Tefera, Sales Manager, MBA, 8+ years, 4 languages
+- Auto-apply pipeline: 8 search queries → LLM scoring → cover letter → save to DB
+- Personalized dashboard with real-time stats from database
+- Cover letter viewer for all auto-generated applications
+- Service searches every 4 hours automatically
+- Match threshold: 50+ score triggers cover letter generation

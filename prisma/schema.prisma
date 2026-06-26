@@ -31,10 +31,12 @@ model Application {
   jobTitle    String
   company     String?
   location    String?
-  status      String   @default("preparing") // preparing, submitted, interview, offered, rejected, withdrawn
+  status      String   @default("preparing") // preparing, submitted, interview, offered, rejected, withdrawn, auto-applied
   url         String?
   coverLetter String?
   notes       String?
+  matchScore  Int?
+  source      String?
   appliedAt   DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

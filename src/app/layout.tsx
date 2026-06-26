@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "EthioJob Finder - AI-Powered Ethiopian Job Search & Application Assistant",
-  description: "Smart job finder for Ethiopian job sites. Search jobs, generate AI cover letters, track applications, and get career advice - all in one place.",
+  title: "Hambisa's Auto-Apply System - Job Finder for Ethiopian Sales & Marketing Roles",
+  description: "Personalized auto job search and application system for Hambisa Bekuma Tefera. Marketing & Sales Manager, Addis Ababa, Ethiopia.",
   keywords: ["Ethiopia", "jobs", "EthioJobs", "job search", "AI assistant", "career", "Addis Ababa"],
   authors: [{ name: "EthioJob Finder" }],
   icons: {
