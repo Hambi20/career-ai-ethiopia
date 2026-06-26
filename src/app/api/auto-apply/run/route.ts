@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
 import { db } from '@/lib/db';
 
@@ -23,10 +23,11 @@ EXPERIENCE:
 
 EDUCATION: MBA (2018), BSc Agribusiness (2014)
 LANGUAGES: Amharic (Native), English (Professional), Afaan Oromo (Fluent), Somali (Conversational)
-TARGET ROLES: Marketing & Sales Manager, Sales Representative, Area Sales Manager, Route Sales Representative, Business Development Manager
 `;
 
+// Broad search queries covering marketing, sales, business dev, commercial, and Telegram channels
 const SEARCH_QUERIES = [
+  // Direct title matches
   'sales manager Ethiopia 2025 2026 job vacancy',
   'marketing manager Addis Ababa job opening',
   'area sales manager Ethiopia vacancy',
@@ -35,14 +36,36 @@ const SEARCH_QUERIES = [
   'route sales Ethiopia vacancy 2025',
   'B2B sales manager Addis Ababa',
   'territory sales manager Ethiopia career',
+  // Related roles under marketing & sales umbrella
+  'commercial manager Ethiopia job vacancy',
+  'marketing executive Ethiopia career 2025',
+  'sales executive Addis Ababa vacancy',
+  'sales supervisor Ethiopia job opening',
+  'business development officer Ethiopia',
+  'account manager Ethiopia sales vacancy',
+  'regional sales manager Ethiopia 2025',
+  'field sales representative Ethiopia job',
+  'marketing officer Addis Ababa vacancy',
+  'sales coordinator Ethiopia career',
+  'brand manager Ethiopia marketing vacancy',
+  'trade marketing manager Ethiopia job',
+  'channel sales manager Ethiopia vacancy',
+  'customer relationship manager Ethiopia sales',
+  // Telegram & social media job groups
+  'telegram job vacancy Ethiopia sales marketing',
+  'Ethiopia job telegram channel sales manager',
+  'Ethiopian telegram group job vacancy marketing',
+  'zeregna job telegram sales marketing Ethiopia',
+  'job vacancy Ethiopia telegram 2025 sales',
+  // Broader web search without site filter (catches everything)
+  'Ethiopia sales marketing manager job hiring 2025',
+  'Addis Ababa sales representative job urgent hiring',
+  'Ethiopian job site sales manager vacancy fresh',
 ];
 
-// Use first 3 queries for quick runs, more for full runs
-function getQueries(request: NextRequest): string[] {
-  const { searchParams } = new URL(request.url);
-  const full = searchParams.get('full');
-  return full ? SEARCH_QUERIES : SEARCH_QUERIES.slice(0, 3);
-}
+// Split into two groups: job site queries and broad/telegram queries
+const JOB_SITE_QUERIES = SEARCH_QUERIES.slice(0, 16);
+const BROAD_QUERIES = SEARCH_QUERIES.slice(16);
 
 interface SearchResult {
   url: string; name: string; snippet: string; host_name: string; date?: string;
@@ -53,25 +76,103 @@ function extractCompany(text: string, title: string): string {
   const patterns = [
     /(?:at|@|by|from)\s+([A-Z][A-Za-z&\s]{2,30}?)(?:\s*[-–|,.\n:;]|\s+(?:is|hiring|needs|looking|seeks)|$)/,
     /([A-Z][A-Za-z&\s]{2,30}?)\s+(?:is hiring|needs|looking for|seeks|wants|invites)/i,
+    /(?:company|organization|firm)[:\s]*([A-Z][A-Za-z&\s]{2,30}?)(?:\s*[-–|,.\n:;]|$)/i,
   ];
   for (const pat of patterns) {
     const m = combined.match(pat);
     if (m && m[1]) {
       const name = m[1].trim();
-      const bad = ['Ethiopia', 'Addis Ababa', 'Job', 'Vacancy', 'Career', 'Hiring', 'View', 'Apply', 'Click', 'Read', 'More', 'Details', 'Full'];
-      if (!bad.includes(name)) return name;
+      const bad = ['Ethiopia', 'Addis Ababa', 'Job', 'Vacancy', 'Career', 'Hiring', 'View', 'Apply', 'Click', 'Read', 'More', 'Details', 'Full', 'Description', 'Telegram', 'Channel', 'Group'];
+      if (!bad.includes(name) && name.length > 2) return name;
     }
   }
   return null;
 }
 
-// GET: Run auto-apply (trigger via GET for simplicity from frontend)
-// POST: Also supported
-export async function GET(request: NextRequest) {
-  return runAutoApply(request);
+function getQueries(request: NextRequest): string[] {
+  const { searchParams } = new URL(request.url);
+  const full = searchParams.get('full');
+  if (!full) return JOB_SITE_QUERIES.slice(0, 5);
+  return [...JOB_SITE_QUERIES, ...BROAD_QUERIES];
+}
+
+// Deep LLM evaluation: checks expiry, position accuracy, match reasoning
+async function evaluateJob(job: SearchResult): Promise<{
+  score: number; isExpired: boolean; deadline: string | null;
+  reasoning: string; positionMatch: string; isRelated: boolean;
+}> {
+  const zai = await ZAI.create();
+  const today = new Date().toISOString().split('T')[0];
+
+  try {
+    const result = await zai.chat.completions.create({
+      messages: [
+        {
+          role: 'assistant',
+          content: `You are an expert Ethiopian recruitment analyst. You carefully evaluate whether a job posting matches a candidate's profile.
+
+Today's date: ${today}
+
+You MUST respond with a JSON object with these exact fields:
+- "score": number 0-100 (how well the candidate fits)
+- "isExpired": boolean (true if the job deadline has passed or it's clearly outdated)
+- "deadline": string or null (the deadline date if mentioned, e.g. "2025-08-15" or "Feb 28, 2025")
+- "reasoning": string (2-3 sentences explaining why this job does or doesn't fit)
+- "positionMatch": string (one of: "exact_match", "strong_match", "related_role", "weak_match")
+- "isRelated": boolean (true if the role is in any way related to marketing, sales, business development, or commercial operations)
+
+Guidelines:
+- A job related to sales, marketing, business development, commercial, account management, brand management, trade marketing, field sales, route sales, territory management is "related"
+- Check for expiry dates like "Deadline: ...", "Apply before ...", "Closing date ...", "expired", "closed"
+- If the deadline has passed, set isExpired=true and score=0 regardless of fit
+- Be generous with "related" — if it involves selling, promoting, managing accounts, or growing business, it's related
+- Return ONLY valid JSON, no markdown fences`
+        },
+        {
+          role: 'user',
+          content: `CANDIDATE PROFILE:
+${HAMBISA_CV}
+
+JOB POSTING:
+- Title: ${job.name}
+- Source: ${job.host_name}
+- URL: ${job.url}
+- Description: ${job.snippet}
+- Date: ${job.date || 'Not specified'}
+
+Evaluate this job against the candidate.`
+        }
+      ],
+      thinking: { type: 'disabled' },
+    });
+
+    const text = (result.choices[0]?.message?.content || '').trim()
+      .replace(/```json?\s*\n?/g, '').replace(/```\s*$/g, '').trim();
+
+    const parsed = JSON.parse(text);
+
+    return {
+      score: Math.max(0, Math.min(100, Number(parsed.score) || 0)),
+      isExpired: Boolean(parsed.isExpired),
+      deadline: parsed.deadline || null,
+      reasoning: String(parsed.reasoning || ''),
+      positionMatch: String(parsed.positionMatch || 'weak_match'),
+      isRelated: Boolean(parsed.isRelated),
+    };
+  } catch (err) {
+    console.error('[Evaluate] LLM error:', err);
+    return {
+      score: 0, isExpired: false, deadline: null,
+      reasoning: 'Failed to evaluate', positionMatch: 'weak_match', isRelated: false,
+    };
+  }
 }
 
 export async function POST(request: NextRequest) {
+  return runAutoApply(request);
+}
+
+export async function GET(request: NextRequest) {
   return runAutoApply(request);
 }
 
@@ -81,104 +182,121 @@ async function runAutoApply(request: NextRequest) {
     const logs: string[] = [];
     const seen = new Set<string>();
     let totalFound = 0;
+    let totalExpired = 0;
     let totalMatched = 0;
     let totalSaved = 0;
     const queries = getQueries(request);
 
-    logs.push(`[${new Date().toISOString()}] Starting auto-apply cycle (${queries.length} queries)`);
+    logs.push(`[${new Date().toISOString()}] Starting smart search (${queries.length} queries, ${BROAD_QUERIES.length > 0 ? 'full mode' : 'quick mode'})`);
 
-    for (const query of queries) {
+    for (let qi = 0; qi < queries.length; qi++) {
+      const query = queries[qi];
+      const isBroad = qi >= JOB_SITE_QUERIES.length;
+
       try {
-        logs.push(`Searching: "${query.substring(0, 50)}..."`);
+        logs.push(`\n[${qi + 1}/${queries.length}] Searching: "${query.substring(0, 60)}" ${isBroad ? '(broad)' : ''}`);
 
-        const siteFilter = 'site:ethiojobs.net OR site:mekanisa.com OR site:jobs.et OR site:addisjobs.com';
+        // Job site queries get site filter, broad queries don't
+        const siteFilter = isBroad ? '' : ' site:ethiojobs.net OR site:mekanisa.com OR site:jobs.et OR site:addisjobs.com OR site:jobwebethiopia.com OR site:ethiopianjobs.com OR site:ethiocareers.com';
         const results = await zai.functions.invoke('web_search', {
-          query: `${query} ${siteFilter}`,
-          num: 8,
-          recency_days: 30,
+          query: `${query}${siteFilter}`,
+          num: isBroad ? 5 : 8,
+          recency_days: 45,
         }) as SearchResult[];
 
+        let found = 0;
         for (const item of results) {
           if (!item || seen.has(item.url)) continue;
           seen.add(item.url);
-          if (!item.snippet || item.snippet.length < 40) continue;
-          if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+          if (!item.snippet || item.snippet.length < 30) continue;
+          if (item.host_name?.includes('facebook.com') || item.host_name?.includes('twitter.com') || item.host_name?.includes('instagram.com') || item.host_name?.includes('pinterest.com')) continue;
 
           totalFound++;
+          found++;
 
           try {
-            // Quick LLM score
-            const scoreResult = await zai.chat.completions.create({
-              messages: [
-                { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
-                { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
-              ],
-              thinking: { type: 'disabled' },
-            });
-            const matchScore = parseInt((scoreResult.choices[0]?.message?.content || '0').replace(/[^0-9]/g, '')) || 0;
-            logs.push(`  "${item.name.substring(0, 45)}" → ${matchScore}%`);
+            // Deep evaluation with expiry check
+            const eval_ = await evaluateJob(item);
+            logs.push(`  "${item.name.substring(0, 50)}" → ${eval_.score}% [${eval_.positionMatch}] ${eval_.isExpired ? '⛔ EXPIRED' : eval_.isRelated ? '✓ related' : '✗ unrelated'}`);
 
-            if (matchScore >= 50) {
-              totalMatched++;
-
-              // Generate cover letter
-              let coverLetter = '';
-              try {
-                const clResult = await zai.chat.completions.create({
-                  messages: [
-                    { role: 'assistant', content: 'Write a 250-350 word professional cover letter for Ethiopian job application. Reference specific experience. Return only the letter text.' },
-                    { role: 'user', content: `Candidate:\n${HAMBISA_CV}\nPosition: ${item.name}\nCompany: ${extractCompany(item.snippet, item.name) || item.host_name}\n\nWrite cover letter:` },
-                  ],
-                  thinking: { type: 'disabled' },
-                });
-                coverLetter = clResult.choices[0]?.message?.content || '';
-              } catch { coverLetter = 'Cover letter generation pending.'; }
-
-              // Check if already applied
-              const existing = await db.application.findFirst({ where: { url: item.url } });
-              if (existing) {
-                logs.push(`  ↳ Already tracked (ID: ${existing.id.substring(0, 8)})`);
-                continue;
-              }
-
-              // Save application
-              await db.application.create({
-                data: {
-                  jobTitle: item.name,
-                  company: extractCompany(item.snippet, item.name),
-                  url: item.url,
-                  source: item.host_name,
-                  location: 'Addis Ababa',
-                  status: 'auto-applied',
-                  matchScore,
-                  coverLetter,
-                  notes: `Auto-applied | Match: ${matchScore}/100 | Query: "${query.substring(0, 40)}"`,
-                  appliedAt: new Date(),
-                },
-              });
-              totalSaved++;
-              logs.push(`  ✅ Saved: "${item.name.substring(0, 40)}"`);
+            if (eval_.isExpired) {
+              totalExpired++;
+              continue;
             }
+
+            if (eval_.score < 40 || !eval_.isRelated) {
+              logs.push(`  ↳ Skipped (score=${eval_.score}, related=${eval_.isRelated})`);
+              continue;
+            }
+
+            totalMatched++;
+
+            // Check if already tracked
+            const existing = await db.application.findFirst({ where: { url: item.url } });
+            if (existing) {
+              logs.push(`  ↳ Already tracked (${existing.id.substring(0, 8)})`);
+              continue;
+            }
+
+            // Generate cover letter
+            let coverLetter = '';
+            try {
+              const clResult = await zai.chat.completions.create({
+                messages: [
+                  { role: 'assistant', content: 'Write a professional 250-350 word cover letter for Ethiopian job application. Reference the candidate\'s specific experience. Include contact info at top. Follow Ethiopian business norms. Return ONLY the letter text, no preamble.' },
+                  { role: 'user', content: `Candidate:\n${HAMBISA_CV}\nPosition: ${item.name}\nCompany: ${extractCompany(item.snippet, item.name) || item.host_name}\nMatch Reasoning: ${eval_.reasoning}\n\nWrite the cover letter:` },
+                ],
+                thinking: { type: 'disabled' },
+              });
+              coverLetter = clResult.choices[0]?.message?.content || '';
+            } catch { coverLetter = 'Cover letter generation pending.'; }
+
+            // Save as pending review for user approval
+            await db.application.create({
+              data: {
+                jobTitle: item.name,
+                company: extractCompany(item.snippet, item.name),
+                url: item.url,
+                source: item.host_name,
+                location: 'Addis Ababa',
+                status: 'pending_review',
+                matchScore: eval_.score,
+                matchReasoning: eval_.reasoning,
+                jobDeadline: eval_.deadline,
+                jobDescription: item.snippet,
+                coverLetter,
+                notes: `Pending review | Match: ${eval_.score}/100 | Position: ${eval_.positionMatch} | Query: "${query.substring(0, 40)}"`,
+              },
+            });
+            totalSaved++;
+            logs.push(`  ✅ Saved for review: "${item.name.substring(0, 40)}"`);
           } catch (e) {
             logs.push(`  Error: ${String(e).substring(0, 80)}`);
           }
 
-          // Small delay to avoid rate limits
-          await new Promise(r => setTimeout(r, 4000));
+          // Rate limit throttle
+          await new Promise(r => setTimeout(r, 3000));
         }
+
+        logs.push(`  Found ${found} results for this query`);
       } catch (e) {
         logs.push(`Search error: ${String(e).substring(0, 80)}`);
       }
 
       // Delay between queries
-      await new Promise(r => setTimeout(r, 6000));
+      await new Promise(r => setTimeout(r, 4000));
     }
 
-    logs.push(`[${new Date().toISOString()}] Cycle complete: ${totalFound} found, ${totalMatched} matched (≥50), ${totalSaved} saved`);
+    logs.push(`\n[${new Date().toISOString()}] Cycle complete:`);
+    logs.push(`  Total found: ${totalFound}`);
+    logs.push(`  Expired: ${totalExpired} (filtered out)`);
+    logs.push(`  Matched (≥40): ${totalMatched}`);
+    logs.push(`  New saved for review: ${totalSaved}`);
 
     return NextResponse.json({
       success: true,
       totalFound,
+      totalExpired,
       totalMatched,
       totalSaved,
       logs,

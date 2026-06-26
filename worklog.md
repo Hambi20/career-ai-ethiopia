@@ -87,3 +87,43 @@ Stage Summary:
 - Profile auto-seeded from CV extraction (no manual setup needed)
 - Applications tab: filter, search, status management, cover letter view/copy, add/delete
 - All API routes verified working with proper matchScore/source support
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Implement review & approve workflow with expiry checking, broader search, Telegram channels, and email sending
+
+Work Log:
+- Updated Prisma schema: added matchReasoning, jobDeadline, jobDescription fields to Application model
+- Updated status values: pending_review, approved, submitted, rejected, withdrawn, interview, offered
+- Rewrote /api/auto-apply/run/route.ts with:
+  - 28 search queries covering direct matches + related roles + Telegram + broad web
+  - LLM-based evaluation that checks expiry dates, position accuracy, match reasoning
+  - Expired jobs filtered out automatically
+  - Related role detection (sales, marketing, business dev, commercial, etc.)
+  - Jobs saved as 'pending_review' for user approval
+- Updated /api/auto-apply/search/route.ts to use pending_review status
+- Updated mini-services/auto-apply-service to use pending_review status
+- Updated /api/applications/route.ts to support new fields
+- Created /api/applications/[id]/approve/route.ts — approve pending applications
+- Created /api/applications/[id]/reject/route.ts — reject pending applications
+- Created /api/applications/batch-approve/route.ts — batch approve all pending
+- Rewrote /src/app/page.tsx with complete review workflow UI:
+  - Pending Review section: shows job title, company, source, match score, deadline, match reasoning
+  - Approve/Reject buttons per job
+  - Approve All batch button
+  - Approved section: PDF download, Send Email (mailto), Mark as Sent
+  - Submitted section: track sent applications
+  - PDF preview dialog with CV + Cover Letter
+  - Sources listed: EthioJobs, Mekanisa, Jobs.et, AddisJobs, JobWebEthiopia, EthioCareers, Telegram Groups
+- Migrated old 'auto-applied' applications to 'pending_review'
+- All lint checks pass
+- Verified: page loads (41KB), API returns 13 applications, approve/reject endpoints work
+
+Stage Summary:
+- Complete review & approve workflow implemented
+- Smart search covers 28 queries across job sites + Telegram
+- Expiry date checking built into LLM evaluation
+- Each job shows summary (title, company, source, match score, deadline, reasoning) for approval
+- Email sending via mailto: links
+- PDF preview with print/download capability

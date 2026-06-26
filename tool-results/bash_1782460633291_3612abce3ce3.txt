@@ -1,0 +1,634 @@
+▲ Next.js 16.1.3 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://21.0.15.94:3000
+- Environments: .env
+
+✓ Starting...
+✓ Ready in 768ms
+=== Server ===
+LISTEN 0      511                *:3000             *:*    users:(("next-server (v1",pid=13442,fd=22))
+OK
+=== Testing auto-apply run ===
+prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE `main`.`Application`.`url` = ? LIMIT ? OFFSET ?
+prisma:query INSERT INTO `main`.`Application` (`id`, `jobTitle`, `company`, `location`, `status`, `url`, `coverLetter`, `notes`, `matchScore`, `source`, `appliedAt`, `createdAt`, `updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING `id` AS `id`, `jobId` AS `jobId`, `jobTitle` AS `jobTitle`, `company` AS `company`, `location` AS `location`, `status` AS `status`, `url` AS `url`, `coverLetter` AS `coverLetter`, `notes` AS `notes`, `matchScore` AS `matchScore`, `source` AS `source`, `appliedAt` AS `appliedAt`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`
+prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE `main`.`Application`.`url` = ? LIMIT ? OFFSET ?
+prisma:query INSERT INTO `main`.`Application` (`id`, `jobTitle`, `company`, `location`, `status`, `url`, `coverLetter`, `notes`, `matchScore`, `source`, `appliedAt`, `createdAt`, `updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING `id` AS `id`, `jobId` AS `jobId`, `jobTitle` AS `jobTitle`, `company` AS `company`, `location` AS `location`, `status` AS `status`, `url` AS `url`, `coverLetter` AS `coverLetter`, `notes` AS `notes`, `matchScore` AS `matchScore`, `source` AS `source`, `appliedAt` AS `appliedAt`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`
+prisma:query SELECT 1
+prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE `main`.`Application`.`url` = ? LIMIT ? OFFSET ?
+prisma:query INSERT INTO `main`.`Application` (`id`, `jobTitle`, `company`, `location`, `status`, `url`, `coverLetter`, `notes`, `matchScore`, `source`, `appliedAt`, `createdAt`, `updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING `id` AS `id`, `jobId` AS `jobId`, `jobTitle` AS `jobTitle`, `company` AS `company`, `location` AS `location`, `status` AS `status`, `url` AS `url`, `coverLetter` AS `coverLetter`, `notes` AS `notes`, `matchScore` AS `matchScore`, `source` AS `source`, `appliedAt` AS `appliedAt`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`
+prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE `main`.`Application`.`url` = ? LIMIT ? OFFSET ?
+prisma:query INSERT INTO `main`.`Application` (`id`, `jobTitle`, `company`, `location`, `status`, `url`, `coverLetter`, `notes`, `matchScore`, `source`, `appliedAt`, `createdAt`, `updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING `id` AS `id`, `jobId` AS `jobId`, `jobTitle` AS `jobTitle`, `company` AS `company`, `location` AS `location`, `status` AS `status`, `url` AS `url`, `coverLetter` AS `coverLetter`, `notes` AS `notes`, `matchScore` AS `matchScore`, `source` AS `source`, `appliedAt` AS `appliedAt`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`
+prisma:query SELECT 1
+prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE `main`.`Application`.`url` = ? LIMIT ? OFFSET ?
+prisma:query INSERT INTO `main`.`Application` (`id`, `jobTitle`, `company`, `location`, `status`, `url`, `coverLetter`, `notes`, `matchScore`, `source`, `appliedAt`, `createdAt`, `updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING `id` AS `id`, `jobId` AS `jobId`, `jobTitle` AS `jobTitle`, `company` AS `company`, `location` AS `location`, `status` AS `status`, `url` AS `url`, `coverLetter` AS `coverLetter`, `notes` AS `notes`, `matchScore` AS `matchScore`, `source` AS `source`, `appliedAt` AS `appliedAt`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`
+prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE `main`.`Application`.`url` = ? LIMIT ? OFFSET ?
+prisma:query INSERT INTO `main`.`Application` (`id`, `jobTitle`, `company`, `location`, `status`, `url`, `coverLetter`, `notes`, `matchScore`, `source`, `appliedAt`, `createdAt`, `updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING `id` AS `id`, `jobId` AS `jobId`, `jobTitle` AS `jobTitle`, `company` AS `company`, `location` AS `location`, `status` AS `status`, `url` AS `url`, `coverLetter` AS `coverLetter`, `notes` AS `notes`, `matchScore` AS `matchScore`, `source` AS `source`, `appliedAt` AS `appliedAt`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`
+prisma:query SELECT 1
+prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE `main`.`Application`.`url` = ? LIMIT ? OFFSET ?
+prisma:query INSERT INTO `main`.`Application` (`id`, `jobTitle`, `company`, `location`, `status`, `url`, `coverLetter`, `notes`, `matchScore`, `source`, `appliedAt`, `createdAt`, `updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING `id` AS `id`, `jobId` AS `jobId`, `jobTitle` AS `jobTitle`, `company` AS `company`, `location` AS `location`, `status` AS `status`, `url` AS `url`, `coverLetter` AS `coverLetter`, `notes` AS `notes`, `matchScore` AS `matchScore`, `source` AS `source`, `appliedAt` AS `appliedAt`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`
+prisma:query SELECT 1
+prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE `main`.`Application`.`url` = ? LIMIT ? OFFSET ?
+prisma:query INSERT INTO `main`.`Application` (`id`, `jobTitle`, `company`, `location`, `status`, `url`, `coverLetter`, `notes`, `matchScore`, `source`, `appliedAt`, `createdAt`, `updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING `id` AS `id`, `jobId` AS `jobId`, `jobTitle` AS `jobTitle`, `company` AS `company`, `location` AS `location`, `status` AS `status`, `url` AS `url`, `coverLetter` AS `coverLetter`, `notes` AS `notes`, `matchScore` AS `matchScore`, `source` AS `source`, `appliedAt` AS `appliedAt`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`
+prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE `main`.`Application`.`url` = ? LIMIT ? OFFSET ?
+prisma:query INSERT INTO `main`.`Application` (`id`, `jobTitle`, `company`, `location`, `status`, `url`, `coverLetter`, `notes`, `matchScore`, `source`, `appliedAt`, `createdAt`, `updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING `id` AS `id`, `jobId` AS `jobId`, `jobTitle` AS `jobTitle`, `company` AS `company`, `location` AS `location`, `status` AS `status`, `url` AS `url`, `coverLetter` AS `coverLetter`, `notes` AS `notes`, `matchScore` AS `matchScore`, `source` AS `source`, `appliedAt` AS `appliedAt`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`
+ GET / 200 in 1712ms (compile: 1507ms, render: 205ms)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE `main`.`Application`.`url` = ? LIMIT ? OFFSET ?
+prisma:query INSERT INTO `main`.`Application` (`id`, `jobTitle`, `company`, `location`, `status`, `url`, `coverLetter`, `notes`, `matchScore`, `source`, `appliedAt`, `createdAt`, `updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING `id` AS `id`, `jobId` AS `jobId`, `jobTitle` AS `jobTitle`, `company` AS `company`, `location` AS `location`, `status` AS `status`, `url` AS `url`, `coverLetter` AS `coverLetter`, `notes` AS `notes`, `matchScore` AS `matchScore`, `source` AS `source`, `appliedAt` AS `appliedAt`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`
+prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE `main`.`Application`.`url` = ? LIMIT ? OFFSET ?
+prisma:query SELECT 1
+prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE `main`.`Application`.`url` = ? LIMIT ? OFFSET ?
+prisma:query INSERT INTO `main`.`Application` (`id`, `jobTitle`, `company`, `location`, `status`, `url`, `coverLetter`, `notes`, `matchScore`, `source`, `appliedAt`, `createdAt`, `updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING `id` AS `id`, `jobId` AS `jobId`, `jobTitle` AS `jobTitle`, `company` AS `company`, `location` AS `location`, `status` AS `status`, `url` AS `url`, `coverLetter` AS `coverLetter`, `notes` AS `notes`, `matchScore` AS `matchScore`, `source` AS `source`, `appliedAt` AS `appliedAt`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`
+prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE `main`.`Application`.`url` = ? LIMIT ? OFFSET ?
+prisma:query INSERT INTO `main`.`Application` (`id`, `jobTitle`, `company`, `location`, `status`, `url`, `coverLetter`, `notes`, `matchScore`, `source`, `appliedAt`, `createdAt`, `updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING `id` AS `id`, `jobId` AS `jobId`, `jobTitle` AS `jobTitle`, `company` AS `company`, `location` AS `location`, `status` AS `status`, `url` AS `url`, `coverLetter` AS `coverLetter`, `notes` AS `notes`, `matchScore` AS `matchScore`, `source` AS `source`, `appliedAt` AS `appliedAt`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`
+prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE `main`.`Application`.`url` = ? LIMIT ? OFFSET ?
+prisma:query SELECT 1
+prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE `main`.`Application`.`url` = ? LIMIT ? OFFSET ?
+prisma:query INSERT INTO `main`.`Application` (`id`, `jobTitle`, `company`, `location`, `status`, `url`, `coverLetter`, `notes`, `matchScore`, `source`, `appliedAt`, `createdAt`, `updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING `id` AS `id`, `jobId` AS `jobId`, `jobTitle` AS `jobTitle`, `company` AS `company`, `location` AS `location`, `status` AS `status`, `url` AS `url`, `coverLetter` AS `coverLetter`, `notes` AS `notes`, `matchScore` AS `matchScore`, `source` AS `source`, `appliedAt` AS `appliedAt`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`
+ GET /api/auto-apply/run 200 in 88s (compile: 40ms, render: 88s)
+ GET / 200 in 76ms (compile: 6ms, render: 70ms)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`Application`.`id`, `main`.`Application`.`jobId`, `main`.`Application`.`jobTitle`, `main`.`Application`.`company`, `main`.`Application`.`location`, `main`.`Application`.`status`, `main`.`Application`.`url`, `main`.`Application`.`coverLetter`, `main`.`Application`.`notes`, `main`.`Application`.`matchScore`, `main`.`Application`.`source`, `main`.`Application`.`appliedAt`, `main`.`Application`.`createdAt`, `main`.`Application`.`updatedAt` FROM `main`.`Application` WHERE 1=1 ORDER BY `main`.`Application`.`createdAt` DESC LIMIT ? OFFSET ?
+ GET /api/applications 200 in 51ms (compile: 40ms, render: 12ms)
+ GET / 200 in 33ms (compile: 2ms, render: 30ms)
+ GET / 200 in 30ms (compile: 1808µs, render: 28ms)
+ GET /api/auto-apply/run 200 in 4.9min (compile: 360ms, render: 4.9min)
+{"success":true,"totalFound":56,"totalMatched":12,"totalSaved":12,"logs":["[2026-06-26T07:52:19.301Z] Starting auto-apply cycle","Searching: \"sales manager Ethiopia 2025 2026 job vacancy...\"","  \"Sales and Marketing Jobs and Vacancies in Eth\" → 95%","  ✅ Saved: \"Sales and Marketing Jobs and Vacancies i\"","  \"Sales Development Manager Jobs and Vacancies \" → 85%","  ✅ Saved: \"Sales Development Manager Jobs and Vacan\"","  \"Area Sales Manager / Adama Jobs and Vacancies\" → 85%","  ✅ Saved: \"Area Sales Manager / Adama Jobs and Vaca\"","  \"Direct Sales Manager Jobs and Vacancies in Et\" → 92%","  ✅ Saved: \"Direct Sales Manager Jobs and Vacancies \"","  \"Country Manager / Sales Manager - KUK - Ethio\" → 85%","  ✅ Saved: \"Country Manager / Sales Manager - KUK - \"","  \"National Sales Manager Jobs and Vacancies in \" → 85%","  ✅ Saved: \"National Sales Manager Jobs and Vacancie\"","  \"Sales Manager Jobs and Vacancies in Ethiopia \" → 85%","  ✅ Saved: \"Sales Manager Jobs and Vacancies in Ethi\"","  \"Jobs in Ethiopia | New Ethiopian jobs 2026 | \" → 95%","  ✅ Saved: \"Jobs in Ethiopia | New Ethiopian jobs 20\"","Searching: \"marketing manager Addis Ababa job opening...\"","  \"Trade Marketing Manager Jobs and Vacancies in\" → 85%","  ✅ Saved: \"Trade Marketing Manager Jobs and Vacanci\"","  \"Brand Marketing Manager Jobs and Vacancies in\" → 85%","  ✅ Saved: \"Brand Marketing Manager Jobs and Vacanci\"","  \"Marketing Manager - Dololo Import Export PLC \" → 85%","  ✅ Saved: \"Marketing Manager - Dololo Import Export\"","  \"Marketing Manager Jobs and Vacancies in Ethio\" → 85%","  ✅ Saved: \"Marketing Manager Jobs and Vacancies in \"","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","Searching: \"area sales manager Ethiopia vacancy...\"","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","Searching: \"sales representative Addis Ababa Ethiopia...\"","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","Searching: \"business development manager Ethiopia job...\"","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","Searching: \"route sales Ethiopia vacancy 2025...\"","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","Searching: \"B2B sales manager Addis Ababa...\"","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","Searching: \"territory sales manager Ethiopia career...\"","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","  Error: Error: API request failed with status 429: {\"error\":\"Too many requests, please t","[2026-06-26T07:57:13.165Z] Cycle complete: 56 found, 12 matched (≥50), 12 saved"]}
+
+stderr:
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:111:33)
+  109 |           try {
+  110 |             // Quick LLM score
+> 111 |             const scoreResult = await zai.chat.completions.create({
+      |                                 ^
+  112 |               messages: [
+  113 |                 { role: 'assistant', content: 'You are a recruiter. Rate 0-100. Return ONLY a number.' },
+  114 |                 { role: 'user', content: `Candidate:\n${HAMBISA_CV}\n\nJob: ${item.name}\nSource: ${item.host_name}\nDescription: ${item.snippet}\n\nScore (0-100):` },
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;
+Failed to make API request: Error: API request failed with status 429: {"error":"Too many requests, please try again later"}
+    at async runAutoApply (src/app/api/auto-apply/run/route.ts:102:33)
+  100 |
+  101 |         for (const item of results) {
+> 102 |           if (!item || seen.has(item.url)) continue;
+      |                                 ^
+  103 |           seen.add(item.url);
+  104 |           if (!item.snippet || item.snippet.length < 40) continue;
+  105 |           if (item.host_name?.includes('facebook') || item.host_name?.includes('twitter')) continue;

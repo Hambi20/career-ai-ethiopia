@@ -1,0 +1,602 @@
+   200→                    </div>
+   201→                    <div className="flex items-center gap-1.5">
+   202→                      <Badge className={`text-[10px] px-2 py-0 border-0 ${
+   203→                        app.status === 'auto-applied' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' :
+   204→                        app.status === 'submitted' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+   205→                        app.status === 'interview' ? 'bg-purple-100 text-purple-800' :
+   206→                        'bg-gray-100 text-gray-800'
+   207→                      }`}>{app.status}</Badge>
+   208→                      <span className="text-[10px] text-muted-foreground hidden sm:inline">{new Date(app.createdAt).toLocaleDateString()}</span>
+   209→                    </div>
+   210→                  </div>
+   211→                ))}
+   212→              </div>
+   213→            </ScrollArea>
+   214→          )}
+   215→        </CardContent>
+   216→      </Card>
+   217→    </div>
+   218→  );
+   219→}
+   220→
+   221→// ========== APPLICATIONS TAB ==========
+   222→function ApplicationsTab({ applications, setApplications }: {
+   223→  applications: Application[]; setApplications: (apps: Application[]) => void;
+   224→}) {
+   225→  const [filterStatus, setFilterStatus] = useState('all');
+   226→  const [filterText, setFilterText] = useState('');
+   227→  const [expandedId, setExpandedId] = useState<string | null>(null);
+   228→  const [showAddDialog, setShowAddDialog] = useState(false);
+   229→  const [isUpdating, setIsUpdating] = useState<string | null>(null);
+   230→  const [newApp, setNewApp] = useState({ jobTitle: '', company: '', location: '', status: 'preparing', url: '' });
+   231→
+   232→  const refreshApps = useCallback(async () => {
+   233→    try {
+   234→      const res = await fetch('/api/applications');
+   235→      const data = await res.json();
+   236→      if (data.success) setApplications(data.applications);
+   237→    } catch { /* ignore */ }
+   238→  }, [setApplications]);
+   239→
+   240→  const filtered = applications.filter((app) => {
+   241→    if (filterStatus !== 'all' && app.status !== filterStatus) return false;
+   242→    if (filterText) {
+   243→      const t = filterText.toLowerCase();
+   244→      return app.jobTitle.toLowerCase().includes(t) || (app.company || '').toLowerCase().includes(t);
+   245→    }
+   246→    return true;
+   247→  });
+   248→
+   249→  const statusCounts = { all: applications.length, 'auto-applied': 0, applied: 0, submitted: 0, preparing: 0, interview: 0, offered: 0, rejected: 0, withdrawn: 0 };
+   250→  applications.forEach((a) => { const s = a.status as keyof typeof statusCounts; if (s in statusCounts) statusCounts[s]++; });
+   251→
+   252→  const updateStatus = async (id: string, status: string) => {
+   253→    setIsUpdating(id);
+   254→    try {
+   255→      await fetch('/api/applications', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) });
+   256→      toast.success('Status updated');
+   257→      refreshApps();
+   258→    } catch { toast.error('Failed to update'); }
+   259→    finally { setIsUpdating(null); }
+   260→  };
+   261→
+   262→  const deleteApp = async (id: string) => {
+   263→    try {
+   264→      await fetch(`/api/applications?id=${id}`, { method: 'DELETE' });
+   265→      toast.success('Application deleted');
+   266→      refreshApps();
+   267→    } catch { toast.error('Failed to delete'); }
+   268→  };
+   269→
+   270→  const addApp = async () => {
+   271→    if (!newApp.jobTitle.trim()) { toast.error('Job title required'); return; }
+   272→    try {
+   273→      await fetch('/api/applications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newApp) });
+   274→      toast.success('Application added');
+   275→      setShowAddDialog(false);
+   276→      setNewApp({ jobTitle: '', company: '', location: '', status: 'preparing', url: '' });
+   277→      refreshApps();
+   278→    } catch { toast.error('Failed to add'); }
+   279→  };
+   280→
+   281→  const statusColor = (s: string) => s === 'auto-applied' || s === 'applied' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' :
+   282→    s === 'submitted' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+   283→    s === 'interview' ? 'bg-purple-100 text-purple-800' :
+   284→    s === 'offered' ? 'bg-amber-100 text-amber-800' :
+   285→    s === 'rejected' ? 'bg-red-100 text-red-800' :
+   286→    s === 'withdrawn' ? 'bg-gray-200 text-gray-600' : 'bg-gray-100 text-gray-800';
+   287→
+   288→  return (
+   289→    <div className="space-y-4">
+   290→      {/* Stats */}
+   291→      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+   292→        {Object.entries(statusCounts).filter(([k]) => k !== 'all' && statusCounts[k as keyof typeof statusCounts] > 0).slice(0, 5).map(([key, count]) => (
+   293→          <Card key={key} className={filterStatus === key ? 'border-emerald-500' : ''} onClick={() => setFilterStatus(key === filterStatus ? 'all' : key)}>
+   294→            <CardContent className="p-3 text-center cursor-pointer">
+   295→              <p className="text-lg font-bold">{count}</p>
+   296→              <p className="text-[10px] text-muted-foreground capitalize">{key.replace('-', ' ')}</p>
+   297→            </CardContent>
+   298→          </Card>
+   299→        ))}
+   300→      </div>
+   301→
+   302→      {/* Filters + Add */}
+   303→      <div className="flex flex-col sm:flex-row gap-2">
+   304→        <Input placeholder="Search by title or company..." value={filterText} onChange={(e) => setFilterText(e.target.value)} className="flex-1 h-9 text-sm" />
+   305→        <Select value={filterStatus} onValueChange={setFilterStatus}>
+   306→          <SelectTrigger className="w-40 h-9 text-xs"><SelectValue placeholder="All Status" /></SelectTrigger>
+   307→          <SelectContent>
+   308→            <SelectItem value="all">All Status</SelectItem>
+   309→            <SelectItem value="auto-applied">Auto-Applied</SelectItem>
+   310→            <SelectItem value="applied">Applied</SelectItem>
+   311→            <SelectItem value="submitted">Submitted</SelectItem>
+   312→            <SelectItem value="interview">Interview</SelectItem>
+   313→            <SelectItem value="offered">Offered</SelectItem>
+   314→            <SelectItem value="rejected">Rejected</SelectItem>
+   315→            <SelectItem value="withdrawn">Withdrawn</SelectItem>
+   316→            <SelectItem value="preparing">Preparing</SelectItem>
+   317→          </SelectContent>
+   318→        </Select>
+   319→        <Button onClick={() => setShowAddDialog(true)} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 h-9"><Plus className="w-3.5 h-3.5" />Add</Button>
+   320→      </div>
+   321→
+   322→      {/* List */}
+   323→      <Card>
+   324→        <CardContent className="p-3">
+   325→          {filtered.length === 0 ? (
+   326→            <div className="text-center py-12 text-muted-foreground">
+   327→              <FileText className="w-10 h-10 mx-auto mb-2 opacity-30" />
+   328→              <p className="text-sm">{applications.length === 0 ? 'No applications yet. Auto-apply will create them.' : 'No applications match filters.'}</p>
+   329→            </div>
+   330→          ) : (
+   331→            <ScrollArea className="max-h-[600px]">
+   332→              <div className="space-y-2">
+   333→                {filtered.map((app) => (
+   334→                  <div key={app.id} className="border rounded-lg overflow-hidden">
+   335→                    <div className="flex items-center gap-2.5 p-3 hover:bg-muted/30 transition-colors">
+   336→                      <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+   337→                        {app.matchScore && app.matchScore >= 70 ? <Check className="w-4 h-4 text-emerald-600" /> : <Briefcase className="w-4 h-4 text-emerald-600" />}
+   338→                      </div>
+   339→                      <div className="flex-1 min-w-0">
+   340→                        <div className="flex items-center gap-1.5">
+   341→                          <p className="text-sm font-medium truncate">{app.jobTitle}</p>
+   342→                          {app.matchScore && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{app.matchScore}%</Badge>}
+   343→                        </div>
+   344→                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+   345→                          {app.company && <span className="text-xs text-muted-foreground flex items-center gap-0.5"><Building2 className="w-2.5 h-2.5" />{app.company}</span>}
+   346→                          {app.location && <span className="text-xs text-muted-foreground flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" />{app.location}</span>}
+   347→                          {app.source && <span className="text-[10px] text-muted-foreground">{app.source}</span>}
+   348→                        </div>
+   349→                      </div>
+   350→                      <div className="flex items-center gap-1.5 flex-shrink-0">
+   351→                        <Badge className={`text-[10px] px-2 py-0 border-0 ${statusColor(app.status)}`}>{app.status}</Badge>
+   352→                        <span className="text-[10px] text-muted-foreground hidden sm:inline">{new Date(app.createdAt).toLocaleDateString()}</span>
+   353→                        <div className="flex items-center gap-0.5 ml-1">
+   354→                          <Select value={app.status} onValueChange={(v) => updateStatus(app.id, v)}>
+   355→                            <SelectTrigger className="w-7 h-7 p-0 border-0" disabled={isUpdating === app.id}>
+   356→                              {isUpdating === app.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+   357→                              <SelectValue />
+   358→                            </SelectTrigger>
+   359→                            <SelectContent>
+   360→                              <SelectItem value="preparing">Preparing</SelectItem>
+   361→                              <SelectItem value="auto-applied">Auto-Applied</SelectItem>
+   362→                              <SelectItem value="submitted">Submitted</SelectItem>
+   363→                              <SelectItem value="interview">Interview</SelectItem>
+   364→                              <SelectItem value="offered">Offered</SelectItem>
+   365→                              <SelectItem value="rejected">Rejected</SelectItem>
+   366→                              <SelectItem value="withdrawn">Withdrawn</SelectItem>
+   367→                            </SelectContent>
+   368→                          </Select>
+   369→                          {app.url && <Button asChild variant="ghost" size="sm" className="h-7 w-7 p-0"><a href={app.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3 h-3" /></a></Button>}
+   370→                          {app.coverLetter && <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setExpandedId(expandedId === app.id ? null : app.id)}><Eye className="w-3 h-3" /></Button>}
+   371→                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500" onClick={() => deleteApp(app.id)}><Trash2 className="w-3 h-3" /></Button>
+   372→                        </div>
+   373→                      </div>
+   374→                    </div>
+   375→                    {expandedId === app.id && app.coverLetter && (
+   376→                      <div className="px-3 pb-3 border-t bg-muted/20">
+   377→                        <div className="flex items-center justify-between mb-1.5 mt-2">
+   378→                          <p className="text-xs font-semibold text-emerald-600">Cover Letter</p>
+   379→                          <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => { navigator.clipboard.writeText(app.coverLetter || ''); toast.success('Copied!'); }}><Copy className="w-3 h-3" />Copy</Button>
+   380→                        </div>
+   381→                        <ScrollArea className="max-h-48"><p className="text-xs whitespace-pre-line leading-relaxed font-serif text-muted-foreground">{app.coverLetter}</p></ScrollArea>
+   382→                      </div>
+   383→                    )}
+   384→                    {expandedId === app.id && app.notes && !app.coverLetter && (
+   385→                      <div className="px-3 pb-2 border-t bg-muted/20"><p className="text-[11px] text-muted-foreground mt-2">{app.notes}</p></div>
+   386→                    )}
+   387→                  </div>
+   388→                ))}
+   389→              </div>
+   390→            </ScrollArea>
+   391→          )}
+   392→        </CardContent>
+   393→      </Card>
+   394→
+   395→      {/* Add Dialog */}
+   396→      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+   397→        <DialogContent>
+   398→          <DialogHeader>
+   399→            <DialogTitle>Add Application</DialogTitle>
+   400→            <DialogDescription>Manually track a new job application</DialogDescription>
+   401→          </DialogHeader>
+   402→          <div className="space-y-3">
+   403→            <div><Label>Job Title *</Label><Input value={newApp.jobTitle} onChange={(e) => setNewApp({ ...newApp, jobTitle: e.target.value })} placeholder="e.g., Sales Manager" /></div>
+   404→            <div className="grid grid-cols-2 gap-3">
+   405→              <div><Label>Company</Label><Input value={newApp.company} onChange={(e) => setNewApp({ ...newApp, company: e.target.value })} placeholder="Company name" /></div>
+   406→              <div><Label>Location</Label><Input value={newApp.location} onChange={(e) => setNewApp({ ...newApp, location: e.target.value })} placeholder="Addis Ababa" /></div>
+   407→            </div>
+   408→            <div><Label>Job URL</Label><Input value={newApp.url} onChange={(e) => setNewApp({ ...newApp, url: e.target.value })} placeholder="https://..." /></div>
+   409→          </div>
+   410→          <DialogFooter>
+   411→            <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
+   412→            <Button onClick={addApp} className="bg-emerald-600 hover:bg-emerald-700 text-white">Add Application</Button>
+   413→          </DialogFooter>
+   414→        </DialogContent>
+   415→      </Dialog>
+   416→    </div>
+   417→  );
+   418→}
+   419→
+   420→// ========== AUTO-APPLY TAB ==========
+   421→function AutoApplyTab({
+   422→  isRunningCycle, setIsRunningCycle, runLogs, setRunLogs,
+   423→  applications, setApplications,
+   424→  pdfDialogApp, setPdfDialogApp, pdfData, setPdfData, isGeneratingPdf, setIsGeneratingPdf,
+   425→  expandedCoverLetter, setExpandedCoverLetter
+   426→}: {
+   427→  isRunningCycle: boolean; setIsRunningCycle: (v: boolean) => void;
+   428→  runLogs: string[]; setRunLogs: (l: string[]) => void;
+   429→  applications: Application[]; setApplications: (a: Application[]) => void;
+   430→  pdfDialogApp: Application | null; setPdfDialogApp: (a: Application | null) => void;
+   431→  pdfData: { cvHtml: string; coverLetterHtml: string } | null; setPdfData: (d: any) => void;
+   432→  isGeneratingPdf: boolean; setIsGeneratingPdf: (v: boolean) => void;
+   433→  expandedCoverLetter: string | null; setExpandedCoverLetter: (id: string | null) => void;
+   434→}) {
+   435→  const refreshApps = useCallback(async () => {
+   436→    try { const res = await fetch('/api/applications'); const data = await res.json(); if (data.success) setApplications(data.applications); } catch { /* */ }
+   437→  }, [setApplications]);
+   438→
+   439→  const triggerRun = async () => {
+   440→    if (isRunningCycle) return;
+   441→    setIsRunningCycle(true);
+   442→    setRunLogs(['⏳ Starting auto-apply cycle...']);
+   443→    try {
+   444→      const res = await fetch('/api/auto-apply/run?full=true', { method: 'POST' });
+   445→      const data = await res.json();
+   446→      if (data.success) {
+   447→        setRunLogs(data.logs || []);
+   448→        toast.success(`Found ${data.totalFound} jobs, matched ${data.totalMatched}, saved ${data.totalSaved}`);
+   449→        refreshApps();
+   450→      } else {
+   451→        setRunLogs(['❌ ' + (data.error || 'Unknown error')]);
+   452→        toast.error(data.error || 'Failed');
+   453→      }
+   454→    } catch (e) {
+   455→      setRunLogs(['❌ ' + String(e)]);
+   456→      toast.error('Failed to run auto-apply');
+   457→    } finally { setIsRunningCycle(false); }
+   458→  };
+   459→
+   460→  const downloadPdf = async (app: Application) => {
+   461→    setIsGeneratingPdf(true);
+   462→    setPdfDialogApp(app);
+   463→    setPdfData(null);
+   464→    try {
+   465→      const id = app.id === 'cv' ? 'cv' : app.id;
+   466→      const res = await fetch(`/api/auto-apply/generate-pdf?id=${id}&type=${app.id === 'cv' ? 'cv-only' : 'both'}`);
+   467→      const data = await res.json();
+   468→      if (data.success) setPdfData({ cvHtml: data.cvHtml, coverLetterHtml: data.coverLetterHtml });
+   469→      else toast.error('Failed to generate PDF');
+   470→    } catch { toast.error('Error generating'); }
+   471→    finally { setIsGeneratingPdf(false); }
+   472→  };
+   473→
+   474→  const printPdf = (html: string, title: string) => {
+   475→    const win = window.open('', '_blank');
+   476→    if (win) { win.document.write(html); win.document.title = title; win.document.close(); setTimeout(() => win.print(), 500); }
+   477→  };
+   478→
+   479→  const autoApps = applications.filter(a => a.status === 'auto-applied' || a.status === 'applied').sort((a, b) => b.matchScore - a.matchScore);
+   480→
+   481→  return (
+   482→    <div className="space-y-6">
+   483→      {/* Run Button + Status */}
+   484→      <Card className="border-emerald-200 dark:border-emerald-800">
+   485→        <CardContent className="p-6">
+   486→          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+   487→            <div className="flex items-center gap-3">
+   488→              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isRunningCycle ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}>
+   489→                {isRunningCycle ? <Loader2 className="w-6 h-6 text-orange-500 animate-spin" /> : <Zap className="w-6 h-6 text-emerald-600" />}
+   490→              </div>
+   491→              <div>
+   492→                <h3 className="font-semibold text-lg">Auto-Apply Engine</h3>
+   493→                <p className="text-sm text-muted-foreground">
+   494→                  {isRunningCycle ? 'Searching & scoring jobs...' : `Ready — ${autoApps.length} jobs auto-applied so far`}
+   495→                </p>
+   496→              </div>
+   497→            </div>
+   498→            <div className="flex gap-2">
+   499→              <Button onClick={() => downloadPdf({ id: 'cv', jobTitle: 'CV', company: '', location: '', status: '', url: null, coverLetter: null, notes: null, appliedAt: null, createdAt: new Date().toISOString(), jobId: null, matchScore: null, source: null } as unknown as Application)} variant="outline" className="gap-1.5 text-xs">
+   500→                <Download className="w-3.5 h-3.5" />Download My CV
+   501→              </Button>
+   502→              <Button onClick={triggerRun} disabled={isRunningCycle} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+   503→                {isRunningCycle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+   504→                {isRunningCycle ? 'Running...' : 'Search & Apply Now'}
+   505→              </Button>
+   506→            </div>
+   507→          </div>
+   508→
+   509→          {/* Live Run Logs */}
+   510→          {runLogs.length > 0 && (
+   511→            <div className="mt-4 p-3 rounded-lg bg-gray-950 text-emerald-400 font-mono text-[11px] leading-relaxed max-h-60 overflow-y-auto">
+   512→              {runLogs.map((log, i) => <div key={i}>{log}</div>)}
+   513→            </div>
+   514→          )}
+   515→        </CardContent>
+   516→      </Card>
+   517→
+   518→      {/* Stats */}
+   519→      <div className="grid grid-cols-3 gap-3">
+   520→        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-emerald-600">{autoApps.length}</p><p className="text-xs text-muted-foreground">Auto-Applied</p></CardContent></Card>
+   521→        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-blue-600">{autoApps.filter(a => (a.matchScore || 0) >= 70).length}</p><p className="text-xs text-muted-foreground">High Match (70+)</p></CardContent></Card>
+   522→        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-purple-600">{autoApps.filter(a => a.coverLetter).length}</p><p className="text-xs text-muted-foreground">Cover Letters</p></CardContent></Card>
+   523→      </div>
+   524→
+   525→      {/* Job Packages — Ready to Send */}
+   526→      <Card>
+   527→        <CardHeader className="pb-3">
+   528→          <CardTitle className="text-base flex items-center gap-2"><Sparkles className="w-4 h-4 text-emerald-600" /> Job Packages — Ready to Apply</CardTitle>
+   529→          <CardDescription>Click &quot;Prepare PDF&quot; to generate CV + Cover Letter for each job</CardDescription>
+   530→        </CardHeader>
+   531→        <CardContent>
+   532→          {autoApps.length === 0 ? (
+   533→            <div className="text-center py-12 text-muted-foreground">
+   534→              <Briefcase className="w-12 h-12 mx-auto mb-3 opacity-20" />
+   535→              <p className="text-sm font-medium">No jobs found yet</p>
+   536→              <p className="text-xs mt-1">Click &quot;Search &amp; Apply Now&quot; to start finding jobs</p>
+   537→            </div>
+   538→          ) : (
+   539→            <ScrollArea className="max-h-[500px]">
+   540→              <div className="space-y-3">
+   541→                {autoApps.map((app) => (
+   542→                  <div key={app.id} className="border rounded-lg overflow-hidden">
+   543→                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 p-3 bg-muted/30">
+   544→                      <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+   545→                        {app.matchScore && app.matchScore >= 70 ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Briefcase className="w-5 h-5 text-emerald-600" />}
+   546→                      </div>
+   547→                      <div className="flex-1 min-w-0">
+   548→                        <div className="flex items-center gap-2 flex-wrap">
+   549→                          <h4 className="text-sm font-medium truncate">{app.jobTitle}</h4>
+   550→                          {app.matchScore && <Badge variant="outline" className="text-[10px]">{app.matchScore}% match</Badge>}
+   551→                        </div>
+   552→                        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+   553→                          {app.company && <span className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="w-2.5 h-2.5" />{app.company}</span>}
+   554→                          {app.source && <span className="text-[10px] text-muted-foreground">via {app.source}</span>}
+   555→                        </div>
+   556→                      </div>
+   557→                      <div className="flex items-center gap-1.5 flex-shrink-0">
+   558→                        <Button size="sm" className="h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => downloadPdf(app)}>
+   559→                          <FileDown className="w-3 h-3" />Prepare PDF
+   560→                        </Button>
+   561→                        {app.url && (
+   562→                          <Button asChild variant="outline" size="sm" className="h-8 text-xs gap-1">
+   563→                            <a href={app.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3 h-3" />Visit Site</a>
+   564→                          </Button>
+   565→                        )}
+   566→                        <Button variant="ghost" size="sm" className="h-8 text-xs gap-1" onClick={() => setExpandedCoverLetter(expandedCoverLetter === app.id ? null : app.id)}>
+   567→                          <Eye className="w-3 h-3" />Letter
+   568→                        </Button>
+   569→                      </div>
+   570→                    </div>
+   571→                    {expandedCoverLetter === app.id && app.coverLetter && (
+   572→                      <div className="px-3 pb-3 border-t bg-background">
+   573→                        <div className="flex items-center justify-between mb-1.5 mt-2">
+   574→                          <p className="text-xs font-semibold text-emerald-600">Cover Letter</p>
+   575→                          <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => { navigator.clipboard.writeText(app.coverLetter || ''); toast.success('Copied!'); }}><Copy className="w-3 h-3" />Copy</Button>
+   576→                        </div>
+   577→                        <ScrollArea className="max-h-48"><p className="text-xs whitespace-pre-line leading-relaxed font-serif text-muted-foreground">{app.coverLetter}</p></ScrollArea>
+   578→                      </div>
+   579→                    )}
+   580→                  </div>
+   581→                ))}
+   582→              </div>
+   583→            </ScrollArea>
+   584→          )}
+   585→        </CardContent>
+   586→      </Card>
+   587→
+   588→      {/* PDF Preview Dialog */}
+   589→      <Dialog open={!!pdfDialogApp} onOpenChange={() => setPdfDialogApp(null)}>
+   590→        <DialogContent className="max-w-4xl max-h-[85vh]">
+   591→          <DialogHeader>
+   592→            <DialogTitle>Application Package — {pdfDialogApp?.jobTitle}</DialogTitle>
+   593→            <DialogDescription>{pdfDialogApp?.company} • {pdfDialogApp?.matchScore}% match</DialogDescription>
+   594→          </DialogHeader>
+   595→          {isGeneratingPdf ? (
+   596→            <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>
+   597→          ) : pdfData ? (
+   598→            <div className="space-y-3">
+   599→              <div className="flex gap-2">
+   600→                <Button variant="outline" size="sm" className="gap-1" onClick={() => pdfData.cvHtml && printPdf(pdfData.cvHtml, 'Hambisa_CV.pdf')}>
+   601→                  <Printer className="w-3.5 h-3.5" />Print CV
+   602→                </Button>
+   603→                <Button variant="outline" size="sm" className="gap-1" onClick={() => pdfData.coverLetterHtml && printPdf(pdfData.coverLetterHtml, 'Cover_Letter.pdf')}>
+   604→                  <Printer className="w-3.5 h-3.5" />Print Cover Letter
+   605→                </Button>
+   606→                {pdfDialogApp?.url && (
+   607→                  <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1">
+   608→                    <a href={pdfDialogApp.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3.5 h-3.5" />Go to Job Site</a>
+   609→                  </Button>
+   610→                )}
+   611→              </div>
+   612→              <div className="grid md:grid-cols-2 gap-4">
+   613→                {pdfData.cvHtml && (
+   614→                  <div>
+   615→                    <p className="text-xs font-semibold mb-2 text-emerald-600">📄 Curriculum Vitae</p>
+   616→                    <div className="border rounded-lg h-[400px] overflow-auto bg-white" dangerouslySetInnerHTML={{ __html: pdfData.cvHtml }} />
+   617→                  </div>
+   618→                )}
+   619→                {pdfData.coverLetterHtml && (
+   620→                  <div>
+   621→                    <p className="text-xs font-semibold mb-2 text-emerald-600">✉️ Cover Letter</p>
+   622→                    <div className="border rounded-lg h-[400px] overflow-auto bg-white" dangerouslySetInnerHTML={{ __html: pdfData.coverLetterHtml }} />
+   623→                  </div>
+   624→                )}
+   625→              </div>
+   626→            </div>
+   627→          ) : null}
+   628→        </DialogContent>
+   629→      </Dialog>
+   630→    </div>
+   631→  );
+   632→}
+   633→
+   634→// ========== COVER LETTERS TAB ==========
+   635→function CoverLettersTab({
+   636→  applications, profile, expandedCoverLetter, setExpandedCoverLetter,
+   637→  isGeneratingCoverLetter, setIsGeneratingCoverLetter,
+   638→  coverLetterForm, setCoverLetterForm, generatedCoverLetter, setGeneratedCoverLetter,
+   639→}: {
+   640→  applications: Application[]; profile: UserProfile | null;
+   641→  expandedCoverLetter: string | null; setExpandedCoverLetter: (id: string | null) => void;
+   642→  isGeneratingCoverLetter: boolean; setIsGeneratingCoverLetter: (v: boolean) => void;
+   643→  coverLetterForm: { jobTitle: string; company: string; jobDescription: string };
+   644→  setCoverLetterForm: (f: { jobTitle: string; company: string; jobDescription: string }) => void;
+   645→  generatedCoverLetter: string | null; setGeneratedCoverLetter: (cl: string | null) => void;
+   646→}) {
+   647→  const handleGenerate = async () => {
+   648→    if (!coverLetterForm.jobTitle || !coverLetterForm.company) { toast.error('Enter job title and company'); return; }
+   649→    setIsGeneratingCoverLetter(true);
+   650→    try {
+   651→      const res = await fetch('/api/ai/cover-letter', {
+   652→        method: 'POST', headers: { 'Content-Type': 'application/json' },
+   653→        body: JSON.stringify(coverLetterForm),
+   654→      });
+   655→      const data = await res.json();
+   656→      if (data.success) { setGeneratedCoverLetter(data.coverLetter); toast.success('Cover letter generated!'); }
+   657→    } catch { toast.error('Failed to generate'); }
+   658→    finally { setIsGeneratingCoverLetter(false); }
+   659→  };
+   660→
+   661→  const appsWithLetters = applications.filter(a => a.coverLetter);
+   662→
+   663→  return (
+   664→    <div className="space-y-6">
+   665→      {/* Generator */}
+   666→      <Card>
+   667→        <CardHeader>
+   668→          <CardTitle className="text-base flex items-center gap-2"><Sparkles className="w-4 h-4 text-emerald-600" /> Generate Cover Letter</CardTitle>
+   669→          <CardDescription>Create a tailored cover letter for any job application</CardDescription>
+   670→        </CardHeader>
+   671→        <CardContent className="space-y-4">
+   672→          <div className="grid sm:grid-cols-2 gap-4">
+   673→            <div><Label>Job Title *</Label><Input value={coverLetterForm.jobTitle} onChange={(e) => setCoverLetterForm({ ...coverLetterForm, jobTitle: e.target.value })} placeholder="e.g., Sales Manager" /></div>
+   674→            <div><Label>Company *</Label><Input value={coverLetterForm.company} onChange={(e) => setCoverLetterForm({ ...coverLetterForm, company: e.target.value })} placeholder="e.g., Ethiopian Airlines" /></div>
+   675→          </div>
+   676→          <div><Label>Job Description (optional)</Label><Textarea value={coverLetterForm.jobDescription} onChange={(e) => setCoverLetterForm({ ...coverLetterForm, jobDescription: e.target.value })} placeholder="Paste job description for a more tailored letter..." rows={3} /></div>
+   677→          <Button onClick={handleGenerate} disabled={isGeneratingCoverLetter} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+   678→            {isGeneratingCoverLetter ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+   679→            {isGeneratingCoverLetter ? 'Generating...' : 'Generate Cover Letter'}
+   680→          </Button>
+   681→        </CardContent>
+   682→      </Card>
+   683→
+   684→      {/* Result */}
+   685→      {generatedCoverLetter && (
+   686→        <Card>
+   687→          <CardHeader className="pb-3">
+   688→            <div className="flex items-center justify-between">
+   689→              <CardTitle className="text-base">Generated Cover Letter</CardTitle>
+   690→              <Button variant="ghost" size="sm" className="gap-1" onClick={() => { navigator.clipboard.writeText(generatedCoverLetter); toast.success('Copied!'); }}>
+   691→                <Copy className="w-3.5 h-3.5" />Copy
+   692→              </Button>
+   693→            </div>
+   694→          </CardHeader>
+   695→          <CardContent>
+   696→            <ScrollArea className="h-[350px]">
+   697→              <p className="whitespace-pre-line text-sm leading-relaxed font-serif">{generatedCoverLetter}</p>
+   698→            </ScrollArea>
+   699→          </CardContent>
+   700→        </Card>
+   701→      )}
+   702→
+   703→      {/* Auto-generated letters */}
+   704→      {appsWithLetters.length > 0 && (
+   705→        <Card>
+   706→          <CardHeader className="pb-3">
+   707→            <CardTitle className="text-base">Auto-Generated Cover Letters ({appsWithLetters.length})</CardTitle>
+   708→          </CardHeader>
+   709→          <CardContent>
+   710→            <ScrollArea className="max-h-[500px]">
+   711→              <div className="space-y-3">
+   712→                {appsWithLetters.map((app) => (
+   713→                  <div key={app.id} className="border rounded-lg overflow-hidden">
+   714→                    <div className="flex items-center justify-between p-3 bg-muted/30 cursor-pointer" onClick={() => setExpandedCoverLetter(expandedCoverLetter === app.id ? null : app.id)}>
+   715→                      <div>
+   716→                        <p className="text-sm font-medium">{app.jobTitle}</p>
+   717→                        <div className="flex items-center gap-2">
+   718→                          {app.company && <span className="text-xs text-muted-foreground">{app.company}</span>}
+   719→                          {app.matchScore && <Badge variant="outline" className="text-[10px]">{app.matchScore}% match</Badge>}
+   720→                        </div>
+   721→                      </div>
+   722→                      <ChevronRight className={`w-4 h-4 transition-transform ${expandedCoverLetter === app.id ? 'rotate-90' : ''}`} />
+   723→                    </div>
+   724→                    {expandedCoverLetter === app.id && app.coverLetter && (
+   725→                      <div className="p-4 border-t">
+   726→                        <div className="flex items-center justify-between mb-2">
+   727→                          <p className="text-xs font-semibold text-emerald-600">Cover Letter</p>
+   728→                          <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => { navigator.clipboard.writeText(app.coverLetter || ''); toast.success('Copied!'); }}>
+   729→                            <Copy className="w-3 h-3" />Copy
+   730→                          </Button>
+   731→                        </div>
+   732→                        <ScrollArea className="max-h-60">
+   733→                          <p className="text-xs whitespace-pre-line leading-relaxed font-serif text-muted-foreground">{app.coverLetter}</p>
+   734→                        </ScrollArea>
+   735→                      </div>
+   736→                    )}
+   737→                  </div>
+   738→                ))}
+   739→              </div>
+   740→            </ScrollArea>
+   741→          </CardContent>
+   742→        </Card>
+   743→      )}
+   744→    </div>
+   745→  );
+   746→}
+   747→
+   748→// ========== AI CHAT TAB ==========
+   749→function AIChatTab({ chatMessages, setChatMessages, isChatLoading, setIsChatLoading, chatContext, setChatContext, message, setMessage, chatEndRef, profile }: {
+   750→  chatMessages: ChatMessage[]; setChatMessages: (m: ChatMessage[]) => void;
+   751→  isChatLoading: boolean; setIsChatLoading: (v: boolean) => void;
+   752→  chatContext: string; setChatContext: (c: string) => void;
+   753→  message: string; setMessage: (m: string) => void; chatEndRef: React.RefObject<HTMLDivElement>;
+   754→  profile: UserProfile | null;
+   755→}) {
+   756→  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages, chatEndRef]);
+   757→
+   758→  const handleSend = async () => {
+   759→    if (!message.trim() || isChatLoading) return;
+   760→    const userMsg = message.trim();
+   761→    setMessage('');
+   762→    setIsChatLoading(true);
+   763→    const updated = [...chatMessages, { id: `msg-${Date.now()}`, role: 'user' as const, content: userMsg, createdAt: new Date().toISOString() }];
+   764→    setChatMessages(updated);
+   765→    try {
+   766→      const res = await fetch('/api/ai/chat', {
+   767→        method: 'POST', headers: { 'Content-Type': 'application/json' },
+   768→        body: JSON.stringify({ message: userMsg, context: chatContext }),
+   769→      });
+   770→      const data = await res.json();
+   771→      if (data.success) setChatMessages([...updated, { id: `msg-${Date.now() + 1}`, role: 'assistant' as const, content: data.response, createdAt: new Date().toISOString() }]);
+   772→    } catch { toast.error('Failed to get response'); }
+   773→    finally { setIsChatLoading(false); }
+   774→  };
+   775→
+   776→  const quickQs = [
+   777→    'What are the best sales manager roles available now?',
+   778→    'How should I prepare for a sales interview in Ethiopia?',
+   779→    'What salary should I expect as a sales manager in Addis Ababa?',
+   780→    'How to write a great CV for Ethiopian employers?',
+   781→  ];
+   782→
+   783→  return (
+   784→    <div className="space-y-4">
+   785→      <div className="flex items-center gap-3 mb-2">
+   786→        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center"><Bot className="w-5 h-5 text-white" /></div>
+   787→        <div className="flex-1">
+   788→          <h3 className="font-semibold">AI Career Coach</h3>
+   789→          <p className="text-xs text-muted-foreground">Personalized advice for Ethiopian job market</p>
+   790→        </div>
+   791→        <Select value={chatContext} onValueChange={setChatContext}>
+   792→          <SelectTrigger className="w-32 h-8 text-xs"><SelectValue /></SelectTrigger>
+   793→          <SelectContent>
+   794→            <SelectItem value="job-search">Job Search</SelectItem>
+   795→            <SelectItem value="interview">Interview</SelectItem>
+   796→            <SelectItem value="career">Career</SelectItem>
+   797→          </SelectContent>
+   798→        </Select>
+   799→      </div>
+
+[showing lines 200-799 of 889; use offset=800 with limit to continue reading]

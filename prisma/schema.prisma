@@ -31,9 +31,12 @@ model Application {
   jobTitle    String
   company     String?
   location    String?
-  status      String   @default("preparing") // preparing, submitted, interview, offered, rejected, withdrawn, auto-applied
+  status      String   @default("pending_review") // pending_review, approved, submitted, interview, offered, rejected, withdrawn
   url         String?
   coverLetter String?
+  matchReasoning String?
+  jobDeadline String?
+  jobDescription String?
   notes       String?
   matchScore  Int?
   source      String?

@@ -483,10 +483,10 @@ async function saveApplication(log: ApplicationLog): Promise<boolean> {
       jobTitle: log.jobTitle,
       company: log.company || null,
       location: PROFILE.location,
-      status: "applied",
+      status: "pending_review",
       url: log.url || null,
       coverLetter: log.coverLetter || null,
-      notes: `Auto-applied via auto-apply-service | Match Score: ${log.matchScore}/100 | Source: ${log.source} | Query: "${log.query}"`,
+      notes: `Pending review via auto-apply-service | Match Score: ${log.matchScore}/100 | Source: ${log.source} | Query: "${log.query}"`,
     };
 
     console.log(`  [Save] POST ${log.jobTitle.substring(0, 50)}...`);

@@ -107,11 +107,10 @@ export async function POST(request: NextRequest) {
                   company: extractCompany(item.snippet, item.name),
                   url: item.url,
                   source: item.host_name,
-                  status: 'auto-applied',
+                  status: 'pending_review',
                   matchScore,
                   coverLetter,
-                  notes: `Auto-applied | Match: ${matchScore}/100 | ${item.host_name}`,
-                  appliedAt: new Date(),
+                  notes: `Pending review | Match: ${matchScore}/100 | ${item.host_name}`,
                 },
               });
               totalApplied++;
