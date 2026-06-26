@@ -167,8 +167,8 @@ function JobSearchTab() {
         body: JSON.stringify({
           query: searchQuery,
           location: searchLocation || undefined,
-          category: searchCategory || undefined,
-          type: searchType || undefined,
+          category: (searchCategory && searchCategory !== 'all') ? searchCategory : undefined,
+          type: (searchType && searchType !== 'all') ? searchType : undefined,
         }),
       });
       const data = await res.json();
@@ -297,7 +297,7 @@ function JobSearchTab() {
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Categories</SelectItem>
+                  <SelectItem value="all">All Categories</SelectItem>
                   <SelectItem value="IT">IT & Software</SelectItem>
                   <SelectItem value="Engineering">Engineering</SelectItem>
                   <SelectItem value="Finance">Finance</SelectItem>
@@ -316,7 +316,7 @@ function JobSearchTab() {
                   <SelectValue placeholder="Job Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Types</SelectItem>
+                  <SelectItem value="all">All Types</SelectItem>
                   <SelectItem value="Full-Time">Full-Time</SelectItem>
                   <SelectItem value="Part-Time">Part-Time</SelectItem>
                   <SelectItem value="Contract">Contract</SelectItem>
