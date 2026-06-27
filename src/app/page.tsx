@@ -502,11 +502,160 @@ function AutoApplyTab(props: any) {
   );
 }
 
+// ===== HELPER: Extract apply email from notes =====
+function parseApplyEmail(notes: string | null): string | null {
+  if (!notes) return null;
+  const m = notes.match(/📧\s*Apply to:\s*([^\s|]+)/);
+  return m ? m[1] : null;
+}
+
+// ===== SUBMISSION DETAIL DIALOG =====
+function SubmissionDetailDialog({ app, open, onOpenChange }: { app: Application | null; open: boolean; onOpenChange: (v: boolean) => void }) {
+  if (!app) return null;
+  const applyEmail = parseApplyEmail(app.notes);
+  const hasSubmission = app.status === 'submitted' || app.status === 'approved';
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <FileText className="w-5 h-5 text-emerald-600" />
+            {app.jobTitle}
+          </DialogTitle>
+          <DialogDescription className="flex items-center gap-2">
+            {app.company && <span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5" />{app.company}</span>}
+            {app.location && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{app.location}</span>}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          {/* Status & Score */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <Badge className={'px-3 py-1 border-0 text-xs font-medium ' + statusColor(app.status)}>{statusLabel(app.status)}</Badge>
+            {app.matchScore && (
+              <Badge className={'px-3 py-1 border-0 text-xs font-medium ' + (app.matchScore >= 70 ? 'bg-emerald-100 text-emerald-800' : app.matchScore >= 50 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800')}>
+                {app.matchScore}% Match
+              </Badge>
+            )}
+            {app.source && <Badge variant="outline" className="text-xs">{app.source}</Badge>}
+            <span className="text-xs text-muted-foreground">{new Date(app.createdAt).toLocaleString()}</span>
+          </div>
+
+          {/* Where to Apply / Submission Details */}
+          <Card className="border-emerald-200 bg-gradient-to-r from-emerald-50/50 to-teal-50/50">
+            <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><MailCheck className="w-4 h-4 text-emerald-600" />Submission Details</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {app.url && (
+                <div className="flex items-start gap-2">
+                  <Globe className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground">Job Source URL</p>
+                    <a href={app.url} target="_blank" rel="noopener noreferrer" className="text-sm text-emerald-700 hover:text-emerald-900 hover:underline break-all">{app.url}</a>
+                  </div>
+                </div>
+              )}
+              {applyEmail && (
+                <div className="flex items-start gap-2">
+                  <Mail className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground">Apply Email Address</p>
+                    <a href={'mailto:' + applyEmail} className="text-sm text-emerald-700 hover:text-emerald-900 hover:underline">{applyEmail}</a>
+                  </div>
+                </div>
+              )}
+              {hasSubmission && (
+                <div className="flex items-start gap-2">
+                  <Send className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-muted-foreground">Submission Method</p>
+                    {applyEmail ? (
+                      <p className="text-sm">Send your CV and cover letter to <strong>{applyEmail}</strong> via email</p>
+                    ) : app.url ? (
+                      <p className="text-sm">Apply through the job posting website</p>
+                    ) : (
+                      <p className="text-sm">Contact the employer directly</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              {!app.url && !applyEmail && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <AlertCircle className="w-4 h-4" />
+                  <p>No submission URL or email found. Search for the employer to apply.</p>
+                </div>
+              )}
+              {app.appliedAt && (
+                <div className="flex items-center gap-2 text-sm text-emerald-700">
+                  <Calendar className="w-4 h-4" />
+                  <span>Submitted on {new Date(app.appliedAt).toLocaleDateString()}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Match Reasoning */}
+          {app.matchReasoning && (
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Brain className="w-4 h-4 text-purple-600" />AI Match Reasoning</CardTitle></CardHeader>
+              <CardContent><p className="text-sm text-muted-foreground">{app.matchReasoning}</p></CardContent>
+            </Card>
+          )}
+
+          {/* Cover Letter Preview */}
+          {app.coverLetter && (
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2"><Sparkles className="w-4 h-4 text-amber-500" />Cover Letter</CardTitle>
+                  <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={() => { navigator.clipboard.writeText(app.coverLetter || ''); toast.success('Copied!'); }}>
+                    <Copy className="w-3 h-3" />Copy
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent><ScrollArea className="h-[200px]"><p className="text-sm font-serif whitespace-pre-line text-muted-foreground">{app.coverLetter}</p></ScrollArea></CardContent>
+            </Card>
+          )}
+
+          {/* Job Description */}
+          {app.jobDescription && (
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><FileCheck className="w-4 h-4 text-sky-600" />Job Description</CardTitle></CardHeader>
+              <CardContent><ScrollArea className="h-[150px]"><p className="text-sm text-muted-foreground">{app.jobDescription}</p></ScrollArea></CardContent>
+            </Card>
+          )}
+
+          {/* Notes */}
+          {app.notes && (
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><MessageSquare className="w-4 h-4 text-gray-600" />System Notes</CardTitle></CardHeader>
+              <CardContent><ScrollArea className="h-[100px]"><p className="text-xs text-muted-foreground whitespace-pre-line">{app.notes}</p></ScrollArea></CardContent>
+            </Card>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-2 flex-wrap pt-2">
+            {app.url && (
+              <Button asChild size="sm" className="bg-emerald-600 text-white gap-1.5">
+                <a href={app.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3.5 h-3.5" />Open Job Site</a>
+              </Button>
+            )}
+            {applyEmail && (
+              <Button asChild size="sm" variant="outline" className="gap-1.5">
+                <a href={'mailto:' + applyEmail + '?subject=Application for ' + app.jobTitle}><Mail className="w-3.5 h-3.5" />Send Application Email</a>
+              </Button>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ===== APPLICATIONS TAB =====
 function ApplicationsTab({ applications, setApplications }: { applications: Application[]; setApplications: (a: Application[]) => void }) {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterText, setFilterText] = useState('');
   const [showAdd, setShowAdd] = useState(false);
+  const [detailApp, setDetailApp] = useState<Application | null>(null);
   const [newApp, setNewApp] = useState({ jobTitle: '', company: '', location: '', url: '' });
   const refresh = () => fetch('/api/applications').then(r => r.json()).then(d => { if (d.success) setApplications(d.applications); }).catch(() => {});
   const filtered = applications.filter((a) => (filterStatus === 'all' || a.status === filterStatus) && (!filterText || a.jobTitle.toLowerCase().includes(filterText.toLowerCase())));
@@ -524,12 +673,25 @@ function ApplicationsTab({ applications, setApplications }: { applications: Appl
         {filtered.length === 0 ? <div className="text-center py-12 text-muted-foreground"><p className="text-sm">No applications</p></div> : (
           <ScrollArea className="max-h-[600px]"><div className="space-y-2">
             {filtered.map((app) => (
-              <div key={app.id} className="border rounded-lg p-3 hover:bg-muted/30">
+              <div key={app.id} className="border rounded-lg p-3 hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => setDetailApp(app)}>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{app.jobTitle}</p><div className="flex items-center gap-1 text-xs text-muted-foreground">{app.company}</div></div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <p className="text-sm font-medium truncate">{app.jobTitle}</p>
+                      {app.matchScore && <Badge className={'text-[10px] px-1.5 py-0 border-0 ' + (app.matchScore >= 70 ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-800')}>{app.matchScore}%</Badge>}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {app.company && <span>{app.company}</span>}
+                      {app.source && <span>• {app.source}</span>}
+                      {parseApplyEmail(app.notes) && <span className="text-emerald-600">📧</span>}
+                      {app.url && <span className="text-sky-600">🔗</span>}
+                    </div>
+                  </div>
                   <Badge className={'text-[10px] px-2 py-0 border-0 ' + statusColor(app.status)}>{statusLabel(app.status)}</Badge>
-                  <Select value={app.status} onValueChange={(v) => updateStatus(app.id, v)}><SelectTrigger className="w-24 h-7 text-[10px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pending_review">Pending</SelectItem><SelectItem value="approved">Approved</SelectItem><SelectItem value="submitted">Sent</SelectItem><SelectItem value="rejected">Rejected</SelectItem></SelectContent></Select>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500" onClick={() => deleteApp(app.id)}><Trash2 className="w-3 h-3" /></Button>
+                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                    <Select value={app.status} onValueChange={(v) => updateStatus(app.id, v)}><SelectTrigger className="w-24 h-7 text-[10px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pending_review">Pending</SelectItem><SelectItem value="approved">Approved</SelectItem><SelectItem value="submitted">Sent</SelectItem><SelectItem value="rejected">Rejected</SelectItem></SelectContent></Select>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500" onClick={() => deleteApp(app.id)}><Trash2 className="w-3 h-3" /></Button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -541,6 +703,7 @@ function ApplicationsTab({ applications, setApplications }: { applications: Appl
         <div className="grid grid-cols-2 gap-3"><div><Label>Company</Label><Input value={newApp.company} onChange={(e) => setNewApp({ ...newApp, company: e.target.value })} /></div><div><Label>Location</Label><Input value={newApp.location} onChange={(e) => setNewApp({ ...newApp, location: e.target.value })} /></div></div>
         <div><Label>URL</Label><Input value={newApp.url} onChange={(e) => setNewApp({ ...newApp, url: e.target.value })} /></div>
       </div><DialogFooter><Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button><Button onClick={addApp} className="bg-emerald-600 text-white">Add</Button></DialogFooter></DialogContent></Dialog>
+      <SubmissionDetailDialog app={detailApp} open={!!detailApp} onOpenChange={(v) => !v && setDetailApp(null)} />
     </div>
   );
 }
@@ -659,7 +822,8 @@ function AIChatTab(props: any) {
 // ===== PROFILE =====
 function ProfileTab({ profile, setProfile, profileEditing, setProfileEditing, currentUser }: any) {
   const [form, setForm] = useState({ fullName: '', email: '', phone: '', location: '', title: '', summary: '', skills: '[]', education: '', experience: '' });
-  useEffect(() => { if (profile) setForm({ fullName: profile.fullName || '', email: profile.email || '', phone: profile.phone || '', location: profile.location || '', title: profile.title || '', summary: profile.summary || '', skills: profile.skills || '[]', education: profile.education || '', experience: profile.experience || '' }); }, [profile]);
+  const [prevProfile, setPrevProfile] = useState(profile);
+  if (profile && profile !== prevProfile) { setPrevProfile(profile); setForm({ fullName: profile.fullName || '', email: profile.email || '', phone: profile.phone || '', location: profile.location || '', title: profile.title || '', summary: profile.summary || '', skills: profile.skills || '[]', education: profile.education || '', experience: profile.experience || '' }); }
   const handleSave = () => { fetch('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }).then(r => r.json()).then(d => { if (d.success) { setProfile(d.profile); setProfileEditing(false); toast.success('Saved!'); } }); };
   const skills = JSON.parse(form.skills || '[]');
   const [newSkill, setNewSkill] = useState('');

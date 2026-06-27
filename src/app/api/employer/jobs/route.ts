@@ -24,9 +24,6 @@ export async function GET(request: NextRequest) {
         where: { status: 'active' },
         orderBy: { createdAt: 'desc' },
         take: 50,
-        include: {
-          user: { select: { name: true, company: undefined } },
-        },
       });
       return NextResponse.json({ success: true, jobs });
     }

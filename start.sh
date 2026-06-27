@@ -1,3 +1,3 @@
 #!/bin/bash
 cd /home/z/my-project
-npx next dev --port 3000
+exec node ./node_modules/.bin/next dev -p 3000

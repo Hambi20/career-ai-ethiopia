@@ -16,7 +16,6 @@ export async function GET(request: NextRequest) {
 
     const user = await db.user.findUnique({
       where: { id: payload.userId },
-      include: { profile: true },
       select: {
         id: true,
         email: true,

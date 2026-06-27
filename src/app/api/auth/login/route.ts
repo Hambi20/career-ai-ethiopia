@@ -12,9 +12,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user
-    const user = await db.user.findUnique({
+    const user = await db.user.findFirst({
       where: { email: email.toLowerCase() },
-      include: { profile: true },
     });
 
     if (!user || !user.password) {
