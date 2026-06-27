@@ -1,0 +1,423 @@
+    80→    80→   580→            <p className="text-xs text-muted-foreground">Pending Review</p>
+    81→    81→   581→          </CardContent>
+    82→    82→   582→        </Card>
+    83→    83→   583→        <Card className={approvedApps.length > 0 ? 'border-emerald-300' : ''}>
+    84→    84→   584→          <CardContent className="p-4 text-center">
+    85→    85→   585→            <p className="text-2xl font-bold text-emerald-600">{approvedApps.length}</p>
+    86→    86→   586→            <p className="text-xs text-muted-foreground">Approved</p>
+    87→    87→   587→          </CardContent>
+    88→    88→   588→        </Card>
+    89→    89→   589→        <Card>
+    90→    90→   590→          <CardContent className="p-4 text-center">
+    91→    91→   591→            <p className="text-2xl font-bold text-blue-600">{submittedApps.length}</p>
+    92→    92→   592→            <p className="text-xs text-muted-foreground">Sent</p>
+    93→    93→   593→          </CardContent>
+    94→    94→   594→        </Card>
+    95→    95→   595→      </div>
+    96→    96→   596→
+    97→    97→   597→      {/* ===== SECTION 2: Pending Review — Needs Your Approval ===== */}
+    98→    98→   598→      <Card className={pendingApps.length > 0 ? 'border-amber-300 dark:border-amber-700' : ''}>
+    99→    99→   599→        <CardHeader className="pb-3">
+   100→   100→   600→          <div className="flex items-center justify-between">
+   101→   101→   601→            <div>
+   102→   102→   602→              <CardTitle className="text-base flex items-center gap-2">
+   103→   103→   603→                <Clock className="w-4 h-4 text-amber-500" />
+   104→   104→   604→                Pending Review ({pendingApps.length})
+   105→   105→   605→              </CardTitle>
+   106→   106→   606→              <CardDescription>Review each job and approve or reject before sending</CardDescription>
+   107→   107→   607→            </div>
+   108→   108→   608→            {pendingApps.length > 1 && (
+   109→   109→   609→              <Button onClick={batchApprove} size="sm" variant="outline" className="gap-1.5 text-xs text-emerald-600 border-emerald-300">
+   110→   110→   610→                <CheckCircle2 className="w-3.5 h-3.5" />Approve All ({pendingApps.length})
+   111→   111→   611→              </Button>
+   112→   112→   612→            )}
+   113→   113→   613→          </div>
+   114→   114→   614→        </CardHeader>
+   115→   115→   615→        <CardContent>
+   116→   116→   616→          {pendingApps.length === 0 ? (
+   117→   117→   617→            <div className="text-center py-12 text-muted-foreground">
+   118→   118→   618→              <Search className="w-12 h-12 mx-auto mb-3 opacity-20" />
+   119→   119→   619→              <p className="text-sm font-medium">No jobs waiting for review</p>
+   120→   120→   620→              <p className="text-xs mt-1">Click &quot;Find Jobs Now&quot; to start searching</p>
+   121→   121→   621→            </div>
+   122→   122→   622→          ) : (
+   123→   123→   623→            <ScrollArea className="max-h-[700px]">
+   124→   124→   624→              <div className="space-y-3">
+   125→   125→   625→                {pendingApps.map((app) => (
+   126→   126→   626→                  <div key={app.id} className="border-2 border-amber-200 dark:border-amber-800 rounded-xl overflow-hidden bg-gradient-to-r from-amber-50/50 to-white dark:from-amber-950/10 dark:to-background">
+   127→   127→   627→                    {/* Job Summary Header */}
+   128→   128→   628→                    <div className="p-4">
+   129→   129→   629→                      <div className="flex flex-col sm:flex-row gap-3">
+   130→   130→   630→                        {/* Left: Job Info */}
+   131→   131→   631→                        <div className="flex-1 min-w-0">
+   132→   132→   632→                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+   133→   133→   633→                            <h4 className="text-sm font-bold">{app.jobTitle}</h4>
+   134→   134→   634→                            {app.matchScore && (
+   135→   135→   635→                              <Badge className={`text-[10px] border-0 ${(app.matchScore || 0) >= 70 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' : (app.matchScore || 0) >= 50 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-gray-100 text-gray-600'}`}>
+   136→   136→   636→                                {app.matchScore}% match
+   137→   137→   637→                              </Badge>
+   138→   138→   638→                            )}
+   139→   139→   639→                          </div>
+   140→   140→   640→
+   141→   141→   641→                          <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
+   142→   142→   642→                            {app.company && (
+   143→   143→   643→                              <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{app.company}</span>
+   144→   144→   644→                            )}
+   145→   145→   645→                            {app.location && (
+   146→   146→   646→                              <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{app.location}</span>
+   147→   147→   647→                            )}
+   148→   148→   648→                            {app.source && (
+   149→   149→   649→                              <span className="flex items-center gap-1"><Globe className="w-3 h-3" />{app.source}</span>
+   150→   150→   650→                            )}
+   151→   151→   651→                          </div>
+   152→   152→   652→
+   153→   153→   653→                          {/* Match Reasoning */}
+   154→   154→   654→                          {app.matchReasoning && (
+   155→   155→   655→                            <div className="mt-2 p-2.5 rounded-lg bg-muted/50 border border-border/50">
+   156→   156→   656→                              <p className="text-[11px] text-muted-foreground">
+   157→   157→   657→                                <span className="font-semibold text-amber-700 dark:text-amber-400">Why this matches:</span> {app.matchReasoning}
+   158→   158→   658→                              </p>
+   159→   159→   659→                            </div>
+   160→   160→   660→                          )}
+   161→   161→   661→
+   162→   162→   662→                          {/* Deadline */}
+   163→   163→   663→                          {app.jobDeadline && (
+   164→   164→   664→                            <div className="mt-2 flex items-center gap-1.5 text-xs">
+   165→   165→   665→                              <Calendar className="w-3 h-3 text-red-500" />
+   166→   166→   666→                              <span className="text-red-600 dark:text-red-400 font-medium">Deadline: {app.jobDeadline}</span>
+   167→   167→   667→                            </div>
+   168→   168→   668→                          )}
+   169→   169→   669→
+   170→   170→   670→                          {/* Job Description snippet */}
+   171→   171→   671→                          {app.jobDescription && (
+   172→   172→   672→                            <div className="mt-2">
+   173→   173→   673→                              <Button variant="ghost" size="sm" className="h-6 text-[11px] gap-1 p-0 text-muted-foreground" onClick={() => setExpandedCoverLetter(expandedCoverLetter === app.id ? null : app.id)}>
+   174→   174→   674→                                <Eye className="w-3 h-3" />
+   175→   175→   675→                                {expandedCoverLetter === app.id ? 'Hide' : 'Show'} full description & cover letter
+   176→   176→   676→                              </Button>
+   177→   177→   677→                            </div>
+   178→   178→   678→                          )}
+   179→   179→   679→                        </div>
+   180→   180→   680→
+   181→   181→   681→                        {/* Right: Action Buttons */}
+   182→   182→   682→                        <div className="flex flex-col gap-2 flex-shrink-0 sm:min-w-[160px]">
+   183→   183→   683→                          <Button
+   184→   184→   684→                            size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+   185→   185→   685→                            disabled={isApproving === app.id}
+   186→   186→   686→                            onClick={() => approveApp(app.id)}
+   187→   187→   687→                          >
+   188→   188→   688→                            {isApproving === app.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ThumbsUp className="w-3.5 h-3.5" />}
+   189→   189→   689→                            {isApproving === app.id ? 'Approving...' : 'Approve'}
+   190→   190→   690→                          </Button>
+   191→   191→   691→                          <Button size="sm" variant="outline" className="gap-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30" onClick={() => rejectApp(app.id)}>
+   192→   192→   692→                            <ThumbsDown className="w-3.5 h-3.5" />Reject
+   193→   193→   693→                          </Button>
+   194→   194→   694→                          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => previewPdf(app)}>
+   195→   195→   695→                            <FileDown className="w-3.5 h-3.5" />Preview PDF
+   196→   196→   696→                          </Button>
+   197→   197→   697→                          {app.url && (
+   198→   198→   698→                            <Button asChild size="sm" variant="ghost" className="gap-1 text-xs">
+   199→   199→   699→                              <a href={app.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3 h-3" />Job Site</a>
+   200→   200→   700→                            </Button>
+   201→   201→   701→                          )}
+   202→   202→   702→                        </div>
+   203→   203→   703→                      </div>
+   204→   204→   704→
+   205→   205→   705→                      {/* Expanded: Cover letter + description */}
+   206→   206→   706→                      {expandedCoverLetter === app.id && (
+   207→   207→   707→                        <div className="mt-3 pt-3 border-t space-y-3">
+   208→   208→   708→                          {app.jobDescription && (
+   209→   209→   709→                            <div>
+   210→   210→   710→                              <p className="text-xs font-semibold text-muted-foreground mb-1.5">Job Description</p>
+   211→   211→   711→                              <ScrollArea className="max-h-32">
+   212→   212→   712→                                <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">{app.jobDescription}</p>
+   213→   213→   713→                              </ScrollArea>
+   214→   214→   714→                            </div>
+   215→   215→   715→                          )}
+   216→   216→   716→                          {app.coverLetter && (
+   217→   217→   717→                            <div>
+   218→   218→   718→                              <div className="flex items-center justify-between mb-1.5">
+   219→   219→   719→                                <p className="text-xs font-semibold text-emerald-600">Generated Cover Letter</p>
+   220→   220→   720→                                <Button variant="ghost" size="sm" className="h-6 text-[11px] gap-1" onClick={() => { navigator.clipboard.writeText(app.coverLetter || ''); toast.success('Copied!'); }}>
+   221→   221→   721→                                  <Copy className="w-3 h-3" />Copy
+   222→   222→   722→                                </Button>
+   223→   223→   723→                              </div>
+   224→   224→   724→                              <ScrollArea className="max-h-48">
+   225→   225→   725→                                <p className="text-xs whitespace-pre-line leading-relaxed font-serif text-muted-foreground">{app.coverLetter}</p>
+   226→   226→   726→                              </ScrollArea>
+   227→   227→   727→                            </div>
+   228→   228→   728→                          )}
+   229→   229→   729→                        </div>
+   230→   230→   730→                      )}
+   231→   231→   731→                    </div>
+   232→   232→   732→                  </div>
+   233→   233→   733→                ))}
+   234→   234→   734→              </div>
+   235→   235→   735→            </ScrollArea>
+   236→   236→   736→          )}
+   237→   237→   737→        </CardContent>
+   238→   238→   738→      </Card>
+   239→   239→   739→
+   240→   240→   740→      {/* ===== SECTION 3: Approved — Ready to Send ===== */}
+   241→   241→   741→      <Card className={approvedApps.length > 0 ? 'border-emerald-300 dark:border-emerald-700' : ''}>
+   242→   242→   742→        <CardHeader className="pb-3">
+   243→   243→   743→          <CardTitle className="text-base flex items-center gap-2">
+   244→   244→   744→            <ShieldCheck className="w-4 h-4 text-emerald-500" />
+   245→   245→   745→            Approved & Ready to Send ({approvedApps.length})
+   246→   246→   746→          </CardTitle>
+   247→   247→   747→          <CardDescription>Download PDFs, send via email, or mark as sent after applying</CardDescription>
+   248→   248→   748→        </CardHeader>
+   249→   249→   749→        <CardContent>
+   250→   250→   750→          {approvedApps.length === 0 ? (
+   251→   251→   751→            <div className="text-center py-8 text-muted-foreground">
+   252→   252→   752→              <CheckCircle2 className="w-10 h-10 mx-auto mb-2 opacity-20" />
+   253→   253→   753→              <p className="text-sm">No approved applications yet</p>
+   254→   254→   754→              <p className="text-xs mt-1">Approve jobs from the &quot;Pending Review&quot; section above</p>
+   255→   255→   755→            </div>
+   256→   256→   756→          ) : (
+   257→   257→   757→            <ScrollArea className="max-h-[500px]">
+   258→   258→   758→              <div className="space-y-2">
+   259→   259→   759→                {approvedApps.map((app) => (
+   260→   260→   760→                  <div key={app.id} className="border border-emerald-200 dark:border-emerald-800 rounded-lg overflow-hidden">
+   261→   261→   761→                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 p-3 bg-emerald-50/50 dark:bg-emerald-950/20">
+   262→   262→   762→                      <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+   263→   263→   763→                        <FileCheck className="w-4.5 h-4.5 text-emerald-600" />
+   264→   264→   764→                      </div>
+   265→   265→   765→                      <div className="flex-1 min-w-0">
+   266→   266→   766→                        <div className="flex items-center gap-2 flex-wrap">
+   267→   267→   767→                          <h4 className="text-sm font-medium">{app.jobTitle}</h4>
+   268→   268→   768→                          {app.matchScore && <Badge variant="outline" className="text-[10px]">{app.matchScore}%</Badge>}
+   269→   269→   769→                        </div>
+   270→   270→   770→                        <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+   271→   271→   771→                          {app.company && <span>{app.company}</span>}
+   272→   272→   772→                          {app.jobDeadline && <span className="text-red-500">Deadline: {app.jobDeadline}</span>}
+   273→   273→   773→                        </div>
+   274→   274→   774→                      </div>
+   275→   275→   775→                      <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
+   276→   276→   776→                        <Button size="sm" className="h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => previewPdf(app)}>
+   277→   277→   777→                          <Download className="w-3 h-3" />PDF
+   278→   278→   778→                        </Button>
+   279→   279→   779→                        <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => sendEmail(app)}>
+   280→   280→   780→                          <Mail className="w-3 h-3" />Send Email
+   281→   281→   781→                        </Button>
+   282→   282→   782→                        <Button size="sm" variant="outline" className="h-8 text-xs gap-1 text-blue-600 border-blue-200" onClick={() => markAsSent(app.id)}>
+   283→   283→   783→                          <MailCheck className="w-3 h-3" />Mark Sent
+   284→   284→   784→                        </Button>
+   285→   285→   785→                        {app.url && (
+   286→   286→   786→                          <Button asChild variant="ghost" size="sm" className="h-8 text-xs gap-1">
+   287→   287→   787→                            <a href={app.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3 h-3" />Visit</a>
+   288→   288→   788→                          </Button>
+   289→   289→   789→                        )}
+   290→   290→   790→                      </div>
+   291→   291→   791→                    </div>
+   292→   292→   792→                  </div>
+   293→   293→   793→                ))}
+   294→   294→   794→              </div>
+   295→   295→   795→            </ScrollArea>
+   296→   296→   796→          )}
+   297→   297→   797→        </CardContent>
+   298→   298→   798→      </Card>
+   299→   299→   799→
+   300→   300→   800→      {/* ===== SECTION 4: Submitted ===== */}
+   301→   301→   801→      {submittedApps.length > 0 && (
+   302→   302→   802→        <Card>
+   303→   303→   803→          <CardHeader className="pb-3">
+   304→   304→   804→            <CardTitle className="text-base flex items-center gap-2">
+   305→   305→   805→              <MailCheck className="w-4 h-4 text-blue-500" />
+   306→   306→   806→              Sent Applications ({submittedApps.length})
+   307→   307→   807→            </CardTitle>
+   308→   308→   808→          </CardHeader>
+   309→   309→   809→          <CardContent>
+   310→   310→   810→            <ScrollArea className="max-h-[300px]">
+   311→   311→   811→              <div className="space-y-2">
+   312→   312→   812→                {submittedApps.map((app) => (
+   313→   313→   813→                  <div key={app.id} className="flex items-center gap-2.5 p-2.5 rounded-lg bg-blue-50/50 dark:bg-blue-950/20">
+   314→   314→   814→                    <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+   315→   315→   815→                      <Check className="w-3.5 h-3.5 text-blue-600" />
+   316→   316→   816→                    </div>
+   317→   317→   817→                    <div className="flex-1 min-w-0">
+   318→   318→   818→                      <p className="text-sm font-medium truncate">{app.jobTitle}</p>
+   319→   319→   819→                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+   320→   320→   820→                        {app.company && <span>{app.company}</span>}
+   321→   321→   821→                        {app.appliedAt && <span>Sent: {new Date(app.appliedAt).toLocaleDateString()}</span>}
+   322→   322→   822→                      </div>
+   323→   323→   823→                    </div>
+   324→   324→   824→                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => previewPdf(app)}>
+   325→   325→   825→                      <Eye className="w-3 h-3" />View
+   326→   326→   826→                    </Button>
+   327→   327→   827→                  </div>
+   328→   328→   828→                ))}
+   329→   329→   829→              </div>
+   330→   330→   830→            </ScrollArea>
+   331→   331→   831→          </CardContent>
+   332→   332→   832→        </Card>
+   333→   333→   833→      )}
+   334→   334→   834→
+   335→   335→   835→      {/* ===== PDF Preview Dialog ===== */}
+   336→   336→   836→      <Dialog open={!!pdfDialogApp} onOpenChange={() => setPdfDialogApp(null)}>
+   337→   337→   837→        <DialogContent className="max-w-4xl max-h-[85vh]">
+   338→   338→   838→          <DialogHeader>
+   339→   339→   839→            <DialogTitle>Application Package — {pdfDialogApp?.jobTitle}</DialogTitle>
+   340→   340→   840→            <DialogDescription>
+   341→   341→   841→              {pdfDialogApp?.company} • {pdfDialogApp?.matchScore}% match
+   342→   342→   842→              {pdfDialogApp?.jobDeadline && ` • Deadline: ${pdfDialogApp.jobDeadline}`}
+   343→   343→   843→            </DialogDescription>
+   344→   344→   844→          </DialogHeader>
+   345→   345→   845→          {isGeneratingPdf ? (
+   346→   346→   846→            <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>
+   347→   347→   847→          ) : pdfData ? (
+   348→   348→   848→            <div className="space-y-3">
+   349→   349→   849→              <div className="flex gap-2 flex-wrap">
+   350→   350→   850→                <Button variant="outline" size="sm" className="gap-1" onClick={() => pdfData.cvHtml && openInTab(pdfData.cvHtml, 'Hambisa_CV.pdf')}>
+   351→   351→   851→                  <Download className="w-3.5 h-3.5" />Download CV (Print to PDF)
+   352→   352→   852→                </Button>
+   353→   353→   853→                <Button variant="outline" size="sm" className="gap-1" onClick={() => pdfData.coverLetterHtml && openInTab(pdfData.coverLetterHtml, 'Cover_Letter.pdf')}>
+   354→   354→   854→                  <Download className="w-3.5 h-3.5" />Download Cover Letter
+   355→   355→   855→                </Button>
+   356→   356→   856→                <Button variant="outline" size="sm" className="gap-1" onClick={() => pdfData.cvHtml && openInTab(pdfData.cvHtml, 'Hambisa_CV.pdf')}>
+   357→   357→   857→                  <Printer className="w-3.5 h-3.5" />Print CV
+   358→   358→   858→                </Button>
+   359→   359→   859→                {pdfDialogApp && (
+   360→   360→   860→                  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1" onClick={() => { sendEmail(pdfDialogApp); }}>
+   361→   361→   861→                    <Mail className="w-3.5 h-3.5" />Send via Email
+   362→   362→   862→                  </Button>
+   363→   363→   863→                )}
+   364→   364→   864→                {pdfDialogApp?.url && (
+   365→   365→   865→                  <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1">
+   366→   366→   866→                    <a href={pdfDialogApp.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3.5 h-3.5" />Go to Job Site</a>
+   367→   367→   867→                  </Button>
+   368→   368→   868→                )}
+   369→   369→   869→              </div>
+   370→   370→   870→              <div className="grid md:grid-cols-2 gap-4">
+   371→   371→   871→                {pdfData.cvHtml && (
+   372→   372→   872→                  <div>
+   373→   373→   873→                    <p className="text-xs font-semibold mb-2 text-emerald-600">Curriculum Vitae</p>
+   374→   374→   874→                    <div className="border rounded-lg h-[400px] overflow-auto bg-white" dangerouslySetInnerHTML={{ __html: pdfData.cvHtml }} />
+   375→   375→   875→                  </div>
+   376→   376→   876→                )}
+   377→   377→   877→                {pdfData.coverLetterHtml && (
+   378→   378→   878→                  <div>
+   379→   379→   879→                    <p className="text-xs font-semibold mb-2 text-emerald-600">Cover Letter</p>
+   380→   380→   880→                    <div className="border rounded-lg h-[400px] overflow-auto bg-white" dangerouslySetInnerHTML={{ __html: pdfData.coverLetterHtml }} />
+   381→   381→   881→                  </div>
+   382→   382→   882→                )}
+   383→   383→   883→              </div>
+   384→   384→   884→            </div>
+   385→   385→   885→          ) : null}
+   386→   386→   886→        </DialogContent>
+   387→   387→   887→      </Dialog>
+   388→   388→   888→    </div>
+   389→   389→   889→  );
+   390→   390→   890→}
+   391→   391→   891→
+   392→   392→   892→// ========== APPLICATIONS TAB ==========
+   393→   393→   893→function ApplicationsTab({ applications, setApplications }: {
+   394→   394→   894→  applications: Application[]; setApplications: (apps: Application[]) => void;
+   395→   395→   895→}) {
+   396→   396→   896→  const [filterStatus, setFilterStatus] = useState('all');
+   397→   397→   897→  const [filterText, setFilterText] = useState('');
+   398→   398→   898→  const [expandedId, setExpandedId] = useState<string | null>(null);
+   399→   399→   899→  const [showAddDialog, setShowAddDialog] = useState(false);
+   400→   400→   900→  const [isUpdating, setIsUpdating] = useState<string | null>(null);
+   401→   401→   901→  const [newApp, setNewApp] = useState({ jobTitle: '', company: '', location: '', status: 'pending_review', url: '' });
+   402→   402→   902→
+   403→   403→   903→  const refreshApps = useCallback(async () => {
+   404→   404→   904→    try {
+   405→   405→   905→      const res = await fetch('/api/applications');
+   406→   406→   906→      const data = await res.json();
+   407→   407→   907→      if (data.success) setApplications(data.applications);
+   408→   408→   908→    } catch { /* ignore */ }
+   409→   409→   909→  }, [setApplications]);
+   410→   410→   910→
+   411→   411→   911→  const filtered = applications.filter((app) => {
+   412→   412→   912→    if (filterStatus !== 'all' && app.status !== filterStatus) return false;
+   413→   413→   913→    if (filterText) {
+   414→   414→   914→      const t = filterText.toLowerCase();
+   415→   415→   915→      return app.jobTitle.toLowerCase().includes(t) || (app.company || '').toLowerCase().includes(t);
+   416→   416→   916→    }
+   417→   417→   917→    return true;
+   418→   418→   918→  });
+   419→   419→   919→
+   420→   420→   920→  const statusCounts: Record<string, number> = { all: applications.length, pending_review: 0, approved: 0, submitted: 0, interview: 0, offered: 0, rejected: 0, withdrawn: 0 };
+   421→   421→   921→  applications.forEach((a) => { const s = a.status; if (s in statusCounts) statusCounts[s]++; });
+   422→   422→   922→
+   423→   423→   923→  const updateStatus = async (id: string, status: string) => {
+   424→   424→   924→    setIsUpdating(id);
+   425→   425→   925→    try {
+   426→   426→   926→      await fetch('/api/applications', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) });
+   427→   427→   927→      toast.success('Status updated');
+   428→   428→   928→      refreshApps();
+   429→   429→   929→    } catch { toast.error('Failed to update'); }
+   430→   430→   930→    finally { setIsUpdating(null); }
+   431→   431→   931→  };
+   432→   432→   932→
+   433→   433→   933→  const deleteApp = async (id: string) => {
+   434→   434→   934→    try {
+   435→   435→   935→      await fetch(`/api/applications?id=${id}`, { method: 'DELETE' });
+   436→   436→   936→      toast.success('Application deleted');
+   437→   437→   937→      refreshApps();
+   438→   438→   938→    } catch { toast.error('Failed to delete'); }
+   439→   439→   939→  };
+   440→   440→   940→
+   441→   441→   941→  const addApp = async () => {
+   442→   442→   942→    if (!newApp.jobTitle.trim()) { toast.error('Job title required'); return; }
+   443→   443→   943→    try {
+   444→   444→   944→      await fetch('/api/applications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newApp) });
+   445→   445→   945→      toast.success('Application added');
+   446→   446→   946→      setShowAddDialog(false);
+   447→   447→   947→      setNewApp({ jobTitle: '', company: '', location: '', status: 'pending_review', url: '' });
+   448→   448→   948→      refreshApps();
+   449→   449→   949→    } catch { toast.error('Failed to add'); }
+   450→   450→   950→  };
+   451→   451→   951→
+   452→   452→   952→  return (
+   453→   453→   953→    <div className="space-y-4">
+   454→   454→   954→      {/* Stats */}
+   455→   455→   955→      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+   456→   456→   956→        {Object.entries(statusCounts).filter(([, count]) => count > 0).slice(0, 6).map(([key, count]) => (
+   457→   457→   957→          <Card key={key} className={filterStatus === key ? 'border-emerald-500' : ''} onClick={() => setFilterStatus(key === filterStatus ? 'all' : key)}>
+   458→   458→   958→            <CardContent className="p-3 text-center cursor-pointer">
+   459→   459→   959→              <p className="text-lg font-bold">{count}</p>
+   460→   460→   960→              <p className="text-[10px] text-muted-foreground">{key === 'all' ? 'All' : statusLabel(key)}</p>
+   461→   461→   961→            </CardContent>
+   462→   462→   962→          </Card>
+   463→   463→   963→        ))}
+   464→   464→   964→      </div>
+   465→   465→   965→
+   466→   466→   966→      {/* Filters + Add */}
+   467→   467→   967→      <div className="flex flex-col sm:flex-row gap-2">
+   468→   468→   968→        <Input placeholder="Search by title or company..." value={filterText} onChange={(e) => setFilterText(e.target.value)} className="flex-1 h-9 text-sm" />
+   469→   469→   969→        <Select value={filterStatus} onValueChange={setFilterStatus}>
+   470→   470→   970→          <SelectTrigger className="w-40 h-9 text-xs"><SelectValue placeholder="All Status" /></SelectTrigger>
+   471→   471→   971→          <SelectContent>
+   472→   472→   972→            <SelectItem value="all">All Status</SelectItem>
+   473→   473→   973→            <SelectItem value="pending_review">Pending Review</SelectItem>
+   474→   474→   974→            <SelectItem value="approved">Approved</SelectItem>
+   475→   475→   975→            <SelectItem value="submitted">Submitted</SelectItem>
+   476→   476→   976→            <SelectItem value="interview">Interview</SelectItem>
+   477→   477→   977→            <SelectItem value="offered">Offered</SelectItem>
+   478→   478→   978→            <SelectItem value="rejected">Rejected</SelectItem>
+   479→   479→   979→            <SelectItem value="withdrawn">Withdrawn</SelectItem>
+   480→   480→   980→          </SelectContent>
+   481→   481→   981→        </Select>
+   482→   482→   982→        <Button onClick={() => setShowAddDialog(true)} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 h-9"><Plus className="w-3.5 h-3.5" />Add</Button>
+   483→   483→   983→      </div>
+   484→   484→   984→
+   485→   485→   985→      {/* List */}
+   486→   486→   986→      <Card>
+   487→   487→   987→        <CardContent className="p-3">
+   488→   488→   988→          {filtered.length === 0 ? (
+   489→   489→   989→            <div className="text-center py-12 text-muted-foreground">
+   490→   490→   990→              <FileText className="w-10 h-10 mx-auto mb-2 opacity-30" />
+   491→   491→   991→              <p className="text-sm">{applications.length === 0 ? 'No applications yet.' : 'No applications match filters.'}</p>
+   492→   492→   992→            </div>
+   493→   493→   993→          ) : (
+   494→   494→   994→            <ScrollArea className="max-h-[600px]">
+   495→   495→   995→              <div className="space-y-2">
+   496→   496→   996→                {filtered.map((app) => (
+   497→   497→   997→                  <div key={app.id} className="border rounded-lg overflow-hidden">
+   498→   498→   998→                    <div className="flex items-center gap-2.5 p-3 hover:bg-muted/30 transition-colors">
+   499→   499→   999→                      <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+   500→   500→  1000→                        {app.status === 'pending_review' ? <Clock className="w-4 h-4 text-amber-600" /> :
+   501→   501→
+   502→   502→[showing lines 501-1000 of 1372; use offset=1001 with limit to continue reading]

@@ -7,8 +7,69 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ====== USER & AUTH ======
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String?  // null for OAuth users
+  name          String?
+  phone         String?
+  avatar        String?
+  role          String   @default("jobseeker") // jobseeker, employer, admin
+  tier          String   @default("free")       // free, premium, employer
+  isActive      Boolean  @default(true)
+  lastLogin     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  profile     UserProfile?
+  applications Application[]
+  chatMessages ChatMessage[]
+  cvAnalyses  CvAnalysis[]
+  interviewPreps InterviewPrep[]
+  savedJobs   SavedJob[]
+  postedJobs  EmployerJob[]
+  usageLogs   UsageLog[]
+}
+
+// ====== SUBSCRIPTION & USAGE ======
+model UsageLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   // search, cover_letter, cv_analysis, interview_prep, job_match
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+// ====== EMPLOYER JOB POSTINGS ======
+model EmployerJob {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  company     String?
+  location    String?
+  type        String?  // full-time, part-time, contract, remote, internship
+  salary      String?
+  category    String?
+  description String
+  requirements String?
+  deadline    String?
+  status      String   @default("active") // active, paused, closed, filled
+  applicants  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+// ====== SAVED JOB (existing - add userId) ======
 model SavedJob {
   id          String   @id @default(cuid())
+  userId      String?  // nullable for backward compat
   title       String
   company     String?
   location    String?
@@ -23,10 +84,15 @@ model SavedJob {
   isBookmarked Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
 }
 
+// ====== APPLICATION (existing - add userId) ======
 model Application {
   id          String   @id @default(cuid())
+  userId      String?  // nullable for backward compat
   jobId       String?
   jobTitle    String
   company     String?
@@ -43,10 +109,15 @@ model Application {
   appliedAt   DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
 }
 
+// ====== USER PROFILE (existing - add userId) ======
 model UserProfile {
   id          String   @id @default(cuid())
+  userId      String?  // nullable for backward compat — unique for one-to-one with User
   fullName    String?
   email       String?
   phone       String?
@@ -59,11 +130,57 @@ model UserProfile {
   resumeUrl   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId])
 }
 
+// ====== CHAT MESSAGE (existing - add userId) ======
 model ChatMessage {
   id        String   @id @default(cuid())
+  userId    String?  // nullable for backward compat
   role      String   // user, assistant
   content   String
   createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+// ====== CV ANALYSIS (existing - add userId) ======
+model CvAnalysis {
+  id              String   @id @default(cuid())
+  userId          String?  // nullable for backward compat
+  overallScore    Int      // 0-100
+  strengths       String   // JSON array
+  weaknesses      String   // JSON array
+  missingSkills   String   // JSON array
+  atsScore        Int      // 0-100
+  formatScore     Int      // 0-100
+  contentScore    Int      // 0-100
+  suggestions     String   // JSON array of improvement suggestions
+  industryTips    String?  // Industry-specific tips
+  recommendation  String   // Detailed text recommendation
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+// ====== INTERVIEW PREP (existing - add userId) ======
+model InterviewPrep {
+  id              String   @id @default(cuid())
+  userId          String?  // nullable for backward compat
+  jobTitle        String?
+  company         String?
+  jobDescription  String?
+  questions       String   // JSON array of {question, suggestedAnswer, category, difficulty}
+  companyResearch String? // Company-specific research notes
+  tips            String?  // Interview tips
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
 }

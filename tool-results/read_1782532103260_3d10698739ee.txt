@@ -1,0 +1,1372 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+     4→import { Button } from '@/components/ui/button';
+     5→import { Input } from '@/components/ui/input';
+     6→import { Textarea } from '@/components/ui/textarea';
+     7→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+     8→import { Badge } from '@/components/ui/badge';
+     9→import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+    10→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    11→import { Label } from '@/components/ui/label';
+    12→import { ScrollArea } from '@/components/ui/scroll-area';
+    13→import { toast } from 'sonner';
+    14→import {
+    15→  FileText, Bot, User, MapPin, Building2,
+    16→  ExternalLink, Send, Plus, Trash2, Copy, Check, ChevronRight,
+    17→  Sparkles, Briefcase, X, Loader2, Mail, Phone,
+    18→  Calendar, Target, Zap, Play, BarChart3, Activity,
+    19→  CheckCircle2, XCircle, AlertCircle, Eye, RefreshCw,
+    20→  Download, Printer, FileDown,
+    21→  ShieldCheck, Clock, ThumbsUp, ThumbsDown,
+    22→  MailCheck, FileCheck, FileX, Search, Globe,
+    23→  MessageSquare, Lightbulb, GraduationCap, Edit
+    24→} from 'lucide-react';
+    25→
+    26→// ========== TYPES ==========
+    27→interface Application {
+    28→  id: string; jobId: string | null; jobTitle: string; company: string | null;
+    29→  location: string | null; status: string; url: string | null;
+    30→  coverLetter: string | null; notes: string | null; matchScore?: number | null;
+    31→  source?: string | null; appliedAt: string | null; createdAt: string;
+    32→  matchReasoning?: string | null; jobDeadline?: string | null; jobDescription?: string | null;
+    33→}
+    34→
+    35→interface ChatMessage { id: string; role: 'user' | 'assistant'; content: string; createdAt: string; }
+    36→
+    37→interface UserProfile {
+    38→  id: string; fullName: string | null; email: string | null; phone: string | null;
+    39→  location: string | null; title: string | null; summary: string | null;
+    40→  skills: string; education: string | null; experience: string | null;
+    41→}
+    42→
+    43→type Tab = 'dashboard' | 'auto-apply' | 'applications' | 'cover-letters' | 'cv-analyzer' | 'interview-prep' | 'profile' | 'ai-chat';
+    44→
+    45→// ========== HELPERS ==========
+    46→const statusColor = (s: string) =>
+    47→  s === 'pending_review' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' :
+    48→  s === 'approved' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' :
+    49→  s === 'submitted' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+    50→  s === 'interview' ? 'bg-purple-100 text-purple-800' :
+    51→  s === 'offered' ? 'bg-amber-100 text-amber-800' :
+    52→  s === 'rejected' ? 'bg-red-100 text-red-800' :
+    53→  s === 'withdrawn' ? 'bg-gray-200 text-gray-600' : 'bg-gray-100 text-gray-800';
+    54→
+    55→const statusLabel = (s: string) =>
+    56→  s === 'pending_review' ? 'Pending Review' :
+    57→  s === 'approved' ? 'Approved' :
+    58→  s === 'submitted' ? 'Sent' :
+    59→  s.replace(/_/g, ' ');
+    60→
+    61→// ========== STATE ==========
+    62→function useLocalState() {
+    63→  const [activeTab, setActiveTab] = useState<Tab>('auto-apply');
+    64→  const [applications, setApplications] = useState<Application[]>([]);
+    65→  const [profile, setProfile] = useState<UserProfile | null>(null);
+    66→  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+    67→  const [isChatLoading, setIsChatLoading] = useState(false);
+    68→  const [chatContext, setChatContext] = useState('job-search');
+    69→  const [message, setMessage] = useState('');
+    70→  const [generatedCoverLetter, setGeneratedCoverLetter] = useState<string | null>(null);
+    71→  const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
+    72→  const [coverLetterForm, setCoverLetterForm] = useState({ jobTitle: '', company: '', jobDescription: '' });
+    73→  const [expandedCoverLetter, setExpandedCoverLetter] = useState<string | null>(null);
+    74→  const [pdfDialogApp, setPdfDialogApp] = useState<Application | null>(null);
+    75→  const [pdfData, setPdfData] = useState<{ cvHtml: string; coverLetterHtml: string } | null>(null);
+    76→  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+    77→  const [runLogs, setRunLogs] = useState<string[]>([]);
+    78→  const [isRunningCycle, setIsRunningCycle] = useState(false);
+    79→  const [lastAutoSearch, setLastAutoSearch] = useState<number>(Date.now());
+    80→  const [nextSearchIn, setNextSearchIn] = useState<number>(3600000);
+    81→  const [cvAnalysis, setCvAnalysis] = useState<any>(null);
+    82→  const [isAnalyzingCv, setIsAnalyzingCv] = useState(false);
+    83→  const [interviewPreps, setInterviewPreps] = useState<any[]>([]);
+    84→  const [currentPrep, setCurrentPrep] = useState<any>(null);
+    85→  const [isGeneratingPrep, setIsGeneratingPrep] = useState(false);
+    86→  const [prepForm, setPrepForm] = useState({ jobTitle: '', company: '', jobDescription: '' });
+    87→  const [expandedQuestion, setExpandedQuestion] = useState<number | null>(null);
+    88→  const [profileEditing, setProfileEditing] = useState(false);
+    89→  const chatEndRef = useRef<HTMLDivElement>(null);
+    90→  const autoSearchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    91→
+    92→  // Auto-search every 1 hour
+    93→  useEffect(() => {
+    94→    const interval = setInterval(() => {
+    95→      setNextSearchIn(prev => Math.max(0, prev - 10000));
+    96→    }, 10000);
+    97→    return () => clearInterval(interval);
+    98→  }, []);
+    99→
+   100→  // Trigger auto-search when countdown hits 0
+   101→  useEffect(() => {
+   102→    if (nextSearchIn <= 0 && !isRunningCycle) {
+   103→      setLastAutoSearch(Date.now());
+   104→      setNextSearchIn(3600000); // reset to 1 hour
+   105→      // Auto trigger search via fetch
+   106→      fetch('/api/auto-apply/run?full=true', { method: 'POST' })
+   107→        .then(r => r.json())
+   108→        .then(data => {
+   109→          if (data.success) {
+   110→            toast.success(`Auto-search found ${data.totalSaved} new jobs!`);
+   111→            fetch('/api/applications').then(r => r.json()).then(d => {
+   112→              if (d.success) setApplications(d.applications);
+   113→            });
+   114→          }
+   115→        })
+   116→        .catch(() => {});
+   117→      setIsRunningCycle(true);
+   118→      setTimeout(() => setIsRunningCycle(false), 120000); // assume done after 2 min
+   119→    }
+   120→  }, [nextSearchIn, isRunningCycle, setApplications]);
+   121→
+   122→  // Auto-refresh applications every 2 minutes
+   123→  useEffect(() => {
+   124→    const interval = setInterval(() => {
+   125→      fetch('/api/applications').then(r => r.json()).then(d => {
+   126→        if (d.success) setApplications(d.applications);
+   127→      }).catch(() => {});
+   128→    }, 120000);
+   129→    return () => clearInterval(interval);
+   130→  }, [setApplications]);
+   131→
+   132→  const countdownStr = useMemo(() => {
+   133→    const mins = Math.floor(nextSearchIn / 60000);
+   134→    const secs = Math.floor((nextSearchIn % 60000) / 1000);
+   135→    return `${mins}m ${secs}s`;
+   136→  }, [nextSearchIn]);
+   137→
+   138→  return {
+   139→    activeTab, setActiveTab,
+   140→    applications, setApplications, profile, setProfile,
+   141→    chatMessages, setChatMessages, isChatLoading, setIsChatLoading, chatContext, setChatContext,
+   142→    message, setMessage, generatedCoverLetter, setGeneratedCoverLetter, isGeneratingCoverLetter, setIsGeneratingCoverLetter,
+   143→    coverLetterForm, setCoverLetterForm, expandedCoverLetter, setExpandedCoverLetter,
+   144→    pdfDialogApp, setPdfDialogApp, pdfData, setPdfData, isGeneratingPdf, setIsGeneratingPdf,
+   145→    runLogs, setRunLogs, isRunningCycle, setIsRunningCycle,
+   146→    lastAutoSearch, nextSearchIn, countdownStr,
+   147→    chatEndRef,
+   148→    cvAnalysis, setCvAnalysis, isAnalyzingCv, setIsAnalyzingCv,
+   149→    interviewPreps, setInterviewPreps, currentPrep, setCurrentPrep,
+   150→    isGeneratingPrep, setIsGeneratingPrep, prepForm, setPrepForm,
+   151→    expandedQuestion, setExpandedQuestion,
+   152→    profileEditing, setProfileEditing,
+   153→  };
+   154→}
+   155→
+   156→// ========== HEADER ==========
+   157→function Header({ activeTab, setActiveTab }: { activeTab: Tab; setActiveTab: (t: Tab) => void }) {
+   158→  const pendingCount = 0; // Will be passed as prop in real usage
+   159→  return (
+   160→    <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
+   161→      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+   162→        <div className="flex items-center justify-between h-14">
+   163→          <div className="flex items-center gap-2">
+   164→            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+   165→              <Briefcase className="w-4 h-4 text-white" />
+   166→            </div>
+   167→            <div>
+   168→              <h1 className="text-sm font-bold leading-none">Hambisa&apos;s Job Finder</h1>
+   169→              <p className="text-[10px] text-muted-foreground">Auto-Apply System</p>
+   170→            </div>
+   171→          </div>
+   172→          <nav className="hidden md:flex items-center gap-1">
+   173→            {[
+   174→              { id: 'dashboard' as const, label: 'Dashboard', icon: BarChart3 },
+   175→              { id: 'auto-apply' as const, label: 'Review & Apply', icon: ShieldCheck },
+   176→              { id: 'applications' as const, label: 'Applications', icon: FileText },
+   177→              { id: 'cover-letters' as const, label: 'Cover Letters', icon: Sparkles },
+   178→              { id: 'ai-chat' as const, label: 'AI Coach', icon: Bot },
+   179→              { id: 'cv-analyzer' as const, label: 'CV Analyzer', icon: FileCheck },
+   180→              { id: 'interview-prep' as const, label: 'Interview Prep', icon: MessageSquare },
+   181→              { id: 'profile' as const, label: 'My Profile', icon: User },
+   182→            ].map((item) => (
+   183→              <Button key={item.id} variant={activeTab === item.id ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab(item.id)} className="gap-1.5 text-xs">
+   184→                <item.icon className="w-3.5 h-3.5" />{item.label}
+   185→              </Button>
+   186→            ))}
+   187→          </nav>
+   188→          <div className="md:hidden">
+   189→            <Select value={activeTab} onValueChange={(v) => setActiveTab(v as Tab)}>
+   190→              <SelectTrigger className="w-32 h-8 text-xs"><SelectValue /></SelectTrigger>
+   191→              <SelectContent>
+   192→                {['dashboard', 'auto-apply', 'applications', 'cover-letters', 'ai-chat', 'cv-analyzer', 'interview-prep', 'profile'].map((tab) => (
+   193→                  <SelectItem key={tab} value={tab}>{tab.replace('-', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}</SelectItem>
+   194→                ))}
+   195→              </SelectContent>
+   196→            </Select>
+   197→          </div>
+   198→        </div>
+   199→      </div>
+   200→    </header>
+   201→  );
+   202→}
+   203→
+   204→// ========== DASHBOARD TAB ==========
+   205→function DashboardTab({ applications, profile }: { applications: Application[]; profile: UserProfile | null }) {
+   206→  const pendingReview = applications.filter(a => a.status === 'pending_review');
+   207→  const approved = applications.filter(a => a.status === 'approved');
+   208→  const submitted = applications.filter(a => a.status === 'submitted');
+   209→  const highMatch = applications.filter(a => (a.matchScore || 0) >= 70);
+   210→
+   211→  return (
+   212→    <div className="space-y-6">
+   213→      {/* Welcome Banner */}
+   214→      <Card className="border-emerald-200 dark:border-emerald-800 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30">
+   215→        <CardContent className="p-6">
+   216→          <div className="flex items-start gap-4">
+   217→            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
+   218→              HT
+   219→            </div>
+   220→            <div className="flex-1 min-w-0">
+   221→              <h2 className="text-lg font-bold text-emerald-900 dark:text-emerald-100">Welcome back, {profile?.fullName || 'Hambisa'}!</h2>
+   222→              <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">
+   223→                {pendingReview.length > 0
+   224→                  ? `You have ${pendingReview.length} job${pendingReview.length === 1 ? '' : 's'} waiting for your review.`
+   225→                  : submitted.length > 0
+   226→                    ? `${submitted.length} application${submitted.length === 1 ? '' : 's'} sent so far!`
+   227→                    : 'Ready to find your next opportunity?'}
+   228→              </p>
+   229→            </div>
+   230→          </div>
+   231→        </CardContent>
+   232→      </Card>
+   233→
+   234→      {/* Stats Grid */}
+   235→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   236→        <Card className={pendingReview.length > 0 ? 'border-amber-300 dark:border-amber-700' : ''}>
+   237→          <CardContent className="p-4 text-center">
+   238→            <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-2"><Clock className="w-5 h-5 text-amber-600" /></div>
+   239→            <p className="text-2xl font-bold">{pendingReview.length}</p>
+   240→            <p className="text-xs text-muted-foreground">Needs Review</p>
+   241→          </CardContent>
+   242→        </Card>
+   243→        <Card className={approved.length > 0 ? 'border-emerald-300 dark:border-emerald-700' : ''}>
+   244→          <CardContent className="p-4 text-center">
+   245→            <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto mb-2"><CheckCircle2 className="w-5 h-5 text-emerald-600" /></div>
+   246→            <p className="text-2xl font-bold">{approved.length}</p>
+   247→            <p className="text-xs text-muted-foreground">Ready to Send</p>
+   248→          </CardContent>
+   249→        </Card>
+   250→        <Card>
+   251→          <CardContent className="p-4 text-center">
+   252→            <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mx-auto mb-2"><Send className="w-5 h-5 text-blue-600" /></div>
+   253→            <p className="text-2xl font-bold">{submitted.length}</p>
+   254→            <p className="text-xs text-muted-foreground">Sent</p>
+   255→          </CardContent>
+   256→        </Card>
+   257→        <Card>
+   258→          <CardContent className="p-4 text-center">
+   259→            <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mx-auto mb-2"><Target className="w-5 h-5 text-purple-600" /></div>
+   260→            <p className="text-2xl font-bold">{highMatch.length}</p>
+   261→            <p className="text-xs text-muted-foreground">High Match (70+)</p>
+   262→          </CardContent>
+   263→        </Card>
+   264→      </div>
+   265→
+   266→      {/* Recent Activity */}
+   267→      <Card>
+   268→        <CardHeader className="pb-3">
+   269→          <CardTitle className="text-base">Recent Activity</CardTitle>
+   270→        </CardHeader>
+   271→        <CardContent>
+   272→          {applications.length === 0 ? (
+   273→            <div className="text-center py-8 text-muted-foreground">
+   274→              <Activity className="w-10 h-10 mx-auto mb-2 opacity-30" />
+   275→              <p className="text-sm">No activity yet. Go to &quot;Review &amp; Apply&quot; to start finding jobs.</p>
+   276→            </div>
+   277→          ) : (
+   278→            <ScrollArea className="max-h-[350px]">
+   279→              <div className="space-y-2">
+   280→                {applications.slice(0, 15).map((app) => (
+   281→                  <div key={app.id} className="flex items-center gap-2.5 p-2.5 rounded-lg hover:bg-muted/30 transition-colors">
+   282→                    <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${app.status === 'pending_review' ? 'bg-amber-100 dark:bg-amber-900/30' : app.status === 'approved' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
+   283→                      {app.status === 'pending_review' ? <Clock className="w-3.5 h-3.5 text-amber-600" /> : app.status === 'approved' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Briefcase className="w-3.5 h-3.5" />}
+   284→                    </div>
+   285→                    <div className="flex-1 min-w-0">
+   286→                      <p className="text-sm font-medium truncate">{app.jobTitle}</p>
+   287→                      <div className="flex items-center gap-1.5">
+   288→                        {app.company && <span className="text-xs text-muted-foreground">{app.company}</span>}
+   289→                        <Badge className={`text-[10px] px-1.5 py-0 border-0 ${statusColor(app.status)}`}>{statusLabel(app.status)}</Badge>
+   290→                      </div>
+   291→                    </div>
+   292→                    <span className="text-[10px] text-muted-foreground hidden sm:inline">{new Date(app.createdAt).toLocaleDateString()}</span>
+   293→                  </div>
+   294→                ))}
+   295→              </div>
+   296→            </ScrollArea>
+   297→          )}
+   298→        </CardContent>
+   299→      </Card>
+   300→    </div>
+   301→  );
+   302→}
+   303→
+   304→// ========== AUTO-APPLY TAB (Review & Apply) ==========
+   305→function AutoApplyTab({
+   306→  applications, setApplications,
+   307→  pdfDialogApp, setPdfDialogApp, pdfData, setPdfData, isGeneratingPdf, setIsGeneratingPdf,
+   308→  isRunningCycle, setIsRunningCycle, runLogs, setRunLogs,
+   309→  expandedCoverLetter, setExpandedCoverLetter,
+   310→  countdownStr,
+   311→}: {
+   312→  applications: Application[]; setApplications: (a: Application[]) => void;
+   313→  pdfDialogApp: Application | null; setPdfDialogApp: (a: Application | null) => void;
+   314→  pdfData: { cvHtml: string; coverLetterHtml: string } | null; setPdfData: (d: any) => void;
+   315→  isGeneratingPdf: boolean; setIsGeneratingPdf: (v: boolean) => void;
+   316→  isRunningCycle: boolean; setIsRunningCycle: (v: boolean) => void;
+   317→  runLogs: string[]; setRunLogs: (l: string[]) => void;
+   318→  expandedCoverLetter: string | null; setExpandedCoverLetter: (id: string | null) => void;
+   319→  countdownStr: string;
+   320→}) {
+   321→  const [isApproving, setIsApproving] = useState<string | null>(null);
+   322→
+   323→  const refreshApps = useCallback(async () => {
+   324→    try {
+   325→      const res = await fetch('/api/applications');
+   326→      const data = await res.json();
+   327→      if (data.success) setApplications(data.applications);
+   328→    } catch { /* ignore */ }
+   329→  }, [setApplications]);
+   330→
+   331→  const pendingApps = applications.filter(a => a.status === 'pending_review').sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+   332→  const approvedApps = applications.filter(a => a.status === 'approved');
+   333→  const submittedApps = applications.filter(a => a.status === 'submitted');
+   334→
+   335→  // Trigger async search with polling
+   336→  const triggerRun = async (category?: string) => {
+   337→    if (isRunningCycle) return;
+   338→    setIsRunningCycle(true);
+   339→    const catLabel = category === 'linkedin' ? 'LinkedIn' : category === 'remote' ? 'Remote Data Entry' : category === 'ethiopia' ? 'Ethiopian Sites' : 'All Sources';
+   340→    setRunLogs([`🔍 Starting ${catLabel} job search...`, 'Please wait — results appear here live...']);
+   341→    try {
+   342→      // Step 1: Start the search (returns immediately)
+   343→      const queryStr = category ? `?category=${category}` : '';
+   344→      const res = await fetch(`/api/auto-apply/run${queryStr}`, { method: 'POST' });
+   345→      const data = await res.json();
+   346→      if (!data.success) {
+   347→        setRunLogs(['❌ ' + (data.error || 'Failed to start search')]);
+   348→        toast.error(data.error || 'Failed to start');
+   349→        setIsRunningCycle(false);
+   350→        return;
+   351→      }
+   352→      if (data.alreadyRunning) {
+   353→        setRunLogs(['⚠️ A search is already running, polling its progress...']);
+   354→      }
+   355→      const searchId = data.searchId;
+   356→
+   357→      // Step 2: Poll for results every 3 seconds
+   358→      const poll = setInterval(async () => {
+   359→        try {
+   360→          const statusRes = await fetch(`/api/auto-apply/run?searchId=${searchId}`);
+   361→          const status = await statusRes.json();
+   362→          if (status.logs) setRunLogs(status.logs);
+   363→          if (status.status === 'completed') {
+   364→            clearInterval(poll);
+   365→            setIsRunningCycle(false);
+   366→            const autoApproved = status.results?.autoApproved || 0;
+   367→            const autoSubmitted = status.results?.autoSubmitted || 0;
+   368→            const saved = status.results?.totalSaved || 0;
+   369→            const found = status.results?.totalFound || 0;
+   370→            toast.success(`[${catLabel}] Found ${found} jobs, ${saved} new saved${autoApproved > 0 ? `, ${autoApproved} auto-approved` : ''}${autoSubmitted > 0 ? `, ${autoSubmitted} auto-submitted` : ''}`);
+   371→            if (autoSubmitted > 0) {
+   372→              setTimeout(() => toast.info(`${autoSubmitted} high-match jobs were auto-submitted with cover letters!`), 1500);
+   373→            }
+   374→            refreshApps();
+   375→          } else if (status.status === 'failed') {
+   376→            clearInterval(poll);
+   377→            setIsRunningCycle(false);
+   378→            toast.error('Search failed: ' + (status.error || 'Unknown error'));
+   379→          }
+   380→        } catch {
+   381→          // Keep polling even if one poll fails
+   382→        }
+   383→      }, 3000);
+   384→    } catch (e) {
+   385→      setRunLogs(['❌ ' + String(e)]);
+   386→      toast.error('Failed to start search');
+   387→      setIsRunningCycle(false);
+   388→    }
+   389→  };
+   390→
+   391→  // Approve single
+   392→  const approveApp = async (id: string) => {
+   393→    setIsApproving(id);
+   394→    try {
+   395→      const res = await fetch(`/api/applications/${id}/approve`, { method: 'POST' });
+   396→      const data = await res.json();
+   397→      if (data.success) {
+   398→        toast.success('Application approved! Ready to send.');
+   399→        refreshApps();
+   400→      } else toast.error(data.error || 'Failed');
+   401→    } catch { toast.error('Error approving'); }
+   402→    finally { setIsApproving(null); }
+   403→  };
+   404→
+   405→  // Reject single
+   406→  const rejectApp = async (id: string) => {
+   407→    try {
+   408→      const res = await fetch(`/api/applications/${id}/reject`, { method: 'POST' });
+   409→      const data = await res.json();
+   410→      if (data.success) {
+   411→        toast.success('Application rejected');
+   412→        refreshApps();
+   413→      } else toast.error(data.error || 'Failed');
+   414→    } catch { toast.error('Error rejecting'); }
+   415→  };
+   416→
+   417→  // Batch approve all pending
+   418→  const batchApprove = async () => {
+   419→    if (pendingApps.length === 0) return;
+   420→    try {
+   421→      const ids = pendingApps.map(a => a.id);
+   422→      const res = await fetch('/api/applications/batch-approve', {
+   423→        method: 'POST',
+   424→        headers: { 'Content-Type': 'application/json' },
+   425→        body: JSON.stringify({ ids }),
+   426→      });
+   427→      const data = await res.json();
+   428→      if (data.success) {
+   429→        toast.success(`${data.approved} applications approved!`);
+   430→        refreshApps();
+   431→      } else toast.error(data.error || 'Failed');
+   432→    } catch { toast.error('Error batch approving'); }
+   433→  };
+   434→
+   435→  // Mark as sent
+   436→  const markAsSent = async (id: string) => {
+   437→    try {
+   438→      await fetch('/api/applications', {
+   439→        method: 'PUT',
+   440→        headers: { 'Content-Type': 'application/json' },
+   441→        body: JSON.stringify({ id, status: 'submitted', appliedAt: new Date().toISOString() }),
+   442→      });
+   443→      toast.success('Marked as sent!');
+   444→      refreshApps();
+   445→    } catch { toast.error('Error'); }
+   446→  };
+   447→
+   448→  // Send email (mailto link)
+   449→  const sendEmail = (app: Application) => {
+   450→    const subject = encodeURIComponent(`Application for ${app.jobTitle} - Hambisa Bekuma Tefera`);
+   451→    const body = encodeURIComponent(
+   452→      `Dear Hiring Manager,\n\nI am writing to express my interest in the ${app.jobTitle} position at ${app.company || 'your esteemed organization'}.\n\n${app.coverLetter ? app.coverLetter.substring(0, 500) + '...' : ''}\n\nPlease find my attached CV and cover letter for your consideration.\n\nBest regards,\nHambisa Bekuma Tefera\nPhone: +251 952 341 525\nEmail: hambisa1992@gmail.com\nLocation: Addis Ababa, Ethiopia`
+   453→    );
+   454→    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+   455→    toast.success('Email client opened — attach your PDF to the email');
+   456→  };
+   457→
+   458→  // PDF preview
+   459→  const previewPdf = async (app: Application) => {
+   460→    setIsGeneratingPdf(true);
+   461→    setPdfDialogApp(app);
+   462→    setPdfData(null);
+   463→    try {
+   464→      const res = await fetch(`/api/auto-apply/generate-pdf?id=${app.id}&type=both`);
+   465→      const data = await res.json();
+   466→      if (data.success) setPdfData({ cvHtml: data.cvHtml, coverLetterHtml: data.coverLetterHtml });
+   467→      else toast.error('Failed to generate PDF');
+   468→    } catch { toast.error('Error generating'); }
+   469→    finally { setIsGeneratingPdf(false); }
+   470→  };
+   471→
+   472→  const downloadCV = async () => {
+   473→    setIsGeneratingPdf(true);
+   474→    try {
+   475→      const res = await fetch('/api/auto-apply/generate-pdf?id=cv&type=cv-only');
+   476→      const data = await res.json();
+   477→      if (data.success && data.cvHtml) {
+   478→        const win = window.open('', '_blank');
+   479→        if (win) { win.document.write(data.cvHtml); win.document.title = 'Hambisa_Bekuma_Tefera_CV.pdf'; win.document.close(); }
+   480→      }
+   481→    } catch { toast.error('Error'); }
+   482→    finally { setIsGeneratingPdf(false); }
+   483→  };
+   484→
+   485→  const openInTab = (html: string, title: string) => {
+   486→    const win = window.open('', '_blank');
+   487→    if (win) { win.document.write(html); win.document.title = title; win.document.close(); setTimeout(() => win.print(), 500); }
+   488→  };
+   489→
+   490→  return (
+   491→    <div className="space-y-6">
+   492→      {/* ===== SECTION 1: Search Controls ===== */}
+   493→      <Card className="border-emerald-200 dark:border-emerald-800">
+   494→        <CardContent className="p-6">
+   495→          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+   496→            <div className="flex items-center gap-3">
+   497→              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isRunningCycle ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}>
+   498→                {isRunningCycle ? <Loader2 className="w-6 h-6 text-orange-500 animate-spin" /> : <Zap className="w-6 h-6 text-emerald-600" />}
+   499→              </div>
+   500→              <div>
+   501→                <h3 className="font-semibold text-lg">Smart Job Search</h3>
+   502→                <p className="text-sm text-muted-foreground">
+   503→                  {isRunningCycle ? 'Searching 12-16 queries with AI batch evaluation...' :
+   504→                    pendingApps.length > 0 ? `${pendingApps.length} jobs waiting for your review` :
+   505→                      approvedApps.length > 0 ? `${approvedApps.length} jobs approved — ready to send` :
+   506→                        submittedApps.length > 0 ? `${submittedApps.length} applications submitted!` :
+   507→                        'Click a button to start automated job search'}
+   508→                </p>
+   509→                {!isRunningCycle && (
+   510→                  <p className="text-xs text-emerald-600 mt-0.5">Auto-search in {countdownStr}</p>
+   511→                )}
+   512→                {isRunningCycle && (
+   513→                  <p className="text-xs text-orange-600 mt-0.5">Search running...</p>
+   514→                )}
+   515→              </div>
+   516→            </div>
+   517→            <div className="flex gap-2 flex-wrap">
+   518→              <Button onClick={downloadCV} disabled={isGeneratingPdf} variant="outline" className="gap-1.5 text-xs">
+   519→                <Download className="w-3.5 h-3.5" />My CV
+   520→              </Button>
+   521→              <Button onClick={() => triggerRun()} disabled={isRunningCycle} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+   522→                {isRunningCycle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+   523→                {isRunningCycle ? 'Searching...' : 'Find All Jobs'}
+   524→              </Button>
+   525→              <Button onClick={() => triggerRun('linkedin')} disabled={isRunningCycle} variant="outline" className="gap-1.5 text-xs text-blue-600 border-blue-300 hover:bg-blue-50">
+   526→                <Globe className="w-3.5 h-3.5" />LinkedIn Only
+   527→              </Button>
+   528→              <Button onClick={() => triggerRun('remote')} disabled={isRunningCycle} variant="outline" className="gap-1.5 text-xs text-purple-600 border-purple-300 hover:bg-purple-50">
+   529→                <Activity className="w-3.5 h-3.5" />Remote Data Entry
+   530→              </Button>
+   531→              <Button onClick={() => triggerRun('ethiopia')} disabled={isRunningCycle} variant="outline" className="gap-1.5 text-xs text-orange-600 border-orange-300 hover:bg-orange-50">
+   532→                <Target className="w-3.5 h-3.5" />Ethiopian Sites
+   533→              </Button>
+   534→            </div>
+   535→          </div>
+   536→
+   537→          {/* Automation Info */}
+   538→          <div className="mt-4 p-3 rounded-lg bg-muted/50 text-xs text-muted-foreground">
+   539→            <p className="font-medium mb-1">🤖 Fully Automated Pipeline:</p>
+   540→            <div className="flex flex-wrap gap-1.5">
+   541→              {['EthioJobs.net', 'Mekanisa.com', 'Jobs.et', 'GeezJob.com', 'EthioVacancy.com', 'HarmeJobs.com', 'Reporter', 'NewJobs', 'ZameJobs', 'LinkedIn', 'RemoteOK', 'WeWorkRemotely', 'FlexJobs', 'Upwork', 'Remotive'].map(s => (
+   542→                <Badge key={s} variant="outline" className="text-[10px]">{s}</Badge>
+   543→              ))}
+   544→            </div>
+   545→            <p className="mt-2">Matching: Sales, Marketing, Business Dev, Data Entry, Remote Work, Virtual Assistant, Customer Service + related</p>
+   546→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+   547→              <div className="flex items-center gap-2 p-2 rounded bg-emerald-50 dark:bg-emerald-950/20">
+   548→                <Zap className="w-3.5 h-3.5 text-emerald-600" />
+   549→                <div><p className="font-medium text-emerald-700 dark:text-emerald-300">Auto-search every 1 hour</p><p className="text-[10px]">Runs on background scheduler</p></div>
+   550→              </div>
+   551→              <div className="flex items-center gap-2 p-2 rounded bg-blue-50 dark:bg-blue-950/20">
+   552→                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+   553→                <div><p className="font-medium text-blue-700 dark:text-blue-300">Auto-approve ≥60% match</p><p className="text-[10px]">AI evaluates and approves</p></div>
+   554→              </div>
+   555→              <div className="flex items-center gap-2 p-2 rounded bg-purple-50 dark:bg-purple-950/20">
+   556→                <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" />
+   557→                <div><p className="font-medium text-purple-700 dark:text-purple-300">Auto-submit ≥80% match</p><p className="text-[10px]">Cover letter + marked as sent</p></div>
+   558→              </div>
+   559→              <div className="flex items-center gap-2 p-2 rounded bg-amber-50 dark:bg-amber-950/20">
+   560→                <Mail className="w-3.5 h-3.5 text-amber-600" />
+   561→                <div><p className="font-medium text-amber-700 dark:text-amber-300">Email extraction</p><p className="text-[10px]">Finds apply emails in listings</p></div>
+   562→              </div>
+   563→            </div>
+   564→          </div>
+   565→
+   566→          {/* Live Run Logs */}
+   567→          {runLogs.length > 0 && (
+   568→            <div className="mt-4 p-3 rounded-lg bg-gray-950 text-emerald-400 font-mono text-[11px] leading-relaxed max-h-60 overflow-y-auto">
+   569→              {runLogs.map((log, i) => <div key={i}>{log}</div>)}
+   570→            </div>
+   571→          )}
+   572→        </CardContent>
+   573→      </Card>
+   574→
+   575→      {/* ===== Stats ===== */}
+   576→      <div className="grid grid-cols-3 gap-3">
+   577→        <Card className={pendingApps.length > 0 ? 'border-amber-300' : ''}>
+   578→          <CardContent className="p-4 text-center">
+   579→            <p className="text-2xl font-bold text-amber-600">{pendingApps.length}</p>
+   580→            <p className="text-xs text-muted-foreground">Pending Review</p>
+   581→          </CardContent>
+   582→        </Card>
+   583→        <Card className={approvedApps.length > 0 ? 'border-emerald-300' : ''}>
+   584→          <CardContent className="p-4 text-center">
+   585→            <p className="text-2xl font-bold text-emerald-600">{approvedApps.length}</p>
+   586→            <p className="text-xs text-muted-foreground">Approved</p>
+   587→          </CardContent>
+   588→        </Card>
+   589→        <Card>
+   590→          <CardContent className="p-4 text-center">
+   591→            <p className="text-2xl font-bold text-blue-600">{submittedApps.length}</p>
+   592→            <p className="text-xs text-muted-foreground">Sent</p>
+   593→          </CardContent>
+   594→        </Card>
+   595→      </div>
+   596→
+   597→      {/* ===== SECTION 2: Pending Review — Needs Your Approval ===== */}
+   598→      <Card className={pendingApps.length > 0 ? 'border-amber-300 dark:border-amber-700' : ''}>
+   599→        <CardHeader className="pb-3">
+   600→          <div className="flex items-center justify-between">
+   601→            <div>
+   602→              <CardTitle className="text-base flex items-center gap-2">
+   603→                <Clock className="w-4 h-4 text-amber-500" />
+   604→                Pending Review ({pendingApps.length})
+   605→              </CardTitle>
+   606→              <CardDescription>Review each job and approve or reject before sending</CardDescription>
+   607→            </div>
+   608→            {pendingApps.length > 1 && (
+   609→              <Button onClick={batchApprove} size="sm" variant="outline" className="gap-1.5 text-xs text-emerald-600 border-emerald-300">
+   610→                <CheckCircle2 className="w-3.5 h-3.5" />Approve All ({pendingApps.length})
+   611→              </Button>
+   612→            )}
+   613→          </div>
+   614→        </CardHeader>
+   615→        <CardContent>
+   616→          {pendingApps.length === 0 ? (
+   617→            <div className="text-center py-12 text-muted-foreground">
+   618→              <Search className="w-12 h-12 mx-auto mb-3 opacity-20" />
+   619→              <p className="text-sm font-medium">No jobs waiting for review</p>
+   620→              <p className="text-xs mt-1">Click &quot;Find Jobs Now&quot; to start searching</p>
+   621→            </div>
+   622→          ) : (
+   623→            <ScrollArea className="max-h-[700px]">
+   624→              <div className="space-y-3">
+   625→                {pendingApps.map((app) => (
+   626→                  <div key={app.id} className="border-2 border-amber-200 dark:border-amber-800 rounded-xl overflow-hidden bg-gradient-to-r from-amber-50/50 to-white dark:from-amber-950/10 dark:to-background">
+   627→                    {/* Job Summary Header */}
+   628→                    <div className="p-4">
+   629→                      <div className="flex flex-col sm:flex-row gap-3">
+   630→                        {/* Left: Job Info */}
+   631→                        <div className="flex-1 min-w-0">
+   632→                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+   633→                            <h4 className="text-sm font-bold">{app.jobTitle}</h4>
+   634→                            {app.matchScore && (
+   635→                              <Badge className={`text-[10px] border-0 ${(app.matchScore || 0) >= 70 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' : (app.matchScore || 0) >= 50 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-gray-100 text-gray-600'}`}>
+   636→                                {app.matchScore}% match
+   637→                              </Badge>
+   638→                            )}
+   639→                          </div>
+   640→
+   641→                          <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
+   642→                            {app.company && (
+   643→                              <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{app.company}</span>
+   644→                            )}
+   645→                            {app.location && (
+   646→                              <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{app.location}</span>
+   647→                            )}
+   648→                            {app.source && (
+   649→                              <span className="flex items-center gap-1"><Globe className="w-3 h-3" />{app.source}</span>
+   650→                            )}
+   651→                          </div>
+   652→
+   653→                          {/* Match Reasoning */}
+   654→                          {app.matchReasoning && (
+   655→                            <div className="mt-2 p-2.5 rounded-lg bg-muted/50 border border-border/50">
+   656→                              <p className="text-[11px] text-muted-foreground">
+   657→                                <span className="font-semibold text-amber-700 dark:text-amber-400">Why this matches:</span> {app.matchReasoning}
+   658→                              </p>
+   659→                            </div>
+   660→                          )}
+   661→
+   662→                          {/* Deadline */}
+   663→                          {app.jobDeadline && (
+   664→                            <div className="mt-2 flex items-center gap-1.5 text-xs">
+   665→                              <Calendar className="w-3 h-3 text-red-500" />
+   666→                              <span className="text-red-600 dark:text-red-400 font-medium">Deadline: {app.jobDeadline}</span>
+   667→                            </div>
+   668→                          )}
+   669→
+   670→                          {/* Job Description snippet */}
+   671→                          {app.jobDescription && (
+   672→                            <div className="mt-2">
+   673→                              <Button variant="ghost" size="sm" className="h-6 text-[11px] gap-1 p-0 text-muted-foreground" onClick={() => setExpandedCoverLetter(expandedCoverLetter === app.id ? null : app.id)}>
+   674→                                <Eye className="w-3 h-3" />
+   675→                                {expandedCoverLetter === app.id ? 'Hide' : 'Show'} full description & cover letter
+   676→                              </Button>
+   677→                            </div>
+   678→                          )}
+   679→                        </div>
+   680→
+   681→                        {/* Right: Action Buttons */}
+   682→                        <div className="flex flex-col gap-2 flex-shrink-0 sm:min-w-[160px]">
+   683→                          <Button
+   684→                            size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+   685→                            disabled={isApproving === app.id}
+   686→                            onClick={() => approveApp(app.id)}
+   687→                          >
+   688→                            {isApproving === app.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ThumbsUp className="w-3.5 h-3.5" />}
+   689→                            {isApproving === app.id ? 'Approving...' : 'Approve'}
+   690→                          </Button>
+   691→                          <Button size="sm" variant="outline" className="gap-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30" onClick={() => rejectApp(app.id)}>
+   692→                            <ThumbsDown className="w-3.5 h-3.5" />Reject
+   693→                          </Button>
+   694→                          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => previewPdf(app)}>
+   695→                            <FileDown className="w-3.5 h-3.5" />Preview PDF
+   696→                          </Button>
+   697→                          {app.url && (
+   698→                            <Button asChild size="sm" variant="ghost" className="gap-1 text-xs">
+   699→                              <a href={app.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3 h-3" />Job Site</a>
+   700→                            </Button>
+   701→                          )}
+   702→                        </div>
+   703→                      </div>
+   704→
+   705→                      {/* Expanded: Cover letter + description */}
+   706→                      {expandedCoverLetter === app.id && (
+   707→                        <div className="mt-3 pt-3 border-t space-y-3">
+   708→                          {app.jobDescription && (
+   709→                            <div>
+   710→                              <p className="text-xs font-semibold text-muted-foreground mb-1.5">Job Description</p>
+   711→                              <ScrollArea className="max-h-32">
+   712→                                <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">{app.jobDescription}</p>
+   713→                              </ScrollArea>
+   714→                            </div>
+   715→                          )}
+   716→                          {app.coverLetter && (
+   717→                            <div>
+   718→                              <div className="flex items-center justify-between mb-1.5">
+   719→                                <p className="text-xs font-semibold text-emerald-600">Generated Cover Letter</p>
+   720→                                <Button variant="ghost" size="sm" className="h-6 text-[11px] gap-1" onClick={() => { navigator.clipboard.writeText(app.coverLetter || ''); toast.success('Copied!'); }}>
+   721→                                  <Copy className="w-3 h-3" />Copy
+   722→                                </Button>
+   723→                              </div>
+   724→                              <ScrollArea className="max-h-48">
+   725→                                <p className="text-xs whitespace-pre-line leading-relaxed font-serif text-muted-foreground">{app.coverLetter}</p>
+   726→                              </ScrollArea>
+   727→                            </div>
+   728→                          )}
+   729→                        </div>
+   730→                      )}
+   731→                    </div>
+   732→                  </div>
+   733→                ))}
+   734→              </div>
+   735→            </ScrollArea>
+   736→          )}
+   737→        </CardContent>
+   738→      </Card>
+   739→
+   740→      {/* ===== SECTION 3: Approved — Ready to Send ===== */}
+   741→      <Card className={approvedApps.length > 0 ? 'border-emerald-300 dark:border-emerald-700' : ''}>
+   742→        <CardHeader className="pb-3">
+   743→          <CardTitle className="text-base flex items-center gap-2">
+   744→            <ShieldCheck className="w-4 h-4 text-emerald-500" />
+   745→            Approved & Ready to Send ({approvedApps.length})
+   746→          </CardTitle>
+   747→          <CardDescription>Download PDFs, send via email, or mark as sent after applying</CardDescription>
+   748→        </CardHeader>
+   749→        <CardContent>
+   750→          {approvedApps.length === 0 ? (
+   751→            <div className="text-center py-8 text-muted-foreground">
+   752→              <CheckCircle2 className="w-10 h-10 mx-auto mb-2 opacity-20" />
+   753→              <p className="text-sm">No approved applications yet</p>
+   754→              <p className="text-xs mt-1">Approve jobs from the &quot;Pending Review&quot; section above</p>
+   755→            </div>
+   756→          ) : (
+   757→            <ScrollArea className="max-h-[500px]">
+   758→              <div className="space-y-2">
+   759→                {approvedApps.map((app) => (
+   760→                  <div key={app.id} className="border border-emerald-200 dark:border-emerald-800 rounded-lg overflow-hidden">
+   761→                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 p-3 bg-emerald-50/50 dark:bg-emerald-950/20">
+   762→                      <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+   763→                        <FileCheck className="w-4.5 h-4.5 text-emerald-600" />
+   764→                      </div>
+   765→                      <div className="flex-1 min-w-0">
+   766→                        <div className="flex items-center gap-2 flex-wrap">
+   767→                          <h4 className="text-sm font-medium">{app.jobTitle}</h4>
+   768→                          {app.matchScore && <Badge variant="outline" className="text-[10px]">{app.matchScore}%</Badge>}
+   769→                        </div>
+   770→                        <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+   771→                          {app.company && <span>{app.company}</span>}
+   772→                          {app.jobDeadline && <span className="text-red-500">Deadline: {app.jobDeadline}</span>}
+   773→                        </div>
+   774→                      </div>
+   775→                      <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
+   776→                        <Button size="sm" className="h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => previewPdf(app)}>
+   777→                          <Download className="w-3 h-3" />PDF
+   778→                        </Button>
+   779→                        <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => sendEmail(app)}>
+   780→                          <Mail className="w-3 h-3" />Send Email
+   781→                        </Button>
+   782→                        <Button size="sm" variant="outline" className="h-8 text-xs gap-1 text-blue-600 border-blue-200" onClick={() => markAsSent(app.id)}>
+   783→                          <MailCheck className="w-3 h-3" />Mark Sent
+   784→                        </Button>
+   785→                        {app.url && (
+   786→                          <Button asChild variant="ghost" size="sm" className="h-8 text-xs gap-1">
+   787→                            <a href={app.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3 h-3" />Visit</a>
+   788→                          </Button>
+   789→                        )}
+   790→                      </div>
+   791→                    </div>
+   792→                  </div>
+   793→                ))}
+   794→              </div>
+   795→            </ScrollArea>
+   796→          )}
+   797→        </CardContent>
+   798→      </Card>
+   799→
+   800→      {/* ===== SECTION 4: Submitted ===== */}
+   801→      {submittedApps.length > 0 && (
+   802→        <Card>
+   803→          <CardHeader className="pb-3">
+   804→            <CardTitle className="text-base flex items-center gap-2">
+   805→              <MailCheck className="w-4 h-4 text-blue-500" />
+   806→              Sent Applications ({submittedApps.length})
+   807→            </CardTitle>
+   808→          </CardHeader>
+   809→          <CardContent>
+   810→            <ScrollArea className="max-h-[300px]">
+   811→              <div className="space-y-2">
+   812→                {submittedApps.map((app) => (
+   813→                  <div key={app.id} className="flex items-center gap-2.5 p-2.5 rounded-lg bg-blue-50/50 dark:bg-blue-950/20">
+   814→                    <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+   815→                      <Check className="w-3.5 h-3.5 text-blue-600" />
+   816→                    </div>
+   817→                    <div className="flex-1 min-w-0">
+   818→                      <p className="text-sm font-medium truncate">{app.jobTitle}</p>
+   819→                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+   820→                        {app.company && <span>{app.company}</span>}
+   821→                        {app.appliedAt && <span>Sent: {new Date(app.appliedAt).toLocaleDateString()}</span>}
+   822→                      </div>
+   823→                    </div>
+   824→                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => previewPdf(app)}>
+   825→                      <Eye className="w-3 h-3" />View
+   826→                    </Button>
+   827→                  </div>
+   828→                ))}
+   829→              </div>
+   830→            </ScrollArea>
+   831→          </CardContent>
+   832→        </Card>
+   833→      )}
+   834→
+   835→      {/* ===== PDF Preview Dialog ===== */}
+   836→      <Dialog open={!!pdfDialogApp} onOpenChange={() => setPdfDialogApp(null)}>
+   837→        <DialogContent className="max-w-4xl max-h-[85vh]">
+   838→          <DialogHeader>
+   839→            <DialogTitle>Application Package — {pdfDialogApp?.jobTitle}</DialogTitle>
+   840→            <DialogDescription>
+   841→              {pdfDialogApp?.company} • {pdfDialogApp?.matchScore}% match
+   842→              {pdfDialogApp?.jobDeadline && ` • Deadline: ${pdfDialogApp.jobDeadline}`}
+   843→            </DialogDescription>
+   844→          </DialogHeader>
+   845→          {isGeneratingPdf ? (
+   846→            <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>
+   847→          ) : pdfData ? (
+   848→            <div className="space-y-3">
+   849→              <div className="flex gap-2 flex-wrap">
+   850→                <Button variant="outline" size="sm" className="gap-1" onClick={() => pdfData.cvHtml && openInTab(pdfData.cvHtml, 'Hambisa_CV.pdf')}>
+   851→                  <Download className="w-3.5 h-3.5" />Download CV (Print to PDF)
+   852→                </Button>
+   853→                <Button variant="outline" size="sm" className="gap-1" onClick={() => pdfData.coverLetterHtml && openInTab(pdfData.coverLetterHtml, 'Cover_Letter.pdf')}>
+   854→                  <Download className="w-3.5 h-3.5" />Download Cover Letter
+   855→                </Button>
+   856→                <Button variant="outline" size="sm" className="gap-1" onClick={() => pdfData.cvHtml && openInTab(pdfData.cvHtml, 'Hambisa_CV.pdf')}>
+   857→                  <Printer className="w-3.5 h-3.5" />Print CV
+   858→                </Button>
+   859→                {pdfDialogApp && (
+   860→                  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1" onClick={() => { sendEmail(pdfDialogApp); }}>
+   861→                    <Mail className="w-3.5 h-3.5" />Send via Email
+   862→                  </Button>
+   863→                )}
+   864→                {pdfDialogApp?.url && (
+   865→                  <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1">
+   866→                    <a href={pdfDialogApp.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3.5 h-3.5" />Go to Job Site</a>
+   867→                  </Button>
+   868→                )}
+   869→              </div>
+   870→              <div className="grid md:grid-cols-2 gap-4">
+   871→                {pdfData.cvHtml && (
+   872→                  <div>
+   873→                    <p className="text-xs font-semibold mb-2 text-emerald-600">Curriculum Vitae</p>
+   874→                    <div className="border rounded-lg h-[400px] overflow-auto bg-white" dangerouslySetInnerHTML={{ __html: pdfData.cvHtml }} />
+   875→                  </div>
+   876→                )}
+   877→                {pdfData.coverLetterHtml && (
+   878→                  <div>
+   879→                    <p className="text-xs font-semibold mb-2 text-emerald-600">Cover Letter</p>
+   880→                    <div className="border rounded-lg h-[400px] overflow-auto bg-white" dangerouslySetInnerHTML={{ __html: pdfData.coverLetterHtml }} />
+   881→                  </div>
+   882→                )}
+   883→              </div>
+   884→            </div>
+   885→          ) : null}
+   886→        </DialogContent>
+   887→      </Dialog>
+   888→    </div>
+   889→  );
+   890→}
+   891→
+   892→// ========== APPLICATIONS TAB ==========
+   893→function ApplicationsTab({ applications, setApplications }: {
+   894→  applications: Application[]; setApplications: (apps: Application[]) => void;
+   895→}) {
+   896→  const [filterStatus, setFilterStatus] = useState('all');
+   897→  const [filterText, setFilterText] = useState('');
+   898→  const [expandedId, setExpandedId] = useState<string | null>(null);
+   899→  const [showAddDialog, setShowAddDialog] = useState(false);
+   900→  const [isUpdating, setIsUpdating] = useState<string | null>(null);
+   901→  const [newApp, setNewApp] = useState({ jobTitle: '', company: '', location: '', status: 'pending_review', url: '' });
+   902→
+   903→  const refreshApps = useCallback(async () => {
+   904→    try {
+   905→      const res = await fetch('/api/applications');
+   906→      const data = await res.json();
+   907→      if (data.success) setApplications(data.applications);
+   908→    } catch { /* ignore */ }
+   909→  }, [setApplications]);
+   910→
+   911→  const filtered = applications.filter((app) => {
+   912→    if (filterStatus !== 'all' && app.status !== filterStatus) return false;
+   913→    if (filterText) {
+   914→      const t = filterText.toLowerCase();
+   915→      return app.jobTitle.toLowerCase().includes(t) || (app.company || '').toLowerCase().includes(t);
+   916→    }
+   917→    return true;
+   918→  });
+   919→
+   920→  const statusCounts: Record<string, number> = { all: applications.length, pending_review: 0, approved: 0, submitted: 0, interview: 0, offered: 0, rejected: 0, withdrawn: 0 };
+   921→  applications.forEach((a) => { const s = a.status; if (s in statusCounts) statusCounts[s]++; });
+   922→
+   923→  const updateStatus = async (id: string, status: string) => {
+   924→    setIsUpdating(id);
+   925→    try {
+   926→      await fetch('/api/applications', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) });
+   927→      toast.success('Status updated');
+   928→      refreshApps();
+   929→    } catch { toast.error('Failed to update'); }
+   930→    finally { setIsUpdating(null); }
+   931→  };
+   932→
+   933→  const deleteApp = async (id: string) => {
+   934→    try {
+   935→      await fetch(`/api/applications?id=${id}`, { method: 'DELETE' });
+   936→      toast.success('Application deleted');
+   937→      refreshApps();
+   938→    } catch { toast.error('Failed to delete'); }
+   939→  };
+   940→
+   941→  const addApp = async () => {
+   942→    if (!newApp.jobTitle.trim()) { toast.error('Job title required'); return; }
+   943→    try {
+   944→      await fetch('/api/applications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newApp) });
+   945→      toast.success('Application added');
+   946→      setShowAddDialog(false);
+   947→      setNewApp({ jobTitle: '', company: '', location: '', status: 'pending_review', url: '' });
+   948→      refreshApps();
+   949→    } catch { toast.error('Failed to add'); }
+   950→  };
+   951→
+   952→  return (
+   953→    <div className="space-y-4">
+   954→      {/* Stats */}
+   955→      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+   956→        {Object.entries(statusCounts).filter(([, count]) => count > 0).slice(0, 6).map(([key, count]) => (
+   957→          <Card key={key} className={filterStatus === key ? 'border-emerald-500' : ''} onClick={() => setFilterStatus(key === filterStatus ? 'all' : key)}>
+   958→            <CardContent className="p-3 text-center cursor-pointer">
+   959→              <p className="text-lg font-bold">{count}</p>
+   960→              <p className="text-[10px] text-muted-foreground">{key === 'all' ? 'All' : statusLabel(key)}</p>
+   961→            </CardContent>
+   962→          </Card>
+   963→        ))}
+   964→      </div>
+   965→
+   966→      {/* Filters + Add */}
+   967→      <div className="flex flex-col sm:flex-row gap-2">
+   968→        <Input placeholder="Search by title or company..." value={filterText} onChange={(e) => setFilterText(e.target.value)} className="flex-1 h-9 text-sm" />
+   969→        <Select value={filterStatus} onValueChange={setFilterStatus}>
+   970→          <SelectTrigger className="w-40 h-9 text-xs"><SelectValue placeholder="All Status" /></SelectTrigger>
+   971→          <SelectContent>
+   972→            <SelectItem value="all">All Status</SelectItem>
+   973→            <SelectItem value="pending_review">Pending Review</SelectItem>
+   974→            <SelectItem value="approved">Approved</SelectItem>
+   975→            <SelectItem value="submitted">Submitted</SelectItem>
+   976→            <SelectItem value="interview">Interview</SelectItem>
+   977→            <SelectItem value="offered">Offered</SelectItem>
+   978→            <SelectItem value="rejected">Rejected</SelectItem>
+   979→            <SelectItem value="withdrawn">Withdrawn</SelectItem>
+   980→          </SelectContent>
+   981→        </Select>
+   982→        <Button onClick={() => setShowAddDialog(true)} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 h-9"><Plus className="w-3.5 h-3.5" />Add</Button>
+   983→      </div>
+   984→
+   985→      {/* List */}
+   986→      <Card>
+   987→        <CardContent className="p-3">
+   988→          {filtered.length === 0 ? (
+   989→            <div className="text-center py-12 text-muted-foreground">
+   990→              <FileText className="w-10 h-10 mx-auto mb-2 opacity-30" />
+   991→              <p className="text-sm">{applications.length === 0 ? 'No applications yet.' : 'No applications match filters.'}</p>
+   992→            </div>
+   993→          ) : (
+   994→            <ScrollArea className="max-h-[600px]">
+   995→              <div className="space-y-2">
+   996→                {filtered.map((app) => (
+   997→                  <div key={app.id} className="border rounded-lg overflow-hidden">
+   998→                    <div className="flex items-center gap-2.5 p-3 hover:bg-muted/30 transition-colors">
+   999→                      <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+  1000→                        {app.status === 'pending_review' ? <Clock className="w-4 h-4 text-amber-600" /> :
+  1001→                         app.status === 'approved' ? <Check className="w-4 h-4 text-emerald-600" /> :
+  1002→                         (app.matchScore || 0) >= 70 ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> :
+  1003→                         <Briefcase className="w-4 h-4 text-emerald-600" />}
+  1004→                      </div>
+  1005→                      <div className="flex-1 min-w-0">
+  1006→                        <div className="flex items-center gap-1.5">
+  1007→                          <p className="text-sm font-medium truncate">{app.jobTitle}</p>
+  1008→                          {app.matchScore && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{app.matchScore}%</Badge>}
+  1009→                        </div>
+  1010→                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+  1011→                          {app.company && <span className="text-xs text-muted-foreground flex items-center gap-0.5"><Building2 className="w-2.5 h-2.5" />{app.company}</span>}
+  1012→                          {app.location && <span className="text-xs text-muted-foreground flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" />{app.location}</span>}
+  1013→                          {app.jobDeadline && <span className="text-xs text-red-500 flex items-center gap-0.5"><Calendar className="w-2.5 h-2.5" />{app.jobDeadline}</span>}
+  1014→                        </div>
+  1015→                      </div>
+  1016→                      <div className="flex items-center gap-1.5 flex-shrink-0">
+  1017→                        <Badge className={`text-[10px] px-2 py-0 border-0 ${statusColor(app.status)}`}>{statusLabel(app.status)}</Badge>
+  1018→                        <span className="text-[10px] text-muted-foreground hidden sm:inline">{new Date(app.createdAt).toLocaleDateString()}</span>
+  1019→                        <div className="flex items-center gap-0.5 ml-1">
+  1020→                          <Select value={app.status} onValueChange={(v) => updateStatus(app.id, v)}>
+  1021→                            <SelectTrigger className="w-7 h-7 p-0 border-0" disabled={isUpdating === app.id}>
+  1022→                              {isUpdating === app.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+  1023→                              <SelectValue />
+  1024→                            </SelectTrigger>
+  1025→                            <SelectContent>
+  1026→                              <SelectItem value="pending_review">Pending Review</SelectItem>
+  1027→                              <SelectItem value="approved">Approved</SelectItem>
+  1028→                              <SelectItem value="submitted">Submitted</SelectItem>
+  1029→                              <SelectItem value="interview">Interview</SelectItem>
+  1030→                              <SelectItem value="offered">Offered</SelectItem>
+  1031→                              <SelectItem value="rejected">Rejected</SelectItem>
+  1032→                              <SelectItem value="withdrawn">Withdrawn</SelectItem>
+  1033→                            </SelectContent>
+  1034→                          </Select>
+  1035→                          {app.url && <Button asChild variant="ghost" size="sm" className="h-7 w-7 p-0"><a href={app.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3 h-3" /></a></Button>}
+  1036→                          {app.coverLetter && <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setExpandedId(expandedId === app.id ? null : app.id)}><Eye className="w-3 h-3" /></Button>}
+  1037→                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500" onClick={() => deleteApp(app.id)}><Trash2 className="w-3 h-3" /></Button>
+  1038→                        </div>
+  1039→                      </div>
+  1040→                    </div>
+  1041→                    {expandedId === app.id && (
+  1042→                      <div className="px-3 pb-3 border-t bg-muted/20">
+  1043→                        {app.matchReasoning && (
+  1044→                          <div className="mt-2 mb-2">
+  1045→                            <p className="text-[11px] text-muted-foreground"><span className="font-semibold">Match Reasoning:</span> {app.matchReasoning}</p>
+  1046→                          </div>
+  1047→                        )}
+  1048→                        {app.coverLetter && (
+  1049→                          <div className="flex items-center justify-between mb-1.5">
+  1050→                            <p className="text-xs font-semibold text-emerald-600">Cover Letter</p>
+  1051→                            <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => { navigator.clipboard.writeText(app.coverLetter || ''); toast.success('Copied!'); }}><Copy className="w-3 h-3" />Copy</Button>
+  1052→                          </div>
+  1053→                        )}
+  1054→                        {app.coverLetter && <ScrollArea className="max-h-48"><p className="text-xs whitespace-pre-line leading-relaxed font-serif text-muted-foreground">{app.coverLetter}</p></ScrollArea>}
+  1055→                      </div>
+  1056→                    )}
+  1057→                  </div>
+  1058→                ))}
+  1059→              </div>
+  1060→            </ScrollArea>
+  1061→          )}
+  1062→        </CardContent>
+  1063→      </Card>
+  1064→
+  1065→      {/* Add Dialog */}
+  1066→      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+  1067→        <DialogContent>
+  1068→          <DialogHeader>
+  1069→            <DialogTitle>Add Application</DialogTitle>
+  1070→            <DialogDescription>Manually track a new job application</DialogDescription>
+  1071→          </DialogHeader>
+  1072→          <div className="space-y-3">
+  1073→            <div><Label>Job Title *</Label><Input value={newApp.jobTitle} onChange={(e) => setNewApp({ ...newApp, jobTitle: e.target.value })} placeholder="e.g., Sales Manager" /></div>
+  1074→            <div className="grid grid-cols-2 gap-3">
+  1075→              <div><Label>Company</Label><Input value={newApp.company} onChange={(e) => setNewApp({ ...newApp, company: e.target.value })} placeholder="Company name" /></div>
+  1076→              <div><Label>Location</Label><Input value={newApp.location} onChange={(e) => setNewApp({ ...newApp, location: e.target.value })} placeholder="Addis Ababa" /></div>
+  1077→            </div>
+  1078→            <div><Label>Job URL</Label><Input value={newApp.url} onChange={(e) => setNewApp({ ...newApp, url: e.target.value })} placeholder="https://..." /></div>
+  1079→          </div>
+  1080→          <DialogFooter>
+  1081→            <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
+  1082→            <Button onClick={addApp} className="bg-emerald-600 hover:bg-emerald-700 text-white">Add Application</Button>
+  1083→          </DialogFooter>
+  1084→        </DialogContent>
+  1085→      </Dialog>
+  1086→    </div>
+  1087→  );
+  1088→}
+  1089→
+  1090→// ========== COVER LETTERS TAB ==========
+  1091→function CoverLettersTab({
+  1092→  applications, profile, expandedCoverLetter, setExpandedCoverLetter,
+  1093→  isGeneratingCoverLetter, setIsGeneratingCoverLetter,
+  1094→  coverLetterForm, setCoverLetterForm, generatedCoverLetter, setGeneratedCoverLetter,
+  1095→}: {
+  1096→  applications: Application[]; profile: UserProfile | null;
+  1097→  expandedCoverLetter: string | null; setExpandedCoverLetter: (id: string | null) => void;
+  1098→  isGeneratingCoverLetter: boolean; setIsGeneratingCoverLetter: (v: boolean) => void;
+  1099→  coverLetterForm: { jobTitle: string; company: string; jobDescription: string };
+  1100→  setCoverLetterForm: (f: { jobTitle: string; company: string; jobDescription: string }) => void;
+  1101→  generatedCoverLetter: string | null; setGeneratedCoverLetter: (cl: string | null) => void;
+  1102→}) {
+  1103→  const handleGenerate = async () => {
+  1104→    if (!coverLetterForm.jobTitle || !coverLetterForm.company) { toast.error('Enter job title and company'); return; }
+  1105→    setIsGeneratingCoverLetter(true);
+  1106→    try {
+  1107→      const res = await fetch('/api/ai/cover-letter', {
+  1108→        method: 'POST', headers: { 'Content-Type': 'application/json' },
+  1109→        body: JSON.stringify(coverLetterForm),
+  1110→      });
+  1111→      const data = await res.json();
+  1112→      if (data.success) { setGeneratedCoverLetter(data.coverLetter); toast.success('Cover letter generated!'); }
+  1113→    } catch { toast.error('Failed to generate'); }
+  1114→    finally { setIsGeneratingCoverLetter(false); }
+  1115→  };
+  1116→
+  1117→  const appsWithLetters = applications.filter(a => a.coverLetter);
+  1118→
+  1119→  return (
+  1120→    <div className="space-y-6">
+  1121→      <Card>
+  1122→        <CardHeader>
+  1123→          <CardTitle className="text-base flex items-center gap-2"><Sparkles className="w-4 h-4 text-emerald-600" /> Generate Cover Letter</CardTitle>
+  1124→          <CardDescription>Create a tailored cover letter for any job application</CardDescription>
+  1125→        </CardHeader>
+  1126→        <CardContent className="space-y-4">
+  1127→          <div className="grid sm:grid-cols-2 gap-4">
+  1128→            <div><Label>Job Title *</Label><Input value={coverLetterForm.jobTitle} onChange={(e) => setCoverLetterForm({ ...coverLetterForm, jobTitle: e.target.value })} placeholder="e.g., Sales Manager" /></div>
+  1129→            <div><Label>Company *</Label><Input value={coverLetterForm.company} onChange={(e) => setCoverLetterForm({ ...coverLetterForm, company: e.target.value })} placeholder="e.g., Ethiopian Airlines" /></div>
+  1130→          </div>
+  1131→          <div><Label>Job Description (optional)</Label><Textarea value={coverLetterForm.jobDescription} onChange={(e) => setCoverLetterForm({ ...coverLetterForm, jobDescription: e.target.value })} placeholder="Paste job description for a more tailored letter..." rows={3} /></div>
+  1132→          <Button onClick={handleGenerate} disabled={isGeneratingCoverLetter} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+  1133→            {isGeneratingCoverLetter ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+  1134→            {isGeneratingCoverLetter ? 'Generating...' : 'Generate Cover Letter'}
+  1135→          </Button>
+  1136→        </CardContent>
+  1137→      </Card>
+  1138→
+  1139→      {generatedCoverLetter && (
+  1140→        <Card>
+  1141→          <CardHeader className="pb-3">
+  1142→            <div className="flex items-center justify-between">
+  1143→              <CardTitle className="text-base">Generated Cover Letter</CardTitle>
+  1144→              <Button variant="ghost" size="sm" className="gap-1" onClick={() => { navigator.clipboard.writeText(generatedCoverLetter); toast.success('Copied!'); }}>
+  1145→                <Copy className="w-3.5 h-3.5" />Copy
+  1146→              </Button>
+  1147→            </div>
+  1148→          </CardHeader>
+  1149→          <CardContent>
+  1150→            <ScrollArea className="h-[350px]">
+  1151→              <p className="whitespace-pre-line text-sm leading-relaxed font-serif">{generatedCoverLetter}</p>
+  1152→            </ScrollArea>
+  1153→          </CardContent>
+  1154→        </Card>
+  1155→      )}
+  1156→
+  1157→      {appsWithLetters.length > 0 && (
+  1158→        <Card>
+  1159→          <CardHeader className="pb-3">
+  1160→            <CardTitle className="text-base">Auto-Generated Cover Letters ({appsWithLetters.length})</CardTitle>
+  1161→          </CardHeader>
+  1162→          <CardContent>
+  1163→            <ScrollArea className="max-h-[500px]">
+  1164→              <div className="space-y-3">
+  1165→                {appsWithLetters.map((app) => (
+  1166→                  <div key={app.id} className="border rounded-lg overflow-hidden">
+  1167→                    <div className="flex items-center justify-between p-3 bg-muted/30 cursor-pointer" onClick={() => setExpandedCoverLetter(expandedCoverLetter === app.id ? null : app.id)}>
+  1168→                      <div>
+  1169→                        <p className="text-sm font-medium">{app.jobTitle}</p>
+  1170→                        <div className="flex items-center gap-2">
+  1171→                          {app.company && <span className="text-xs text-muted-foreground">{app.company}</span>}
+  1172→                          {app.matchScore && <Badge variant="outline" className="text-[10px]">{app.matchScore}% match</Badge>}
+  1173→                        </div>
+  1174→                      </div>
+  1175→                      <ChevronRight className={`w-4 h-4 transition-transform ${expandedCoverLetter === app.id ? 'rotate-90' : ''}`} />
+  1176→                    </div>
+  1177→                    {expandedCoverLetter === app.id && app.coverLetter && (
+  1178→                      <div className="p-4 border-t">
+  1179→                        <div className="flex items-center justify-between mb-2">
+  1180→                          <p className="text-xs font-semibold text-emerald-600">Cover Letter</p>
+  1181→                          <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => { navigator.clipboard.writeText(app.coverLetter || ''); toast.success('Copied!'); }}>
+  1182→                            <Copy className="w-3 h-3" />Copy
+  1183→                          </Button>
+  1184→                        </div>
+  1185→                        <ScrollArea className="max-h-60">
+  1186→                          <p className="text-xs whitespace-pre-line leading-relaxed font-serif text-muted-foreground">{app.coverLetter}</p>
+  1187→                        </ScrollArea>
+  1188→                      </div>
+  1189→                    )}
+  1190→                  </div>
+  1191→                ))}
+  1192→              </div>
+  1193→            </ScrollArea>
+  1194→          </CardContent>
+  1195→        </Card>
+  1196→      )}
+  1197→    </div>
+  1198→  );
+  1199→}
+  1200→
+  1201→// ========== AI CHAT TAB ==========
+  1202→function AIChatTab({ chatMessages, setChatMessages, isChatLoading, setIsChatLoading, chatContext, setChatContext, message, setMessage, chatEndRef }: {
+  1203→  chatMessages: ChatMessage[]; setChatMessages: (m: ChatMessage[]) => void;
+  1204→  isChatLoading: boolean; setIsChatLoading: (v: boolean) => void;
+  1205→  chatContext: string; setChatContext: (c: string) => void;
+  1206→  message: string; setMessage: (m: string) => void; chatEndRef: React.RefObject<HTMLDivElement>;
+  1207→}) {
+  1208→  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages, chatEndRef]);
+  1209→
+  1210→  const handleSend = async () => {
+  1211→    if (!message.trim() || isChatLoading) return;
+  1212→    const userMsg = message.trim();
+  1213→    setMessage('');
+  1214→    setIsChatLoading(true);
+  1215→    const updated = [...chatMessages, { id: `msg-${Date.now()}`, role: 'user' as const, content: userMsg, createdAt: new Date().toISOString() }];
+  1216→    setChatMessages(updated);
+  1217→    try {
+  1218→      const res = await fetch('/api/ai/chat', {
+  1219→        method: 'POST', headers: { 'Content-Type': 'application/json' },
+  1220→        body: JSON.stringify({ message: userMsg, context: chatContext }),
+  1221→      });
+  1222→      const data = await res.json();
+  1223→      if (data.success) setChatMessages([...updated, { id: `msg-${Date.now() + 1}`, role: 'assistant' as const, content: data.response, createdAt: new Date().toISOString() }]);
+  1224→    } catch { toast.error('Failed to get response'); }
+  1225→    finally { setIsChatLoading(false); }
+  1226→  };
+  1227→
+  1228→  const quickQs = [
+  1229→    'What are the best sales manager roles available now?',
+  1230→    'How should I prepare for a sales interview in Ethiopia?',
+  1231→    'What salary should I expect as a sales manager in Addis Ababa?',
+  1232→    'How to write a great CV for Ethiopian employers?',
+  1233→  ];
+  1234→
+  1235→  return (
+  1236→    <div className="space-y-4">
+  1237→      <div className="flex items-center gap-3 mb-2">
+  1238→        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center"><Bot className="w-5 h-5 text-white" /></div>
+  1239→        <div className="flex-1">
+  1240→          <h3 className="font-semibold">AI Career Coach</h3>
+  1241→          <p className="text-xs text-muted-foreground">Personalized advice for Ethiopian job market</p>
+  1242→        </div>
+  1243→        <Select value={chatContext} onValueChange={setChatContext}>
+  1244→          <SelectTrigger className="w-32 h-8 text-xs"><SelectValue /></SelectTrigger>
+  1245→          <SelectContent>
+  1246→            <SelectItem value="job-search">Job Search</SelectItem>
+  1247→            <SelectItem value="interview">Interview</SelectItem>
+  1248→            <SelectItem value="career">Career</SelectItem>
+  1249→          </SelectContent>
+  1250→        </Select>
+  1251→      </div>
+  1252→      <Card className="overflow-hidden">
+  1253→        <div className="h-[400px] flex flex-col">
+  1254→          <ScrollArea className="flex-1 p-4">
+  1255→            {chatMessages.length === 0 ? (
+  1256→              <div className="flex flex-col items-center justify-center h-full text-center">
+  1257→                <Bot className="w-14 h-14 text-muted-foreground/20 mb-3" />
+  1258→                <h4 className="font-semibold text-sm mb-1">Ask Your AI Career Coach</h4>
+  1259→                <p className="text-xs text-muted-foreground mb-4">Get advice on CV writing, interviews, salary negotiation & more</p>
+  1260→                <div className="flex flex-wrap gap-1.5 justify-center">
+  1261→                  {quickQs.map((q) => (
+  1262→                    <Badge key={q} variant="outline" className="cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-900 dark:hover:text-emerald-300 text-[10px] py-1 px-2.5 max-w-[220px]" onClick={() => setMessage(q)}>{q}</Badge>
+  1263→                  ))}
+  1264→                </div>
+  1265→              </div>
+  1266→            ) : (
+  1267→              <div className="space-y-3">
+  1268→                {chatMessages.map((msg) => (
+  1269→                  <div key={msg.id} className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+  1270→                    <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600'}`}>
+  1271→                      {msg.role === 'user' ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
+  1272→                    </div>
+  1273→                    <div className={`max-w-[80%] rounded-lg p-2.5 text-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+  1274→                      <p className="whitespace-pre-line text-xs">{msg.content}</p>
+  1275→                    </div>
+  1276→                  </div>
+  1277→                ))}
+  1278→                {isChatLoading && (
+  1279→                  <div className="flex gap-2.5"><div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center"><Bot className="w-3 h-3 text-emerald-600" /></div><div className="bg-muted rounded-lg p-2.5"><div className="flex gap-1"><div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce" /><div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} /><div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} /></div></div></div>
+  1280→                )}
+  1281→                <div ref={chatEndRef} />
+  1282→              </div>
+  1283→            )}
+  1284→          </ScrollArea>
+  1285→          <div className="border-t p-2.5">
+  1286→            <div className="flex gap-2">
+  1287→              <Input placeholder="Ask about jobs, CVs, interviews..." value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()} className="flex-1 text-sm" />
+  1288→              <Button onClick={handleSend} disabled={!message.trim() || isChatLoading} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white"><Send className="w-3.5 h-3.5" /></Button>
+  1289→            </div>
+  1290→          </div>
+  1291→        </div>
+  1292→      </Card>
+  1293→    </div>
+  1294→  );
+  1295→}
+  1296→
+  1297→// ========== MAIN PAGE ==========
+  1298→export default function Home() {
+  1299→  const s = useLocalState();
+  1300→
+  1301→  // Fetch profile
+  1302→  useEffect(() => {
+  1303→    (async () => {
+  1304→      try {
+  1305→        const res = await fetch('/api/profile');
+  1306→        const data = await res.json();
+  1307→        if (data.success && data.profile) s.setProfile(data.profile);
+  1308→      } catch { /* ignore */ }
+  1309→    })();
+  1310→  }, []);
+  1311→
+  1312→  // Fetch applications
+  1313→  useEffect(() => {
+  1314→    (async () => {
+  1315→      try {
+  1316→        const res = await fetch('/api/applications');
+  1317→        const data = await res.json();
+  1318→        if (data.success) s.setApplications(data.applications);
+  1319→      } catch { /* ignore */ }
+  1320→    })();
+  1321→  }, []);
+  1322→
+  1323→  return (
+  1324→    <div className="min-h-screen flex flex-col bg-background">
+  1325→      <Header activeTab={s.activeTab} setActiveTab={s.setActiveTab} />
+  1326→      <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-6">
+  1327→        {s.activeTab === 'dashboard' && <DashboardTab applications={s.applications} profile={s.profile} />}
+  1328→        {s.activeTab === 'auto-apply' && (
+  1329→          <AutoApplyTab
+  1330→            applications={s.applications} setApplications={s.setApplications}
+  1331→            pdfDialogApp={s.pdfDialogApp} setPdfDialogApp={s.setPdfDialogApp}
+  1332→            pdfData={s.pdfData} setPdfData={s.setPdfData}
+  1333→            isGeneratingPdf={s.isGeneratingPdf} setIsGeneratingPdf={s.setIsGeneratingPdf}
+  1334→            isRunningCycle={s.isRunningCycle} setIsRunningCycle={s.setIsRunningCycle}
+  1335→            runLogs={s.runLogs} setRunLogs={s.setRunLogs}
+  1336→            expandedCoverLetter={s.expandedCoverLetter} setExpandedCoverLetter={s.setExpandedCoverLetter}
+  1337→            countdownStr={s.countdownStr}
+  1338→          />
+  1339→        )}
+  1340→        {s.activeTab === 'applications' && <ApplicationsTab applications={s.applications} setApplications={s.setApplications} />}
+  1341→        {s.activeTab === 'cover-letters' && (
+  1342→          <CoverLettersTab
+  1343→            applications={s.applications} profile={s.profile}
+  1344→            expandedCoverLetter={s.expandedCoverLetter} setExpandedCoverLetter={s.setExpandedCoverLetter}
+  1345→            isGeneratingCoverLetter={s.isGeneratingCoverLetter} setIsGeneratingCoverLetter={s.setIsGeneratingCoverLetter}
+  1346→            coverLetterForm={s.coverLetterForm} setCoverLetterForm={s.setCoverLetterForm}
+  1347→            generatedCoverLetter={s.generatedCoverLetter} setGeneratedCoverLetter={s.setGeneratedCoverLetter}
+  1348→          />
+  1349→        )}
+  1350→        {s.activeTab === 'ai-chat' && (
+  1351→          <AIChatTab
+  1352→            chatMessages={s.chatMessages} setChatMessages={s.setChatMessages}
+  1353→            isChatLoading={s.isChatLoading} setIsChatLoading={s.setIsChatLoading}
+  1354→            chatContext={s.chatContext} setChatContext={s.setChatContext}
+  1355→            message={s.message} setMessage={s.setMessage} chatEndRef={s.chatEndRef}
+  1356→          />
+  1357→        )}
+  1358→      </main>
+  1359→      <footer className="border-t bg-muted/30 mt-auto">
+  1360→        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 text-center">
+  1361→          <p className="text-xs text-muted-foreground">
+  1362→            Hambisa Bekuma Tefera — Marketing &amp; Sales Manager • Addis Ababa, Ethiopia • +251 952 341 525
+  1363→          </p>
+  1364→          <p className="text-[10px] text-muted-foreground/60 mt-1">
+  1365→            🤖 Fully automated: Searches every 1 hour • Auto-approves ≥60% match • Auto-submits ≥80% match • Generates cover letters • Extracts apply emails
+  1366→          </p>
+  1367→        </div>
+  1368→      </footer>
+  1369→    </div>
+  1370→  );
+  1371→}
+  1372→
