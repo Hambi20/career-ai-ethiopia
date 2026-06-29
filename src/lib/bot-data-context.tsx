@@ -94,8 +94,11 @@ export function useBotData() {
   return useContext(BotDataContext);
 }
 
-// ── localStorage helpers ──
+// ── localStorage helpers (safe for SSR) ──
+const isBrowser = typeof window !== 'undefined';
+
 function loadFromStorage<T>(key: string, fallback: T): T {
+  if (!isBrowser) return fallback;
   try {
     const saved = localStorage.getItem(key);
     if (saved) {
@@ -107,6 +110,7 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 }
 
 function saveToStorage(key: string, data: any) {
+  if (!isBrowser) return;
   try {
     localStorage.setItem(key, JSON.stringify(data));
   } catch { /* ignore */ }
@@ -116,10 +120,10 @@ function saveToStorage(key: string, data: any) {
 export function BotDataProvider({ children }: { children: ReactNode }) {
   const [botData, setBotData] = useState<BotData>(() => loadFromStorage(STORAGE_KEY, EMPTY_BOT_DATA));
   const [tabData, setTabData] = useState<TabData>(() => loadFromStorage(TAB_STORAGE_KEY, EMPTY_TAB_DATA));
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
   const [lastFetched, setLastFetched] = useState('');
 
-  const fetchBotData = useCallback(async (silent = false) => {
+  const fetchBotData = useCallback(async () => {
     try {
       const res = await fetch('/api/bot/data');
       const json = await res.json();
@@ -131,11 +135,10 @@ export function BotDataProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch { /* silent */ }
-    if (!silent) setLoading(false);
     setLastFetched(new Date().toISOString());
   }, []);
 
-  const fetchTabData = useCallback(async (silent = false) => {
+  const fetchTabData = useCallback(async () => {
     const newTabData: TabData = { ...EMPTY_TAB_DATA };
 
     // Telegram stats
@@ -201,24 +204,21 @@ export function BotDataProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const refresh = useCallback((silent = false) => {
-    fetchBotData(silent);
-    fetchTabData(silent);
+  const refresh = useCallback(() => {
+    fetchBotData();
+    fetchTabData();
   }, [fetchBotData, fetchTabData]);
 
-  // Initial load
+  // Initial load & polling every 10 seconds
   useEffect(() => {
-    setLoading(true);
-    refresh(false);
-  }, [refresh]);
-
-  // Keep warm: poll every 10 seconds
-  useEffect(() => {
-    const i = setInterval(() => refresh(true), 10000);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetching
+    fetchBotData();
+    fetchTabData();
+    const i = setInterval(() => { fetchBotData(); fetchTabData(); }, 10000);
     return () => clearInterval(i);
-  }, [refresh]);
+  }, [fetchBotData, fetchTabData]);
 
-  const hasData = botData.hasData || botData.syncCount > 0 || !!localStorage.getItem(STORAGE_KEY);
+  const hasData = botData.hasData || botData.syncCount > 0 || (isBrowser ? !!localStorage.getItem(STORAGE_KEY) : false);
 
   return (
     <BotDataContext.Provider value={{

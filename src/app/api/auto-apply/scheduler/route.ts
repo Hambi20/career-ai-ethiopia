@@ -1,11 +1,5 @@
 import { NextResponse } from 'next/server';
-
-/**
- * Auto-search scheduler status endpoint.
- *
- * The auto-apply mini-service (port 3020) runs searches every 1 hour.
- * This endpoint reports the scheduler status and last run info.
- */
+import { getStore } from '@/lib/unified-store';
 
 let lastRunResult: {
   success: boolean;
@@ -33,35 +27,32 @@ export function getNextScheduledRun() {
 }
 
 export async function GET() {
-  // Check mini-service status
-  let serviceStatus = null;
-  try {
-    const res = await fetch('http://127.0.0.1:3020/api/status', {
-      signal: AbortSignal.timeout(3000),
-    });
-    if (res.ok) {
-      serviceStatus = await res.json();
-    }
-  } catch {
-    // Mini-service not running
-  }
+  const store = getStore();
 
   return NextResponse.json({
-    scheduler: 'auto-apply-service',
+    scheduler: 'auto-apply-in-memory',
     interval: '1 hour',
+    mode: 'in-memory (Vercel deployment)',
     lastRun: lastRunResult,
     nextRun: nextScheduledRun,
-    serviceStatus,
-    totalSearchQueries: 42,
+    totalSearchQueries: 16,
     sources: [
       'EthioJobs.net', 'Mekanisa.com', 'Jobs.et', 'AddisJobs.com',
       'JobWebEthiopia.com', 'EthiopianJobs.com', 'EthioCareers.com',
       'CVBankEthiopia.com', 'VacancyEth.com',
       'GeezJob.com', 'HarmeJobs.com', 'EthioVacancy.com',
-      'ReporterEthiopia.com',
-      'ZameJobs.com', 'HiredET.com', 'NewJobsEthiopia.com',
-      'LinkedIn', 'RemoteOK', 'WeWorkRemotely',
+      'ReporterEthiopia.com', 'ZameJobs.com', 'HiredET.com',
+      'NewJobsEthiopia.com', 'LinkedIn', 'RemoteOK', 'WeWorkRemotely',
       'Telegram Groups',
     ],
+    storeStatus: {
+      totalApplications: store.applications.length,
+      pendingReview: store.applications.filter((a: any) => a.status === 'pending_review').length,
+      approved: store.applications.filter((a: any) => a.status === 'approved').length,
+      submitted: store.applications.filter((a: any) => a.status === 'submitted').length,
+      rejected: store.applications.filter((a: any) => a.status === 'rejected').length,
+      jobSearchResults: store.jobSearchResults.length,
+      lastSync: store.lastSync,
+    },
   });
 }

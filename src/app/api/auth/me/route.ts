@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
 import { getTokenFromRequest, verifyToken } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -14,40 +13,30 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    const user = await db.user.findUnique({
-      where: { id: payload.userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        role: true,
-        tier: true,
-        avatar: true,
-        isActive: true,
-        lastLogin: true,
-        createdAt: true,
-        profile: true,
+    // Return user info from the token (mock user since no DB)
+    const user = {
+      id: payload.userId,
+      email: payload.email,
+      name: 'Hambisa Bekuma Tefera',
+      phone: '+251 952 341 525',
+      role: payload.role || 'jobseeker',
+      tier: payload.tier || 'free',
+      avatar: null,
+      isActive: true,
+      lastLogin: new Date().toISOString(),
+      createdAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+      profile: {
+        fullName: 'Hambisa Bekuma Tefera',
+        title: 'Sales Manager',
+        location: 'Addis Ababa, Ethiopia',
+        summary: 'Over eight years in sales across Eastern Ethiopia and Addis Ababa.',
       },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    // Count usage today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const usageToday = await db.usageLog.groupBy({
-      by: ['action'],
-      where: { userId: payload.userId, createdAt: { gte: today } },
-      _count: true,
-    });
+    };
 
     return NextResponse.json({
       success: true,
       user,
-      usageToday: Object.fromEntries(usageToday.map(u => [u.action, u._count])),
+      usageToday: {},
     });
   } catch (error) {
     console.error('Auth me error:', error);

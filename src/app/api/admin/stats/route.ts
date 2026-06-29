@@ -1,64 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { getTokenFromRequest, verifyToken } from '@/lib/auth';
+import { getStore } from '@/lib/unified-store';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const token = getTokenFromRequest(request);
-    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const payload = verifyToken(token);
-    if (!payload || payload.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
+    const store = getStore();
+    const today = new Date().toISOString().slice(0, 10);
 
-    const [
-      totalUsers,
-      totalEmployers,
-      totalPremium,
-      totalJobSeekers,
-      totalApplications,
-      totalEmployerJobs,
-      totalSavedJobs,
-      activeToday,
-      newThisWeek,
-      searchesToday,
-    ] = await Promise.all([
-      db.user.count(),
-      db.user.count({ where: { role: 'employer' } }),
-      db.user.count({ where: { tier: 'premium' } }),
-      db.user.count({ where: { role: 'jobseeker' } }),
-      db.application.count(),
-      db.employerJob.count({ where: { status: 'active' } }),
-      db.savedJob.count(),
-      db.user.count({
-        where: { lastLogin: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
-      }),
-      db.user.count({
-        where: { createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
-      }),
-      db.usageLog.count({
-        where: {
-          action: 'search',
-          createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-        },
-      }),
-    ]);
+    const applications = store.applications;
+    const botUsers = store.botUsers;
 
-    // Recent users
-    const recentUsers = await db.user.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 10,
-      select: { id: true, email: true, name: true, role: true, tier: true, createdAt: true, lastLogin: true },
-    });
+    const totalUsers = botUsers.length || 1;
+    const employers = botUsers.filter((u: any) => u.role === 'employer' || u.type === 'employer').length;
+    const jobSeekers = botUsers.filter((u: any) => u.role === 'jobseeker' || u.type === 'jobseeker').length;
+    const premiumUsers = botUsers.filter((u: any) => u.isPremium || u.premium).length;
+
+    const activeToday = botUsers.filter((u: any) => {
+      const d = u.lastLogin || u.lastSeen || u.createdAt;
+      return d && d.startsWith(today);
+    }).length;
+
+    const newThisWeek = botUsers.filter((u: any) => {
+      const d = u.createdAt;
+      if (!d) return false;
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      return d >= weekAgo;
+    }).length;
+
+    const pendingCount = applications.filter((a: any) => a.status === 'pending_review').length;
+    const approvedCount = applications.filter((a: any) => a.status === 'approved').length;
+    const submittedCount = applications.filter((a: any) => a.status === 'submitted').length;
 
     return NextResponse.json({
       success: true,
       stats: {
-        totalUsers, totalEmployers, totalPremium, totalJobSeekers,
-        totalApplications, totalEmployerJobs, totalSavedJobs,
-        activeToday, newThisWeek, searchesToday,
+        totalUsers,
+        totalEmployers: employers,
+        totalPremium: premiumUsers,
+        totalJobSeekers: jobSeekers,
+        totalApplications: applications.length,
+        totalEmployerJobs: store.jobSearchResults.length,
+        totalSavedJobs: applications.filter((a: any) => a.bookmarked).length,
+        activeToday,
+        newThisWeek,
+        searchesToday: 0,
+        pendingApplications: pendingCount,
+        approvedApplications: approvedCount,
+        submittedApplications: submittedCount,
       },
-      recentUsers,
+      recentUsers: botUsers.slice(0, 10).map((u: any) => ({
+        id: u.id || u._id,
+        email: u.email || '',
+        name: u.name || u.firstName || '',
+        role: u.role || 'jobseeker',
+        tier: u.tier || 'free',
+        createdAt: u.createdAt,
+        lastLogin: u.lastLogin || u.lastSeen,
+      })),
     });
   } catch (error) {
     console.error('Admin stats error:', error);

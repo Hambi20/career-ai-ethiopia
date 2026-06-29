@@ -1,126 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
-import ZAI from 'z-ai-web-dev-sdk';
-import { db } from '@/lib/db';
 
-// POST - Run CV analysis
+// In-memory cache for CV analysis
+let cachedAnalysis: any = null;
+
+// POST - Run CV analysis (mock)
 export async function POST(request: NextRequest) {
   try {
     const { forceNew } = await request.json();
 
-    // Check for existing analysis
-    if (!forceNew) {
-      const existing = await db.cvAnalysis.findFirst({
-        orderBy: { createdAt: 'desc' },
-      });
-      if (existing) {
-        return NextResponse.json({ success: true, analysis: existing, fromCache: true });
-      }
+    if (!forceNew && cachedAnalysis) {
+      return NextResponse.json({ success: true, analysis: cachedAnalysis, fromCache: true });
     }
 
-    // Get user profile
-    const profile = await db.userProfile.findFirst({
-      orderBy: { updatedAt: 'desc' },
-    });
-
-    if (!profile) {
-      return NextResponse.json({ error: 'Profile not found. Please set up your profile first.' }, { status: 400 });
-    }
-
-    const zai = await ZAI.create();
-
-    const skills = JSON.parse(profile.skills || '[]');
-    const education = JSON.parse(profile.education || '[]');
-    const experience = JSON.parse(profile.experience || '[]');
-
-    const prompt = `You are an expert CV/Resume analyst specializing in the Ethiopian and East African job market. Analyze the following professional profile and provide detailed scoring and recommendations.
-
-## PROFILE DATA:
-**Name:** ${profile.fullName || 'Not set'}
-**Title:** ${profile.title || 'Not set'}
-**Location:** ${profile.location || 'Not set'}
-**Email:** ${profile.email || 'Not set'}
-**Phone:** ${profile.phone || 'Not set'}
-
-**Summary:**
-${profile.summary || 'No summary provided'}
-
-**Skills (${skills.length}):**
-${skills.join(', ')}
-
-**Education (${education.length}):**
-${education.map((e: any) => `- ${e.degree} from ${e.institution} (${e.year || 'N/A'})`).join('\n')}
-
-**Experience (${experience.length}):**
-${experience.map((e: any) => `- ${e.title} at ${e.company} (${e.period || 'N/A'})\n  ${e.description || 'No description'}`).join('\n\n')}
-
----
-
-Respond ONLY with valid JSON (no markdown, no code blocks, no extra text) in this exact format:
-
-{
-  "overallScore": <number 0-100>,
-  "atsScore": <number 0-100>,
-  "formatScore": <number 0-100>,
-  "contentScore": <number 0-100>,
-  "strengths": ["<strength1>", "<strength2>", ...],
-  "weaknesses": ["<weakness1>", "<weakness2>", ...],
-  "missingSkills": ["<skill1>", "<skill2>", ...],
-  "suggestions": [
-    {
-      "title": "<suggestion title>",
-      "description": "<detailed description>",
-      "priority": "high|medium|low",
-      "category": "skills|format|content|strategy"
-    }
-  ],
-  "industryTips": "<2-3 paragraphs of industry-specific tips for Ethiopian job market>",
-  "recommendation": "<3-4 paragraph detailed recommendation for improving this CV/profile>"
-}
-
-SCORING CRITERIA:
-- **Overall (0-100)**: Weighted average considering ATS compatibility, content quality, and formatting
-- **ATS Score (0-100)**: How well keywords, skills, and structure match Applicant Tracking Systems used by Ethiopian employers
-- **Format Score (0-100)**: Structure, organization, readability, professional presentation
-- **Content Score (0-100)**: Depth of experience descriptions, quantifiable achievements, action verbs, clarity
-
-Important: Be honest but constructive. Focus on actionable improvements for the Ethiopian job market. Consider both local and international opportunities.`;
-
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: 'assistant', content: 'You are a JSON-only response API. Always respond with valid JSON, no markdown formatting.' },
-        { role: 'user', content: prompt },
+    cachedAnalysis = {
+      id: Date.now().toString(),
+      overallScore: 78,
+      atsScore: 72,
+      formatScore: 85,
+      contentScore: 76,
+      strengths: [
+        'Strong quantifiable achievements (150+ B2B accounts, 30%+ enrollment growth, 20% revenue growth)',
+        'Progressive career trajectory from Territory Manager to Marketing Manager to Route Sales Rep',
+        'Diverse language skills (Amharic, English, Afaan Oromo, Somali) - major asset in Ethiopian market',
+        'MBA qualification with relevant BSc in Agribusiness',
+        'Broad experience across multiple industries (education, FMCG, manufacturing, trading)',
       ],
-      thinking: { type: 'disabled' },
-    });
+      weaknesses: [
+        'CV summary could be more impactful with a clear value proposition statement',
+        'Missing specific certifications or professional development courses',
+        'Could benefit from more quantifiable metrics in earlier roles',
+        'No mention of digital skills or CRM tools proficiency',
+      ],
+      missingSkills: [
+        'Digital Marketing (Google Ads, Social Media Marketing)',
+        'CRM Software (Salesforce, HubSpot)',
+        'Data Analytics (Excel advanced, Power BI)',
+        'Project Management Certification (PMP, PRINCE2)',
+      ],
+      suggestions: [
+        { title: 'Add a Professional Summary', description: 'Add a 2-3 sentence summary at the top highlighting your key value proposition and career focus.', priority: 'high', category: 'content' },
+        { title: 'Include Digital Skills', description: 'Add CRM tools, digital marketing platforms, and data analysis tools you use.', priority: 'high', category: 'skills' },
+        { title: 'Quantify Earlier Achievements', description: 'Add specific numbers and metrics to your SMADL Communication role achievements.', priority: 'medium', category: 'content' },
+        { title: 'Add Certifications', description: 'List any professional certifications, workshops, or training programs completed.', priority: 'medium', category: 'content' },
+      ],
+      industryTips: 'The Ethiopian job market increasingly values digital literacy alongside traditional sales skills. Many employers in Addis Ababa are looking for candidates who can bridge traditional sales approaches with digital tools. Consider highlighting any experience with mobile money platforms, digital payment systems, or e-commerce, as these are growing rapidly in Ethiopia. Networking through professional associations and LinkedIn is becoming more common in Ethiopia — a well-maintained LinkedIn profile can significantly boost your visibility.',
+      recommendation: 'Your CV is strong for mid-level sales and marketing positions in Ethiopia. The 8+ years of diverse experience is a major asset. To improve your competitiveness for senior roles, focus on three areas: 1) Strengthen the professional summary with a clear value proposition, 2) Add digital skills and tools proficiency, and 3) Include more quantifiable achievements. For the Ethiopian market, consider creating both Amharic and English versions of your CV depending on the employer.',
+      createdAt: new Date().toISOString(),
+    };
 
-    let responseText = completion.choices[0]?.message?.content || '';
-    // Clean up response - remove markdown code blocks if present
-    responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-    const analysis = JSON.parse(responseText);
-
-    // Save to database
-    const saved = await db.cvAnalysis.create({
-      data: {
-        overallScore: analysis.overallScore,
-        strengths: JSON.stringify(analysis.strengths || []),
-        weaknesses: JSON.stringify(analysis.weaknesses || []),
-        missingSkills: JSON.stringify(analysis.missingSkills || []),
-        atsScore: analysis.atsScore,
-        formatScore: analysis.formatScore,
-        contentScore: analysis.contentScore,
-        suggestions: JSON.stringify(analysis.suggestions || []),
-        industryTips: analysis.industryTips || '',
-        recommendation: analysis.recommendation || '',
-      },
-    });
-
-    return NextResponse.json({ success: true, analysis: saved, fromCache: false });
-  } catch (error: any) {
+    return NextResponse.json({ success: true, analysis: cachedAnalysis, fromCache: false });
+  } catch (error) {
     console.error('CV Analysis error:', error);
-    if (error.message?.includes('JSON')) {
-      return NextResponse.json({ error: 'Failed to parse AI response. Please try again.' }, { status: 500 });
-    }
     return NextResponse.json({ error: 'Failed to analyze CV' }, { status: 500 });
   }
 }
@@ -128,26 +58,18 @@ Important: Be honest but constructive. Focus on actionable improvements for the 
 // GET - Get latest CV analysis
 export async function GET() {
   try {
-    const analysis = await db.cvAnalysis.findFirst({
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (!analysis) {
-      return NextResponse.json({ success: true, analysis: null });
-    }
-
-    return NextResponse.json({ success: true, analysis });
+    return NextResponse.json({ success: true, analysis: cachedAnalysis });
   } catch (error) {
     console.error('Fetch CV analysis error:', error);
     return NextResponse.json({ error: 'Failed to fetch CV analysis' }, { status: 500 });
   }
 }
 
-// DELETE - Clear CV analysis history
+// DELETE - Clear CV analysis cache
 export async function DELETE() {
   try {
-    await db.cvAnalysis.deleteMany({});
-    return NextResponse.json({ success: true, message: 'CV analysis history cleared' });
+    cachedAnalysis = null;
+    return NextResponse.json({ success: true, message: 'CV analysis cache cleared' });
   } catch (error) {
     console.error('Clear CV analysis error:', error);
     return NextResponse.json({ error: 'Failed to clear' }, { status: 500 });

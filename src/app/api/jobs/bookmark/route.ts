@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { getStore } from '@/lib/unified-store';
 
 // GET - List all saved/bookmarked jobs
 export async function GET() {
   try {
-    const jobs = await db.savedJob.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
-
+    const store = getStore();
+    const jobs = store.applications.filter((a: any) => a.bookmarked || a.saved);
     return NextResponse.json({ success: true, jobs });
   } catch (error) {
     console.error('Fetch saved jobs error:', error);
@@ -22,6 +20,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
+    const store = getStore();
 
     if (!data.url || !data.title) {
       return NextResponse.json(
@@ -31,30 +30,33 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if already saved
-    const existing = await db.savedJob.findUnique({
-      where: { id: data.url },
-    });
+    const existing = store.applications.find(
+      (a: any) => (a.id === data.url || a.url === data.url) && (a.bookmarked || a.saved)
+    );
 
     if (existing) {
       return NextResponse.json({ success: true, job: existing, message: 'Job already saved' });
     }
 
-    const job = await db.savedJob.create({
-      data: {
-        id: data.url,
-        title: data.title,
-        company: data.company || null,
-        location: data.location || null,
-        type: data.type || null,
-        salary: data.salary || null,
-        description: data.description || null,
-        url: data.url,
-        source: data.source || null,
-        postedDate: data.postedDate || null,
-        deadline: data.deadline || null,
-        category: data.category || null,
-      },
-    });
+    const job = {
+      id: data.url,
+      title: data.title,
+      company: data.company || null,
+      location: data.location || null,
+      type: data.type || null,
+      salary: data.salary || null,
+      description: data.description || null,
+      url: data.url,
+      source: data.source || null,
+      postedDate: data.postedDate || null,
+      deadline: data.deadline || null,
+      category: data.category || null,
+      bookmarked: true,
+      saved: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    store.applications.unshift(job);
 
     return NextResponse.json({ success: true, job });
   } catch (error) {
@@ -71,6 +73,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const store = getStore();
 
     if (!id) {
       return NextResponse.json(
@@ -79,9 +82,13 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await db.savedJob.delete({
-      where: { id },
-    });
+    const idx = store.applications.findIndex(
+      (a: any) => (a.id === id || a.url === id) && (a.bookmarked || a.saved)
+    );
+
+    if (idx >= 0) {
+      store.applications.splice(idx, 1);
+    }
 
     return NextResponse.json({ success: true, message: 'Job removed' });
   } catch (error) {

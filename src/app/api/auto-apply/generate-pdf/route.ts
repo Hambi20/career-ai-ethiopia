@@ -1,26 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { getStore } from '@/lib/unified-store';
 
-// Generate a professional PDF document as a downloadable buffer
-function buildPdfText(content: string, title: string): string {
-  // Simple approach: return the text content that will be wrapped in a downloadable HTML
-  // For actual PDF, we use the browser's print capability
-  return content;
-}
-
-// GET: Generate a PDF-ready document for an application
+// GET: Generate a PDF-ready document for an application (mock)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const applicationId = searchParams.get('id');
-    const type = searchParams.get('type') || 'both'; // 'cv', 'cover', 'both'
+    const type = searchParams.get('type') || 'both';
+    const store = getStore();
 
-    // Special case: id='cv' means just download CV without application
+    // Special case: id='cv' means just download CV
     if (applicationId === 'cv' || type === 'cv-only') {
-      const profile = await db.userProfile.findFirst({ orderBy: { updatedAt: 'desc' } });
-      const cvHtml = generateCVHtml(profile);
+      const cvHtml = generateCVHtml(null);
       return NextResponse.json({ success: true, application: null, cvHtml, coverLetterHtml: null });
     }
 
@@ -28,16 +19,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Application ID required' }, { status: 400 });
     }
 
-    const application = await db.application.findFirst({ where: { id: applicationId } });
+    const application = store.applications.find(
+      (a: any) => a.id === applicationId
+    );
+
     if (!application) {
       return NextResponse.json({ error: 'Application not found' }, { status: 404 });
     }
 
-    // Get user profile
-    const profile = await db.userProfile.findFirst({ orderBy: { updatedAt: 'desc' } });
-
-    const cvHtml = generateCVHtml(profile);
-    const coverHtml = application.coverLetter ? generateCoverLetterHtml(application, profile) : '';
+    const cvHtml = generateCVHtml(null);
+    const coverHtml = application.coverLetter ? generateCoverLetterHtml(application, null) : '';
 
     return NextResponse.json({
       success: true,
@@ -60,12 +51,6 @@ export async function GET(request: NextRequest) {
 }
 
 function generateCVHtml(profile: any): string {
-  if (!profile) return '<p>Profile not found</p>';
-
-  const skills = typeof profile.skills === 'string' ? JSON.parse(profile.skills) : (profile.skills || []);
-  const education = typeof profile.education === 'string' ? JSON.parse(profile.education || '[]') : (profile.education || []);
-  const experience = typeof profile.experience === 'string' ? JSON.parse(profile.experience || '[]') : (profile.experience || []);
-
   return `
 <!DOCTYPE html>
 <html>
@@ -80,7 +65,6 @@ function generateCVHtml(profile: any): string {
   .contact span { margin: 0 8px; }
   .section { margin-bottom: 20px; }
   .section-title { font-size: 14px; font-weight: bold; color: #1b4332; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1.5px solid #2d6a4f; padding-bottom: 5px; margin-bottom: 12px; }
-  .summary { font-size: 12px; line-height: 1.6; }
   .skills-grid { display: flex; flex-wrap: wrap; gap: 8px; }
   .skill-badge { background: #f0fdf4; border: 1px solid #bbf7d0; padding: 4px 12px; border-radius: 4px; font-size: 11px; color: #166534; }
   .job { margin-bottom: 15px; }
@@ -89,64 +73,51 @@ function generateCVHtml(profile: any): string {
   .job-company { font-size: 13px; color: #2d6a4f; font-weight: 600; }
   .job-period { font-size: 11px; color: #777; }
   .job-desc { font-size: 12px; color: #444; margin-top: 4px; }
-  .edu-item { margin-bottom: 8px; }
-  .edu-degree { font-size: 13px; font-weight: bold; }
-  .edu-school { font-size: 12px; color: #555; }
-  .languages { font-size: 12px; color: #444; }
-  @media print {
-    body { margin: 20px; }
-    .no-print { display: none; }
-  }
+  @media print { body { margin: 20px; } }
 </style>
 </head>
 <body>
   <div class="header">
-    <div class="name">${profile.fullName || 'Hambisa Bekuma Tefera'}</div>
-    <div class="title">${profile.title || 'Sales Manager'}</div>
+    <div class="name">Hambisa Bekuma Tefera</div>
+    <div class="title">Sales Manager</div>
     <div class="contact">
-      <span>📧 ${profile.email || 'hambisa1992@gmail.com'}</span>
-      <span>📱 ${profile.phone || '+251 952 341 525'}</span>
-      <span>📍 ${profile.location || 'Addis Ababa, Ethiopia'}</span>
+      <span>📧 hambisa1992@gmail.com</span>
+      <span>📱 +251 952 341 525</span>
+      <span>📍 Addis Ababa, Ethiopia</span>
     </div>
   </div>
-
-  ${profile.summary ? `
   <div class="section">
     <div class="section-title">Professional Summary</div>
-    <div class="summary">${profile.summary}</div>
-  </div>` : ''}
-
+    <div class="summary">Over eight years in sales across Eastern Ethiopia and Addis Ababa. Managed 150+ B2B accounts at Romel General Trading. Built marketing/sales dept from zero at Deran PLC with 20% revenue growth. Led marketing at OL-BRIGHT College with 30%+ enrollment increase.</div>
+  </div>
   <div class="section">
     <div class="section-title">Core Competencies</div>
     <div class="skills-grid">
-      ${(Array.isArray(skills) ? skills : []).map((s: string) => `<span class="skill-badge">${s}</span>`).join('\n      ')}
+      <span class="skill-badge">Territory Management</span>
+      <span class="skill-badge">Route-to-Market</span>
+      <span class="skill-badge">Market Expansion</span>
+      <span class="skill-badge">B2B Account Management</span>
+      <span class="skill-badge">Negotiation</span>
+      <span class="skill-badge">Sales Planning</span>
+      <span class="skill-badge">Team Leadership</span>
+      <span class="skill-badge">Excel & Reporting</span>
     </div>
   </div>
-
   <div class="section">
     <div class="section-title">Professional Experience</div>
-    ${(Array.isArray(experience) ? experience : []).map((exp: any) => `
-    <div class="job">
-      <div class="job-header">
-        <div><span class="job-title">${exp.title || exp.role || ''}</span> — <span class="job-company">${exp.company || ''}</span></div>
-        <span class="job-period">${exp.period || ''}</span>
-      </div>
-      <div class="job-desc">${exp.description || ''}</div>
-    </div>`).join('')}
+    <div class="job"><div class="job-header"><div><span class="job-title">Route Sales Representative</span> — <span class="job-company">Romel General Trading</span></div><span class="job-period">Jan 2026-Present</span></div><div class="job-desc">Managing 150+ B2B accounts with weekly route planning and new account acquisition monthly.</div></div>
+    <div class="job"><div class="job-header"><div><span class="job-title">Marketing Manager</span> — <span class="job-company">OL-BRIGHT International College</span></div><span class="job-period">Dec 2022-Nov 2025</span></div><div class="job-desc">Led 30%+ enrollment growth and opened 2 new branches.</div></div>
+    <div class="job"><div class="job-header"><div><span class="job-title">Marketing & Sales Manager</span> — <span class="job-company">Deran PLC</span></div><span class="job-period">Dec 2020-Nov 2022</span></div><div class="job-desc">Built department from zero, achieved 20% revenue growth in 2 years.</div></div>
+    <div class="job"><div class="job-header"><div><span class="job-title">Territory Sales Manager</span> — <span class="job-company">SMADL Communication Terminal Factory</span></div><span class="job-period">Jul 2016-Nov 2020</span></div><div class="job-desc">Managed territory across 8+ cities, hired and trained field representatives.</div></div>
   </div>
-
   <div class="section">
     <div class="section-title">Education</div>
-    ${(Array.isArray(education) ? education : []).map((edu: any) => `
-    <div class="edu-item">
-      <div class="edu-degree">${edu.degree || edu.title || ''}</div>
-      <div class="edu-school">${edu.institution || edu.school || ''} ${edu.year ? `— ${edu.year}` : ''}</div>
-    </div>`).join('')}
+    <div>Master of Business Administration (MBA) — 2018</div>
+    <div>BSc Agribusiness — 2014</div>
   </div>
-
   <div class="section">
     <div class="section-title">Languages</div>
-    <div class="languages">Amharic (Native) • English (Professional) • Afaan Oromo (Fluent) • Somali (Conversational)</div>
+    <div>Amharic (Native) • English (Professional) • Afaan Oromo (Fluent) • Somali (Conversational)</div>
   </div>
 </body>
 </html>`;
@@ -175,10 +146,8 @@ function generateCoverLetterHtml(application: any, profile: any): string {
 </head>
 <body>
   <div class="letterhead">
-    <div class="name">${profile?.fullName || 'Hambisa Bekuma Tefera'}</div>
-    <div class="contact">
-      ${profile?.email || 'hambisa1992@gmail.com'} | ${profile?.phone || '+251 952 341 525'} | ${profile?.location || 'Addis Ababa, Ethiopia'}
-    </div>
+    <div class="name">Hambisa Bekuma Tefera</div>
+    <div class="contact">hambisa1992@gmail.com | +251 952 341 525 | Addis Ababa, Ethiopia</div>
   </div>
   <div class="date">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
   <div class="recipient">
@@ -186,10 +155,10 @@ function generateCoverLetterHtml(application: any, profile: any): string {
     ${application.company ? `<div>${application.company}</div>` : ''}
   </div>
   <div class="subject">Re: Application for ${application.jobTitle}</div>
-  <div class="body">${application.coverLetter || ''}</div>
+  <div class="body">${application.coverLetter || 'Please accept this application for the above position. I am confident that my skills and experience make me a strong candidate.'}</div>
   <div class="signature">
-    <div class="sig-name">${profile?.fullName || 'Hambisa Bekuma Tefera'}</div>
-    <div class="sig-contact">${profile?.email || 'hambisa1992@gmail.com'} | ${profile?.phone || '+251 952 341 525'}</div>
+    <div class="sig-name">Hambisa Bekuma Tefera</div>
+    <div class="sig-contact">hambisa1992@gmail.com | +251 952 341 525</div>
   </div>
 </body>
 </html>`;

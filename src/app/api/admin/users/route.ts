@@ -1,46 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { getTokenFromRequest, verifyToken } from '@/lib/auth';
+import { getStore } from '@/lib/unified-store';
 
-async function getAuthUser(request: Request) {
-  const token = getTokenFromRequest(request);
-  if (!token) return null;
-  const payload = verifyToken(token);
-  if (!payload) return null;
-  return await db.user.findUnique({ where: { id: payload.userId } });
-}
-
-// GET - Admin user list
+// GET - Admin user list (uses botUsers from store)
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthUser(request);
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
-
+    const store = getStore();
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const role = searchParams.get('role');
 
-    const where: Record<string, unknown> = {};
-    if (role) where.role = role;
+    let users = [...store.botUsers];
 
-    const [users, total] = await Promise.all([
-      db.user.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-        select: {
-          id: true, email: true, name: true, phone: true, role: true, tier: true,
-          isActive: true, lastLogin: true, createdAt: true,
-        },
-      }),
-      db.user.count({ where }),
-    ]);
+    if (role) {
+      users = users.filter((u: any) => u.role === role || u.type === role);
+    }
 
-    return NextResponse.json({ success: true, users, total, page, limit });
+    const total = users.length;
+    const start = (page - 1) * limit;
+    const paginatedUsers = users.slice(start, start + limit).map((u: any) => ({
+      id: u.id || u._id,
+      email: u.email || '',
+      name: u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim(),
+      phone: u.phone || '',
+      role: u.role || u.type || 'jobseeker',
+      tier: u.tier || 'free',
+      isActive: u.isActive ?? true,
+      isPremium: u.isPremium || u.premium || false,
+      lastLogin: u.lastLogin || u.lastSeen || null,
+      createdAt: u.createdAt,
+    }));
+
+    return NextResponse.json({ success: true, users: paginatedUsers, total, page, limit });
   } catch (error) {
     console.error('Admin users error:', error);
     return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
@@ -50,24 +41,20 @@ export async function GET(request: NextRequest) {
 // PUT - Admin update user (role, tier, isActive)
 export async function PUT(request: NextRequest) {
   try {
-    const user = await getAuthUser(request);
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
-
+    const store = getStore();
     const data = await request.json();
     if (!data.userId) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
 
-    const updated = await db.user.update({
-      where: { id: data.userId },
-      data: {
-        role: data.role || undefined,
-        tier: data.tier || undefined,
-        isActive: data.isActive !== undefined ? data.isActive : undefined,
-      },
-    });
+    const user = store.botUsers.find((u: any) => (u.id || u._id) === data.userId);
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
 
-    return NextResponse.json({ success: true, user: updated });
+    if (data.role !== undefined) user.role = data.role;
+    if (data.tier !== undefined) user.tier = data.tier;
+    if (data.isActive !== undefined) user.isActive = data.isActive;
+
+    return NextResponse.json({ success: true, user });
   } catch (error) {
     console.error('Admin update user error:', error);
     return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });

@@ -70,7 +70,7 @@ export default function BotReportTab() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => refresh(false)}
+                onClick={() => refresh()}
                 disabled={loading}
                 className="h-9 w-9 rounded-full bg-white/20 text-white hover:bg-white/30 hover:text-white"
               >

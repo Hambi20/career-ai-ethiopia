@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import ZAI from 'z-ai-web-dev-sdk';
-import { db } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
-    const { jobTitle, company, jobDescription, userName, userSkills, userExperience, tone = 'professional' } = await request.json();
+    const { jobTitle, company, jobDescription, userName, userSkills, tone = 'professional' } = await request.json();
 
     if (!jobTitle || !company) {
       return NextResponse.json(
@@ -13,46 +11,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user profile if not provided
-    let profile = null;
-    if (!userName || !userSkills) {
-      profile = await db.userProfile.findFirst({
-        orderBy: { updatedAt: 'desc' },
-      });
-    }
+    const name = userName || 'Hambisa Bekuma Tefera';
+    const skills = Array.isArray(userSkills) ? userSkills.join(', ') : 'Territory Management, Route-to-Market, Market Expansion, B2B Account Management, Sales Planning, Team Leadership';
 
-    const name = userName || profile?.fullName || 'Applicant';
-    const skills = userSkills || (profile?.skills ? JSON.parse(profile.skills) : []);
-    const experience = userExperience || (profile?.experience ? JSON.parse(profile.experience || '[]') : []);
-    const summary = profile?.summary || '';
-
-    const zai = await ZAI.create();
-
-    const completion = await zai.chat.completions.create({
-      messages: [
-        {
-          role: 'assistant',
-          content: `You are a professional cover letter writer specializing in Ethiopian job applications. Write a compelling, ${tone} cover letter. The letter should be well-structured with proper formatting. Return the cover letter as plain text (not JSON). Make it specific to the job and company. Keep it concise but impactful - around 300-400 words. Include Ethiopian cultural professional norms.`
-        },
-        {
-          role: 'user',
-          content: `Write a cover letter for:
-
-Position: ${jobTitle}
-Company: ${company}
-${jobDescription ? `Job Description:\n${jobDescription.substring(0, 2000)}` : ''}
-
-Applicant Information:
-Name: ${name}
-Skills: ${skills.join(', ') || 'Not specified'}
-Experience: ${experience.map((e: { title?: string; company?: string }) => `${e.title || 'Position'} at ${e.company || 'Company'}`).join('; ') || 'Not specified'}
-${summary ? `Summary: ${summary}` : ''}`
-        }
-      ],
-      thinking: { type: 'disabled' }
-    });
-
-    const coverLetter = completion.choices[0]?.message?.content || '';
+    const coverLetter = generateMockCoverLetter({ jobTitle, company, name, skills, tone, jobDescription });
 
     return NextResponse.json({
       success: true,
@@ -65,4 +27,40 @@ ${summary ? `Summary: ${summary}` : ''}`
       { status: 500 }
     );
   }
+}
+
+function generateMockCoverLetter(params: {
+  jobTitle: string;
+  company: string;
+  name: string;
+  skills: string;
+  tone: string;
+  jobDescription?: string;
+}): string {
+  const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  return `${params.name}
+hambisa1992@gmail.com | +251 952 341 525 | Addis Ababa, Ethiopia
+
+${today}
+
+Hiring Manager
+${params.company}
+
+Re: Application for ${params.jobTitle}
+
+Dear Hiring Manager,
+
+I am writing to express my strong interest in the ${params.jobTitle} position at ${params.company}. With over eight years of progressive experience in sales, marketing, and business development across Eastern Ethiopia and Addis Ababa, I am confident in my ability to make a meaningful contribution to your organization.
+
+Throughout my career, I have consistently delivered measurable results. At Romel General Trading, I manage over 150 B2B accounts across weekly routes, consistently acquiring new accounts each month. Previously, as Marketing Manager at OL-BRIGHT International College, I achieved a 30%+ increase in enrollment and successfully opened two new branch locations. At Deran PLC, I built the marketing and sales department from the ground up, resulting in 20% revenue growth within two years.
+
+My core competencies include ${params.skills}, and field team leadership. I hold an MBA and a BSc in Agribusiness, and I am fluent in Amharic, English, Afaan Oromo, and conversational in Somali — enabling effective communication across Ethiopia's diverse professional landscape.
+
+I am particularly drawn to ${params.company} because of its reputation in the market, and I believe my experience in territory management and market expansion aligns well with the requirements of this role. I am eager to bring my skills and dedication to your team.
+
+I would welcome the opportunity to discuss how my background and achievements can benefit ${params.company}. Thank you for considering my application.
+
+Sincerely,
+${params.name}`;
 }

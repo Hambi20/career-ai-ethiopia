@@ -1,29 +1,39 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-
-const SERVICE_URL = 'http://127.0.0.1:3020';
+import { getStore, getDashboardStats } from '@/lib/unified-store';
 
 export async function GET() {
   try {
-    const totalApps = await db.application.count();
-    const autoApplied = await db.application.count({ where: { status: { in: ['auto-applied', 'applied'] } } });
-    const todayApps = await db.application.count({
-      where: { createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
-    });
-    const highMatch = await db.application.count({ where: { matchScore: { gte: 70 } } });
-    const recentApps = await db.application.findMany({
-      orderBy: { createdAt: 'desc' }, take: 20,
-      select: { id: true, jobTitle: true, company: true, location: true, status: true, matchScore: true, source: true, url: true, appliedAt: true, createdAt: true },
-    });
+    const store = getStore();
+    const stats = getDashboardStats();
 
-    let serviceRunning = false;
-    try {
-      const res = await fetch(`${SERVICE_URL}/api/status`, { signal: AbortSignal.timeout(3000) });
-      serviceRunning = res.ok;
-    } catch { /* not running */ }
+    const recentApps = store.applications.slice(0, 20).map((a: any) => ({
+      id: a.id,
+      jobTitle: a.jobTitle || a.title,
+      company: a.company,
+      location: a.location,
+      status: a.status,
+      matchScore: a.matchScore,
+      source: a.source,
+      url: a.url,
+      appliedAt: a.appliedAt || a.createdAt,
+      createdAt: a.createdAt,
+    }));
 
-    return NextResponse.json({ success: true, serviceRunning, stats: { totalApplications: totalApps, autoApplied, todayApplications: todayApps, highMatch }, recentApplications: recentApps });
+    return NextResponse.json({
+      success: true,
+      serviceRunning: false,
+      stats: {
+        totalApplications: stats.totalApplications,
+        autoApplied: store.applications.filter((a: any) => a.status === 'auto-applied' || a.status === 'applied').length,
+        todayApplications: store.applications.filter((a: any) => {
+          const d = a.createdAt || a.appliedAt;
+          return d && d.startsWith(new Date().toISOString().slice(0, 10));
+        }).length,
+        highMatch: store.applications.filter((a: any) => (a.matchScore || 0) >= 70).length,
+      },
+      recentApplications: recentApps,
+    });
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to load stats' }, { status: 500 });
+    return NextResponse.json({ success: true, stats: { totalApplications: 0, autoApplied: 0, todayApplications: 0, highMatch: 0 }, recentApplications: [] });
   }
 }

@@ -28,6 +28,25 @@ interface ProfileForm {
   experience: string;
 }
 
+function parseJsonOrString(val: any): string {
+  if (!val) return '';
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item: any) => {
+          if (typeof item === 'string') return item;
+          if (item.title && item.company) return `${item.title} at ${item.company}${item.period ? ` (${item.period})` : ''}`;
+          if (item.degree && item.institution) return `${item.degree} — ${item.institution}${item.year ? ` (${item.year})` : ''}`;
+          return JSON.stringify(item);
+        }).join('\n');
+      }
+      return typeof parsed === 'string' ? parsed : val;
+    } catch { return val; }
+  }
+  return String(val);
+}
+
 function buildForm(profileData: any): ProfileForm {
   return {
     fullName: profileData?.fullName || '',
@@ -36,9 +55,9 @@ function buildForm(profileData: any): ProfileForm {
     location: profileData?.location || '',
     title: profileData?.title || '',
     summary: profileData?.summary || '',
-    skills: profileData?.skills || '',
-    education: profileData?.education || '',
-    experience: profileData?.experience || '',
+    skills: parseJsonOrString(profileData?.skills),
+    education: parseJsonOrString(profileData?.education),
+    experience: parseJsonOrString(profileData?.experience),
   };
 }
 

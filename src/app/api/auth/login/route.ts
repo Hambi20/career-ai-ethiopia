@@ -1,36 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import bcrypt from 'bcryptjs';
 import { signToken } from '@/lib/auth';
+import { webUsers } from '@/lib/auth-web-users';
 
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
-
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
     // Find user
-    const user = await db.user.findFirst({
-      where: { email: email.toLowerCase() },
-    });
+    const user = webUsers.find((u: any) => u.email === email.toLowerCase());
 
-    if (!user || !user.password) {
+    if (!user) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // Compare password
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) {
+    // Simple password comparison (in-memory, no bcrypt)
+    if (user.password !== password) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
     // Update last login
-    await db.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date() },
-    });
+    user.lastLogin = new Date().toISOString();
 
     // Generate JWT
     const token = signToken({
@@ -50,8 +42,10 @@ export async function POST(request: NextRequest) {
         phone: user.phone,
         role: user.role,
         tier: user.tier,
-        avatar: user.avatar,
-        profile: user.profile,
+        avatar: user.avatar || null,
+        profile: {
+          fullName: user.name,
+        },
       },
     });
   } catch (error) {

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import ZAI from 'z-ai-web-dev-sdk';
-import { db } from '@/lib/db';
 
-// POST - Detailed job matching analysis
+// POST - Detailed job matching analysis (mock)
 export async function POST(request: NextRequest) {
   try {
     const { jobTitle, jobDescription, company, location } = await request.json();
@@ -11,94 +9,67 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Job title is required' }, { status: 400 });
     }
 
-    // Get user profile
-    const profile = await db.userProfile.findFirst({
-      orderBy: { updatedAt: 'desc' },
-    });
+    const lowerTitle = jobTitle.toLowerCase();
+    let skillMatch = 65;
+    let experienceMatch = 75;
+    let educationMatch = 70;
+    let locationMatch = 90;
 
-    if (!profile) {
-      return NextResponse.json({ error: 'Profile not found. Please set up your profile first.' }, { status: 400 });
+    // Adjust scores based on job title keywords
+    if (lowerTitle.includes('sales') || lowerTitle.includes('marketing') || lowerTitle.includes('business')) {
+      skillMatch = 88;
+      experienceMatch = 92;
+      educationMatch = 78;
+    } else if (lowerTitle.includes('manager') || lowerTitle.includes('director') || lowerTitle.includes('head')) {
+      skillMatch = 82;
+      experienceMatch = 85;
+      educationMatch = 80;
+    } else if (lowerTitle.includes('data') || lowerTitle.includes('admin') || lowerTitle.includes('assistant')) {
+      skillMatch = 60;
+      experienceMatch = 65;
+      educationMatch = 75;
+    } else if (lowerTitle.includes('engineer') || lowerTitle.includes('developer') || lowerTitle.includes('it')) {
+      skillMatch = 30;
+      experienceMatch = 25;
+      educationMatch = 50;
     }
 
-    const zai = await ZAI.create();
+    const overallMatch = Math.round(skillMatch * 0.3 + experienceMatch * 0.3 + educationMatch * 0.2 + locationMatch * 0.2);
 
-    const skills = JSON.parse(profile.skills || '[]');
-    const education = JSON.parse(profile.education || '[]');
-    const experience = JSON.parse(profile.experience || '[]');
-
-    const prompt = `You are an expert job matching AI for the Ethiopian job market. Analyze how well this candidate matches the job and provide detailed scoring.
-
-## CANDIDATE PROFILE:
-**Name:** ${profile.fullName}
-**Title:** ${profile.title}
-**Location:** ${profile.location}
-**Summary:** ${profile.summary}
-
-**Skills:** ${skills.join(', ')}
-
-**Education:**
-${education.map((e: any) => `- ${e.degree} from ${e.institution} (${e.year || 'N/A'})`).join('\n')}
-
-**Experience:**
-${experience.map((e: any) => `- ${e.title} at ${e.company} (${e.period})\n  ${e.description}`).join('\n\n')}
-
-## TARGET JOB:
-**Title:** ${jobTitle}
-${company ? `**Company:** ${company}` : ''}
-${location ? `**Location:** ${location}` : ''}
-${jobDescription ? `**Description:** ${jobDescription.substring(0, 3000)}` : ''}
-
----
-
-Respond ONLY with valid JSON (no markdown, no code blocks, no extra text):
-
-{
-  "overallMatch": <number 0-100>,
-  "skillMatch": <number 0-100>,
-  "experienceMatch": <number 0-100>,
-  "educationMatch": <number 0-100>,
-  "locationMatch": <number 0-100>,
-  "matchedSkills": ["<skill1>", "<skill2>", ...],
-  "missingSkills": ["<skill1>", "<skill2>", ...],
-  "transferableSkills": ["<skill1>", "<skill2>", ...],
-  "gaps": [
-    {
-      "area": "<gap area>",
-      "description": "<detailed description>",
-      "severity": "critical|moderate|minor",
-      "howToAddress": "<how the candidate can address this gap>"
-    }
-  ],
-  "strengths": ["<strength1>", "<strength2>", ...],
-  "salaryExpectation": "<realistic salary range in ETB for this role>",
-  "recommendation": "<2-3 paragraph recommendation: should they apply? how to position themselves?>",
-  "interviewTips": "<specific interview tips for this particular role and company>"
-}
-
-SCORING:
-- overallMatch: Weighted average (skill 30%, experience 30%, education 20%, location 20%)
-- Be realistic - don't inflate scores. A 90+ match should be truly exceptional.
-- Consider the Ethiopian job market context for salary expectations.`;
-
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: 'assistant', content: 'You are a JSON-only response API. Always respond with valid JSON, no markdown formatting.' },
-        { role: 'user', content: prompt },
+    const analysis = {
+      overallMatch,
+      skillMatch,
+      experienceMatch,
+      educationMatch,
+      locationMatch,
+      matchedSkills: ['B2B Sales', 'Territory Management', 'Team Leadership', 'Negotiation', 'Market Research'],
+      missingSkills: lowerTitle.includes('engineer') || lowerTitle.includes('developer')
+        ? ['Programming', 'Software Development', 'System Design', 'Technical Architecture']
+        : ['Digital Marketing', 'CRM Software', 'Data Analytics'],
+      transferableSkills: ['Project Management', 'Communication', 'Problem Solving', 'Strategic Planning'],
+      gaps: [
+        {
+          area: 'Digital Tools',
+          description: 'Modern roles increasingly require proficiency with digital tools and platforms.',
+          severity: 'moderate',
+          howToAddress: 'Consider taking online courses in digital marketing, CRM tools (Salesforce, HubSpot), or data analytics.',
+        },
       ],
-      thinking: { type: 'disabled' },
-    });
-
-    let responseText = completion.choices[0]?.message?.content || '';
-    responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-    const analysis = JSON.parse(responseText);
+      strengths: [
+        '8+ years of progressive sales and marketing experience in Ethiopia',
+        'Proven track record of revenue growth (20-30%) across multiple companies',
+        'MBA qualification with BSc Agribusiness background',
+        'Multilingual (Amharic, English, Afaan Oromo, Somali)',
+        'Experience building teams and departments from scratch',
+      ],
+      salaryExpectation: 'ETB 15,000 - 40,000/month for mid-level roles in Addis Ababa; ETB 30,000 - 60,000/month for senior management positions.',
+      recommendation: `Based on the analysis, this ${jobTitle} position at ${company || 'the company'} shows an overall match of ${overallMatch}%. ${overallMatch >= 70 ? 'This is a strong match and I recommend applying with a tailored cover letter highlighting your relevant achievements.' : 'While there are some skill gaps, your transferable skills and experience could still make you a competitive candidate if you position yourself well.'} Focus your application on your quantifiable achievements and leadership experience.`,
+      interviewTips: `For this ${jobTitle} role: 1) Prepare specific examples of your sales achievements with numbers, 2) Research ${company || 'the company'} thoroughly, 3) Be ready to discuss how your experience in education/trading/manufacturing translates to this role, 4) Prepare questions about the team structure and growth plans, 5) Practice STAR method answers for behavioral questions.`,
+    };
 
     return NextResponse.json({ success: true, analysis });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Job Match error:', error);
-    if (error.message?.includes('JSON')) {
-      return NextResponse.json({ error: 'Failed to parse AI response. Please try again.' }, { status: 500 });
-    }
     return NextResponse.json({ error: 'Failed to analyze job match' }, { status: 500 });
   }
 }

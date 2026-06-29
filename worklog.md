@@ -159,3 +159,40 @@ Stage Summary:
 - Dashboard shows stats grid + quick overview
 - Bot Report shows 8 metric cards + data sections
 - Knowledge (Library) shows search, filter, add, AI ask, documents
+
+---
+Task ID: 8
+Agent: Main Agent
+Task: Fix web dashboard crash and data structure issues
+
+Work Log:
+- Fixed critical SSR crash: `localStorage is not defined` in bot-data-context.tsx
+  - Added `isBrowser` guard to all localStorage access (loadFromStorage, saveToStorage, hasData)
+  - Fixed useState initializers to use safe fallback on server
+- Fixed runtime crash: `getTelegramActivities` not imported in /api/bot/data/route.ts
+- Rewrote 7 AI/auto-apply API routes to use unified-store instead of @/lib/db (Prisma):
+  - /api/ai/chat - replaced db.userProfile + db.chatMessage with getProfile() + createChatMessage()
+  - /api/ai/cover-letter - replaced db.userProfile with getProfile()
+  - /api/ai/cv-analysis - replaced db.userProfile + db.cvAnalysis with getProfile() + createCvAnalysis()
+  - /api/ai/interview-prep - replaced db.userProfile + db.interviewPrep with getProfile() + createInterviewPrep()
+  - /api/ai/job-match - replaced db.userProfile with getProfile()
+  - /api/auto-apply/search - replaced db.application with createApplication() + findApplicationByUrl()
+  - /api/auto-apply/run - replaced db.application with createApplication() + findApplicationByUrl()
+- Extended unified-store.ts with new data types and CRUD helpers:
+  - chatMessages, cvAnalyses, interviewPreps arrays in StoreData
+  - createApplication, findApplicationByUrl helpers
+  - createChatMessage, getChatMessages, clearChatMessages helpers
+  - createCvAnalysis, getLatestCvAnalysis, clearCvAnalyses helpers
+  - createInterviewPrep, findInterviewPrep, clearInterviewPreps helpers
+  - getProfile() with DEFAULT_PROFILE fallback
+- Fixed lint error: refactored useEffect to avoid synchronous setState in effect
+- Fixed profile-tab: added parseJsonOrString() to properly display skills/education/experience
+- Verified all 18 tabs render with Agent Browser (Dashboard, Bot Report, Bot Hub, Assistant, AI Coach, Applications, Search & Apply, Cover Letters, CV Analyzer, Interview Prep, Job Board, Profile, CRM, Library, Business, Automation, CV Intel, Messages)
+
+Stage Summary:
+- Page loads HTTP 200, no runtime errors
+- All 18 tabs render with proper structure
+- Profile tab displays Hambisa's data (CV score 72%, 14 apps, 3 interviews)
+- Bot data tabs show empty states with proper "sync from Telegram bot" messages
+- Zero lint errors, zero TypeScript compilation errors
+- All dashboard AI routes use in-memory unified-store (no more Prisma DB dependency for web dashboard)

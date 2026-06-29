@@ -1,29 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// Server-to-server call: use direct localhost, no XTransformPort needed
-const SERVICE_URL = 'http://127.0.0.1:3020';
+import { getStore } from '@/lib/unified-store';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const limit = searchParams.get('limit') || '50';
+    const limit = parseInt(searchParams.get('limit') || '50');
     const minScore = searchParams.get('minScore') || '';
 
-    const params = new URLSearchParams();
-    params.set('limit', limit);
-    if (minScore) params.set('minScore', minScore);
+    const store = getStore();
+    let applications = [...store.applications];
 
-    const res = await fetch(`${SERVICE_URL}/api/logs?${params.toString()}`, {
-      signal: AbortSignal.timeout(5000),
-    });
-
-    if (!res.ok) {
-      return NextResponse.json({ success: true, logs: [], message: 'Service not running' });
+    if (minScore) {
+      const scoreThreshold = parseInt(minScore);
+      applications = applications.filter((a: any) => (a.matchScore || 0) >= scoreThreshold);
     }
 
-    const data = await res.json();
-    return NextResponse.json({ success: true, ...data });
+    // Build logs from application notes/history
+    const logs = applications.slice(0, limit).map((app: any) => ({
+      id: app.id,
+      jobTitle: app.jobTitle || app.title,
+      company: app.company,
+      status: app.status,
+      matchScore: app.matchScore || 0,
+      source: app.source,
+      url: app.url,
+      notes: app.notes,
+      createdAt: app.createdAt,
+      appliedAt: app.appliedAt,
+    }));
+
+    return NextResponse.json({
+      success: true,
+      logs,
+      total: applications.length,
+      returned: logs.length,
+    });
   } catch {
-    return NextResponse.json({ success: true, logs: [], message: 'Service not reachable' });
+    return NextResponse.json({ success: true, logs: [], message: 'Failed to retrieve logs' });
   }
 }
