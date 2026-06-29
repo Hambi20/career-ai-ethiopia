@@ -29,6 +29,10 @@ async function sendTelegramMessage(chatId: number, text: string, options?: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[Telegram] sendMessage failed (${res.status}):`, errText);
+    }
     return res.ok;
   } catch (err) {
     console.error('[Telegram] Send message failed:', err);
@@ -46,6 +50,46 @@ async function sendChatAction(chatId: number, action: string = 'typing'): Promis
       body: JSON.stringify({ chat_id: chatId, action }),
     });
   } catch { /* silent */ }
+}
+
+/** Generate AI reply inline using z-ai-web-dev-sdk (no self-call) */
+async function generateAIReply(userMessage: string, conversation: any[]): Promise<string> {
+  // Try z-ai-web-dev-sdk first
+  try {
+    const ZAI = await import('z-ai-web-dev-sdk');
+    const zai = await ZAI.create();
+
+    const completion = await zai.chat.completions.create({
+      messages: conversation,
+      thinking: { type: 'disabled' },
+    });
+
+    const reply = completion.choices[0]?.message?.content;
+    if (reply && reply.trim().length > 0) {
+      return reply;
+    }
+  } catch (aiError) {
+    console.error('[Telegram AI] SDK error, using fallback:', aiError);
+  }
+
+  // Fallback mock replies
+  const lower = userMessage.toLowerCase();
+  if (lower.includes('cover letter') || lower.includes('coverletter')) {
+    return 'I\'d be happy to help with your cover letter! For the best results, please share the job title and company name. A strong Ethiopian cover letter should include: your contact information, a professional greeting, 2-3 paragraphs highlighting your relevant experience, and a closing with call to action. Keep it to 300-400 words and reference specific achievements with numbers.';
+  }
+  if (lower.includes('resume') || lower.includes('cv')) {
+    return 'For your CV, make sure to include: a clear professional summary, core competencies section, detailed work experience with quantifiable achievements, education, and languages. Ethiopian employers value clean formatting, professional email addresses, and local phone numbers (+251). Consider using Times New Roman or Arial font.';
+  }
+  if (lower.includes('interview') || lower.includes('prepare')) {
+    return 'Interview preparation tips for Ethiopia:\n1) Research the company thoroughly\n2) Prepare STAR method answers (Situation, Task, Action, Result)\n3) Dress professionally\n4) Arrive 10-15 minutes early\n5) Bring printed copies of your CV\n6) Prepare questions about the role\n7) Practice common questions like "Tell me about yourself" and "Why do you want this job?"\n\nWould you like me to help with specific interview questions?';
+  }
+  if (lower.includes('salary') || lower.includes('pay') || lower.includes('negotiate')) {
+    return 'Salary expectations in Ethiopia vary by role and experience level. For mid-level positions in Addis Ababa: Sales/Marketing managers typically earn ETB 15,000-40,000/month, IT professionals ETB 20,000-60,000/month, and administrative roles ETB 8,000-20,000/month. When negotiating, research the market rate, consider benefits beyond base salary, and be prepared to discuss your value with specific achievements.';
+  }
+  if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
+    return 'Hello! 👋 I\'m your Career AI assistant. I can help you with: finding jobs, writing cover letters, preparing for interviews, CV improvements, salary negotiation advice, and career planning. What would you like help with today?';
+  }
+  return `Thank you for your message. As your Career AI assistant, I can help with:\n\n🔍 Job search strategy for Ethiopia\n📄 CV and cover letter writing\n🎯 Interview preparation\n💰 Salary negotiation\n📈 Career development\n\nWhat would you like to focus on?`;
 }
 
 /** Handle /start command */
@@ -227,37 +271,54 @@ async function handleJobs(chatId: number) {
   await sendTelegramMessage(chatId, `🔍 <b>Job Search</b>\n\nTo search for jobs, please use the web dashboard:\n\n🔗 <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://career-ai-ethiopia-svqn.vercel.app'}">Open Dashboard → Search &amp; Apply tab</a>\n\nOr just tell me what kind of job you are looking for and I will help!`);
 }
 
-/** Handle general text messages with AI chat */
+/** Handle general text messages with AI chat (INLINE — no self-call) */
 async function handleChatMessage(chatId: number, text: string, firstName: string) {
   await sendChatAction(chatId, 'typing');
 
   try {
-    // Use the AI chat API route (which uses z-ai-web-dev-sdk on the server)
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://career-ai-ethiopia-svqn.vercel.app';
-    const res = await fetch(`${baseUrl}/api/ai/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: text,
-        userId: String(chatId),
-        userName: firstName,
-      }),
-    });
+    // Build conversation with system prompt
+    const SYSTEM_PROMPT = `You are Career AI Ethiopia — a friendly, knowledgeable AI assistant specializing in the Ethiopian job market and career development. You help Hambisa Bekuma Tefera with:
 
-    const data = await res.json();
-    if (data.success && data.response) {
-      // Truncate if too long for Telegram (4096 char limit)
-      const response = data.response.length > 4000
-        ? data.response.substring(0, 3900) + '\n\n...[truncated]'
-        : data.response;
+- Job search strategy for Ethiopian market (EthioJobs, Mekanisa, LinkedIn)
+- CV/resume writing and optimization for Ethiopian employers
+- Cover letter generation tailored to specific positions
+- Interview preparation with STAR method coaching
+- Salary negotiation guidance for Ethiopian market rates
+- Career coaching and professional development advice
+- Sales & Marketing career expertise
 
-      await sendTelegramMessage(chatId, response);
-    } else {
-      await sendTelegramMessage(chatId, '🤔 I couldn\'t generate a response right now. Please try again.');
+Keep responses concise (2-4 paragraphs max for regular chat). Be encouraging and practical. Use Ethiopian context when relevant (Addis Ababa market, local companies, ETB currency). Respond in English unless the user writes in Amharic.`;
+
+    // Get or create conversation for this user (in-memory)
+    if (!conversationStore.has(chatId)) {
+      conversationStore.set(chatId, [
+        { role: 'assistant', content: SYSTEM_PROMPT },
+      ]);
     }
+    const conversation = conversationStore.get(chatId)!;
+
+    // Add user message
+    conversation.push({ role: 'user', content: text });
+
+    // Trim to last 20 messages (keep system prompt)
+    if (conversation.length > 21) {
+      conversation.splice(1, conversation.length - 21);
+    }
+
+    // Generate AI reply inline (no self-call to /api/ai/chat)
+    const reply = await generateAIReply(text, conversation);
+
+    // Truncate if too long for Telegram (4096 char limit)
+    const truncatedReply = reply.length > 4000
+      ? reply.substring(0, 3900) + '\n\n...[truncated]'
+      : reply;
+
+    // Save assistant response in conversation history
+    conversation.push({ role: 'assistant', content: reply });
+
+    await sendTelegramMessage(chatId, truncatedReply);
   } catch (err) {
     console.error('[Telegram] AI chat error:', err);
-    // Fallback: simple response
     await sendTelegramMessage(chatId, `I received your message but the AI service is currently unavailable. Please try again in a moment. 💬\n\nYour message: "${text.substring(0, 100)}"`);
   }
 }
@@ -316,6 +377,8 @@ async function processUpdate(update: any) {
 
   if (!chatId || !text) return;
 
+  console.log(`[Telegram] Message from ${firstName} (${chatId}): ${text.substring(0, 50)}`);
+
   // Handle commands
   if (text.startsWith('/')) {
     const command = text.split(' ')[0].toLowerCase().split('@')[0];
@@ -373,22 +436,26 @@ async function processUpdate(update: any) {
   await handleChatMessage(chatId, text, firstName);
 }
 
+// ── In-memory conversation store (keyed by chatId) ──
+const conversationStore = new Map<number, any[]>();
+
 // ── Webhook endpoint ──
 export async function POST(request: NextRequest) {
   try {
     const update = await request.json();
 
-    // Verify it's from Telegram (optional but recommended)
+    // Verify bot token is configured
     const token = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
     if (!token) {
+      console.error('[Telegram] BOT_TOKEN not configured');
       return NextResponse.json({ error: 'BOT_TOKEN not configured' }, { status: 500 });
     }
 
-    // Process the update asynchronously (don't block the response)
-    // Telegram requires a 200 OK within a few seconds
-    processUpdate(update).catch(err => {
-      console.error('[Telegram] Update processing error:', err);
-    });
+    // CRITICAL: Await processUpdate instead of fire-and-forget.
+    // On Vercel serverless, returning 200 immediately causes the function
+    // to be frozen/killed, and any background promises never complete.
+    // Telegram allows up to 60 seconds for webhook responses.
+    await processUpdate(update);
 
     return NextResponse.json({ ok: true });
   } catch (err) {
@@ -397,7 +464,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ── GET: Used to set webhook ──
+// ── GET: Used to set/check webhook ──
 export async function GET(request: NextRequest) {
   const token = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
 
@@ -483,6 +550,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     status: 'active',
     message: 'Telegram bot webhook endpoint is running',
+    token_set: true,
     endpoints: {
       setWebhook: '/api/telegram/webhook?set=1',
       deleteWebhook: '/api/telegram/webhook?action=delete',
