@@ -214,7 +214,7 @@ export function BotDataProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetching
     fetchBotData();
     fetchTabData();
-    const i = setInterval(() => { fetchBotData(); fetchTabData(); }, 10000);
+    const i = setInterval(() => { fetchBotData(); fetchTabData(); }, 30000);
     return () => clearInterval(i);
   }, [fetchBotData, fetchTabData]);
 

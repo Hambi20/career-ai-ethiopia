@@ -22,20 +22,28 @@ const STATUS_MAP: Record<string, { label: string; icon: React.ReactNode; color: 
   rejected: { label: 'Rejected', icon: <XCircle className="size-3.5" />, color: 'bg-red-50 text-red-700', badgeCls: 'bg-red-100 text-red-700 border-red-200' },
 };
 
+const normalizeStatus = (s: string) => {
+  if (s === 'pending_review' || s === 'pending') return 'pending';
+  if (s === 'submitted' || s === 'sent' || s === 'applied' || s === 'auto-applied') return 'sent';
+  if (s === 'approved') return 'approved';
+  if (s === 'rejected') return 'rejected';
+  return 'pending';
+};
+
 export default function ApplicationsTab() {
   const { tabData } = useBotData();
   const [statusFilter, setStatusFilter] = useState<AppStatus>('all');
   const applications = tabData.applications || [];
 
   const filtered = applications.filter(
-    (a: any) => statusFilter === 'all' || a.status === statusFilter
+    (a: any) => statusFilter === 'all' || normalizeStatus(a.status) === statusFilter
   );
 
   const counts = {
-    pending: applications.filter((a: any) => a.status === 'pending').length,
-    approved: applications.filter((a: any) => a.status === 'approved').length,
-    sent: applications.filter((a: any) => a.status === 'sent').length,
-    rejected: applications.filter((a: any) => a.status === 'rejected').length,
+    pending: applications.filter((a: any) => normalizeStatus(a.status) === 'pending').length,
+    approved: applications.filter((a: any) => normalizeStatus(a.status) === 'approved').length,
+    sent: applications.filter((a: any) => normalizeStatus(a.status) === 'sent').length,
+    rejected: applications.filter((a: any) => normalizeStatus(a.status) === 'rejected').length,
   };
 
   const statCards = [
@@ -109,7 +117,7 @@ export default function ApplicationsTab() {
             <ScrollArea className="max-h-96">
               <div className="space-y-3 pr-2">
                 {filtered.map((app: any, i: number) => {
-                  const st = STATUS_MAP[app.status] || STATUS_MAP.pending;
+                  const st = STATUS_MAP[normalizeStatus(app.status)] || STATUS_MAP.pending;
                   const score = app.matchScore ?? app.score ?? null;
                   return (
                     <div

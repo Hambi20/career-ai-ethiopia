@@ -79,7 +79,10 @@ export async function GET(request: NextRequest) {
     vdReports: store.vdReports,
     syncLogs: [],
     recentActivities: getTelegramActivities(20),
-    rawSyncData: store.rawSyncData,
+    rawSyncData: {
+      ...(store.rawSyncData || {}),
+      businesses: (store.rawSyncData?.businesses || store.businesses || []),
+    },
   };
 
   return NextResponse.json(data);
