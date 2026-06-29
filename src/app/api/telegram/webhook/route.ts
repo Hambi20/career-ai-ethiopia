@@ -96,7 +96,7 @@ async function generateAIReply(userMessage: string, conversation: any[]): Promis
 async function handleStart(chatId: number, firstName: string) {
   const welcomeMessage = `👋 Hello <b>${firstName}</b>!
 
-Welcome to <b>Career AI Ethiopia</b> — your AI-powered career assistant!
+Welcome to <b>Hambisa Executive</b> (@hambi_career_ai_bot) — your AI-powered career assistant!
 
 <b>What I can do:</b>
 🎯 <b>Chat</b> — Ask me anything about jobs, CVs, interviews
@@ -189,7 +189,7 @@ async function handleSync(chatId: number) {
         botActivities: [{
           command: '/sync',
           action: 'sync',
-          botName: 'Career AI Bot',
+          botName: '@hambi_career_ai_bot',
           createdAt: new Date().toISOString(),
           status: 'success',
         }],
@@ -549,7 +549,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     status: 'active',
-    message: 'Telegram bot webhook endpoint is running',
+    message: 'Hambisa Executive (@hambi_career_ai_bot) webhook endpoint is running',
     token_set: true,
     endpoints: {
       setWebhook: '/api/telegram/webhook?set=1',

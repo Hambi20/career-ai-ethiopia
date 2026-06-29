@@ -21,3 +21,22 @@ Stage Summary:
 - Files changed: src/app/api/telegram/webhook/route.ts (major rewrite), vercel.json (new)
 - Lint: 0 errors, 0 warnings
 - All routes returning 200 in dev server
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Clean up to single bot (@hambi_career_ai_bot / hambisa-executive), remove old @Applyhambi_bot
+
+Work Log:
+- Searched codebase for any references to @Applyhambi_bot — none found (already clean)
+- Updated .env to explicitly reference @hambi_career_ai_bot as the sole bot
+- Updated webhook route: botName changed to '@hambi_career_ai_bot', welcome message says "Hambisa Executive"
+- Updated GET endpoint status message to reference @hambi_career_ai_bot
+- Lint passes clean, all API routes returning 200
+- User's Termux PM2 still has two processes — provided commands to stop old one
+
+Stage Summary:
+- No @Applyhambi_bot references existed in web codebase (clean)
+- Updated all bot references to @hambi_career_ai_bot (hambisa-executive)
+- User needs to run PM2 commands on Termux to stop old hambisa-bot process
+- Files changed: .env, src/app/api/telegram/webhook/route.ts
