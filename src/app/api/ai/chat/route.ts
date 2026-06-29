@@ -1,9 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createChatMessage, getChatMessages, clearChatMessages } from '@/lib/unified-store';
+import { createChatMessage, getChatMessages, clearChatMessages, ensureStoreWarmed } from '@/lib/unified-store';
+
+const SYSTEM_PROMPT = `You are Career AI Ethiopia — a friendly, knowledgeable AI assistant specializing in the Ethiopian job market and career development. You help Hambisa Bekuma Tefera with:
+
+- Job search strategy for Ethiopian market (EthioJobs, Mekanisa, LinkedIn)
+- CV/resume writing and optimization for Ethiopian employers
+- Cover letter generation tailored to specific positions
+- Interview preparation with STAR method coaching
+- Salary negotiation guidance for Ethiopian market rates
+- Career coaching and professional development advice
+- Sales & Marketing career expertise
+
+Keep responses concise (2-4 paragraphs max for regular chat). Be encouraging and practical. Use Ethiopian context when relevant (Addis Ababa market, local companies, ETB currency). Respond in English unless the user writes in Amharic.`;
+
+// In-memory conversation store (keyed by userId)
+const conversations = new Map<string, any[]>();
+
+function getConversation(userId: string): any[] {
+  if (!conversations.has(userId)) {
+    conversations.set(userId, [
+      { role: 'assistant', content: SYSTEM_PROMPT },
+    ]);
+  }
+  return conversations.get(userId)!;
+}
+
+function trimConversation(messages: any[], maxMessages = 20) {
+  if (messages.length > maxMessages) {
+    return [messages[0], ...messages.slice(-(maxMessages - 1))];
+  }
+  return messages;
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages, message, context = 'job-search' } = await request.json();
+    await ensureStoreWarmed();
+
+    const { messages, message, context = 'job-search', userId, userName } = await request.json();
 
     // Support both { messages } array and single { message } string
     const userMessage = message || (Array.isArray(messages) && messages[messages.length - 1]?.content);
@@ -12,14 +45,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
-    // Save user message
-    createChatMessage({ role: 'user', content: userMessage });
+    // Save user message to store
+    createChatMessage({ role: 'user', content: userMessage, userId: userId || 'anonymous' });
 
-    // Generate a mock reply
-    const reply = generateMockReply(userMessage, context);
+    // Build conversation
+    const convUserId = userId || 'default';
+    const conversation = getConversation(convUserId);
+
+    // Add user message
+    conversation.push({ role: 'user', content: userMessage });
+
+    // Trim if too long
+    const trimmed = trimConversation(conversation);
+
+    // Try AI response first, fall back to mock
+    let reply: string;
+
+    try {
+      const ZAI = await import('z-ai-web-dev-sdk');
+      const zai = await ZAI.create();
+
+      const completion = await zai.chat.completions.create({
+        messages: trimmed,
+        thinking: { type: 'disabled' },
+      });
+
+      reply = completion.choices[0]?.message?.content;
+
+      if (!reply || reply.trim().length === 0) {
+        reply = generateMockReply(userMessage, context);
+      }
+    } catch (aiError) {
+      console.error('[AI Chat] SDK error, using fallback:', aiError);
+      reply = generateMockReply(userMessage, context);
+    }
 
     // Save assistant message
-    createChatMessage({ role: 'assistant', content: reply });
+    createChatMessage({ role: 'assistant', content: reply, userId: userId || 'anonymous' });
+
+    // Update conversation history
+    conversation.push({ role: 'assistant', content: reply });
 
     return NextResponse.json({
       success: true,
@@ -35,6 +100,7 @@ export async function POST(request: NextRequest) {
 // GET - Get chat history
 export async function GET() {
   try {
+    await ensureStoreWarmed();
     return NextResponse.json({
       success: true,
       messages: getChatMessages().slice(-50),
@@ -49,6 +115,7 @@ export async function GET() {
 export async function DELETE() {
   try {
     clearChatMessages();
+    conversations.clear();
     return NextResponse.json({ success: true, message: 'Chat history cleared' });
   } catch (error) {
     console.error('Clear chat history error:', error);
@@ -75,20 +142,9 @@ function generateMockReply(message: string, context: string): string {
     return 'Salary expectations in Ethiopia vary by role and experience level. For mid-level positions in Addis Ababa: Sales/Marketing managers typically earn ETB 15,000-40,000/month, IT professionals ETB 20,000-60,000/month, and administrative roles ETB 8,000-20,000/month. When negotiating, research the market rate, consider benefits beyond base salary, and be prepared to discuss your value with specific achievements.';
   }
 
-  if (lower.includes('job') && (lower.includes('find') || lower.includes('search') || lower.includes('look'))) {
-    return 'Great question! The best Ethiopian job sites are: 1) EthioJobs.net - largest job board, 2) Mekanisa.com - growing platform, 3) Jobs.et, 4) AddisJobs.com, 5) LinkedIn for professional roles. I recommend checking daily, setting up alerts, and tailoring your CV for each application. Would you like me to help search for specific positions?';
-  }
-
   if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
-    return 'Hello! 👋 I\'m your Ethiopian job search assistant. I can help you with: finding jobs, writing cover letters, preparing for interviews, CV improvements, salary negotiation advice, and career planning. What would you like help with today?';
+    return 'Hello! 👋 I\'m your Career AI assistant. I can help you with: finding jobs, writing cover letters, preparing for interviews, CV improvements, salary negotiation advice, and career planning. What would you like help with today?';
   }
 
-  return `Thank you for your question about "${message.substring(0, 80)}". In the Ethiopian job market context, I'd recommend the following approach:
-
-1. **Research** - Check EthioJobs.net, Mekanisa.com, and LinkedIn for current openings
-2. **Prepare** - Tailor your CV and cover letter for each position
-3. **Apply** - Follow up within 1-2 weeks of applying
-4. **Network** - Connect with professionals in your target industry
-
-Would you like more specific advice on any of these areas?`;
+  return `Thank you for your message. As your Career AI assistant, I can help with:\n\n• 🔍 Job search strategy for Ethiopia\n• 📄 CV and cover letter writing\n• 🎯 Interview preparation\n• 💰 Salary negotiation\n• 📈 Career development\n\nWhat would you like to focus on?`;
 }

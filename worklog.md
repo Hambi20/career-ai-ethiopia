@@ -6,50 +6,59 @@ Agent: Main Agent
 Task: Fix data persistence gap between Telegram sync and direct URL access on Vercel
 
 Work Log:
-- Diagnosed root cause: `unified-store.ts` uses module-level `let store` — per-instance memory that's empty on every Vercel serverless cold start
-- When Telegram bot syncs via POST `/api/bot/sync`, data goes into Instance A's memory
-- When user visits URL directly, GET `/api/bot/data` may hit Instance B (cold start) → empty data
-- Previous localStorage caching in `bot-data-context.tsx` was overwritten by empty API responses
-
-## Solution: Three-Layer Data Persistence
-
-### Layer 1: Client-side localStorage (always available)
-- Fixed `bot-data-context.tsx` to NEVER overwrite localStorage with empty API data
-- Added `dataWeight()` function to compare API response vs cached data
-- Only updates state if API has MORE data than current cache
-- Shows cached data immediately on page load (no loading spinner for returning users)
-- Added merge logic for tab data: only updates fields that have content
-
-### Layer 2: Static JSON file (`public/bot-data.json`)
-- Created `public/bot-data.json` with Hambisa's default profile data
-- On bot sync, `/api/bot/sync` writes ALL synced data to this file
-- This file is shipped with every Vercel deploy and is always readable by API routes
-
-### Layer 3: In-memory store with auto-warming
-- Added `ensureStoreWarmed()` function to `unified-store.ts`
-- On first access after cold start, automatically reads `public/bot-data.json` into memory
-- All 13+ GET API routes call `await ensureStoreWarmed()` before reading data
-- This means EVERY API route gets persisted data even on cold starts
-
-## Files Changed
-1. **`public/bot-data.json`** (NEW) — Persistent data file with default profile
-2. **`src/lib/unified-store.ts`** — Added `ensureStoreWarmed()`, `getStoreAsync()`, file loading
-3. **`src/lib/bot-data-context.tsx`** — Fixed localStorage overwrite, added dataWeight comparison
-4. **`src/app/api/bot/sync/route.ts`** — Returns ALL data in response, writes to JSON file
-5. **`src/app/api/bot/data/route.ts`** — Uses ensureStoreWarmed(), simplified
-6. **`src/app/page.tsx`** — Added `?sync=1` detection for Telegram links
-7. **13 API route files** — Added `await ensureStoreWarmed()` to all GET handlers
-
-## How the Flow Works Now
-1. **Telegram bot syncs**: POST `/api/bot/sync` → stores in memory + writes to `bot-data.json`
-2. **User opens Telegram link with `?sync=1`**: Frontend detects, forces refresh
-3. **API cold start**: `ensureStoreWarmed()` loads from `bot-data.json` → data available
-4. **Direct URL visit**: localStorage shows cached data immediately, API refreshes in background
-5. **API returns empty (truly no data)**: localStorage cache preserved, NOT overwritten
+- Diagnosed root cause: `unified-store.ts` uses module-level `let store` — per-instance memory empty on cold starts
+- Implemented three-layer persistence: localStorage, bot-data.json file, auto-warming in-memory store
+- Fixed 13 API routes with `ensureStoreWarmed()`
 
 Stage Summary:
-- ✅ Build passes (all 52 routes compile)
-- ✅ Lint passes (0 errors, 0 warnings)
+- ✅ Build passes, lint passes
 - ✅ Data persistence across Vercel serverless instances solved
-- ✅ Both Telegram link and direct URL will show same data
-- ✅ Default profile (Hambisa's data) always available as fallback
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Create Telegram bot - bot was not replying because there was NO bot code in the project
+
+Work Log:
+- Discovered NO Telegram bot code existed in this Next.js project — only API routes to receive data
+- Created complete Telegram bot webhook endpoint: `/api/telegram/webhook`
+- Implemented 12 bot commands: /start, /help, /dashboard, /sync, /syncweb, /profile, /tasks, /notes, /contacts, /jobs, /analyze_cv, /cover_letter, /interview_prep
+- Added inline keyboard buttons for quick navigation
+- Integrated Groq AI via z-ai-web-dev-sdk for real AI chat responses (with fallback to mock)
+- Added callback query handling for button presses
+- Updated /api/ai/chat route to use real Groq AI with multi-turn conversation support
+- Added BOT_TOKEN env variable configuration
+
+## Bot Commands
+| Command | Description |
+|---------|-------------|
+| /start | Welcome message with inline buttons |
+| /help | Show all available commands |
+| /dashboard | Get web dashboard link |
+| /sync | Sync data to web dashboard |
+| /profile | View user profile |
+| /tasks | View tasks list |
+| /jobs | Job search help |
+| /analyze_cv | CV analysis instructions |
+| /cover_letter | Cover letter generator |
+| /interview_prep | Interview preparation |
+| Any text | AI chat via Groq |
+
+## Files Created/Changed
+1. **`src/app/api/telegram/webhook/route.ts`** (NEW) — Complete Telegram bot with webhook support
+2. **`src/app/api/ai/chat/route.ts`** — Upgraded from mock to real Groq AI via z-ai-web-dev-sdk
+3. **`.env`** — Added TELEGRAM_BOT_TOKEN and NEXT_PUBLIC_APP_URL
+
+## Deployment Steps
+1. Get bot token from @BotFather on Telegram
+2. Set TELEGRAM_BOT_TOKEN in Vercel environment variables
+3. Deploy to Vercel
+4. Visit: `https://career-ai-ethiopia-svqn.vercel.app/api/telegram/webhook?set=1` to register webhook
+5. Test by sending /start to your bot on Telegram
+
+Stage Summary:
+- ✅ Telegram bot created with full command support
+- ✅ Real AI chat via Groq (z-ai-web-dev-sdk)
+- ✅ Webhook-based (works on Vercel serverless)
+- ✅ Build passes (53 routes), lint passes
+- ⚠️ Requires TELEGRAM_BOT_TOKEN env variable to activate
