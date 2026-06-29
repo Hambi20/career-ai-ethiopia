@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getContacts } from '@/lib/unified-store';
+import { getContacts, ensureStoreWarmed } from '@/lib/unified-store';
 
 export async function POST(request: NextRequest) {
   try {
+    await ensureStoreWarmed();
     const { contactId } = await request.json();
     const contacts = getContacts();
     const contact = contacts.find((c: any) => (c.id || c._id) === contactId);

@@ -1,7 +1,11 @@
 /**
  * Unified in-memory store for bot-synced data.
- * Survives warm Vercel instances; lost on cold start (bot re-syncs via /syncweb).
+ * On cold start, automatically loads from public/bot-data.json (persisted file).
+ * On warm instance, returns in-memory data directly.
  */
+
+import { promises as fs } from 'fs';
+import path from 'path';
 
 export interface StoreData {
   tasks: any[];
@@ -54,9 +58,74 @@ const initialStore: StoreData = {
 };
 
 let store: StoreData = { ...initialStore };
+let warmedFromFile = false;
 
+/**
+ * On cold start, load persisted data from public/bot-data.json into memory.
+ * This ensures ALL 30+ API routes that read from getStore() get data even on cold instances.
+ */
+async function warmStoreFromFile(): Promise<void> {
+  if (warmedFromFile) return;
+  warmedFromFile = true;
+
+  try {
+    const dataFile = path.join(process.cwd(), 'public', 'bot-data.json');
+    const raw = await fs.readFile(dataFile, 'utf-8');
+    const persisted = JSON.parse(raw);
+
+    if (persisted && persisted.syncCount > 0) {
+      // Merge persisted data into in-memory store
+      if (persisted.tasks?.length) store.tasks = persisted.tasks;
+      if (persisted.notes?.length) store.notes = persisted.notes;
+      if (persisted.contacts?.length) store.contacts = persisted.contacts;
+      if (persisted.knowledge?.length) store.knowledge = persisted.knowledge;
+      if (persisted.romelReports?.length) store.romelReports = persisted.romelReports;
+      if (persisted.vdReports?.length) store.vdReports = persisted.vdReports;
+      if (persisted.salesSummary) store.salesSummary = persisted.salesSummary;
+      if (persisted.jobSearchResults?.length) store.jobSearchResults = persisted.jobSearchResults;
+      if (persisted.bots?.length) store.bots = persisted.bots;
+      if (persisted.botUsers?.length) store.botUsers = persisted.botUsers;
+      if (persisted.botActivities?.length) store.botActivities = persisted.botActivities;
+      if (persisted.applications?.length) store.applications = persisted.applications;
+      if (persisted.automationRules?.length) store.automationRules = persisted.automationRules;
+      if (persisted.businesses?.length) store.businesses = persisted.businesses;
+      if (persisted.messages?.length) store.messages = persisted.messages;
+      if (persisted.dailyPlans?.length) store.dailyPlans = persisted.dailyPlans;
+      if (persisted.lastSync) store.lastSync = persisted.lastSync;
+      if (persisted.syncCount) store.syncCount = persisted.syncCount;
+      if (persisted.profile) {
+        store.rawSyncData = { ...(store.rawSyncData || {}), profile: persisted.profile };
+      }
+      console.log(`[unified-store] Warmed from persisted file: syncCount=${store.syncCount}, tasks=${store.tasks.length}`);
+    }
+  } catch (err) {
+    console.log('[unified-store] No persisted file found, using empty store');
+  }
+}
+
+/**
+ * Get store, ensuring it's warmed from persisted file on cold starts.
+ * Callers should `await ensureStore()` before reading, or use the sync variant.
+ */
 export function getStore(): StoreData {
   return store;
+}
+
+/**
+ * Async version that ensures store is warmed from persisted file.
+ * All GET API routes should use this instead of getStore().
+ */
+export async function getStoreAsync(): Promise<StoreData> {
+  await warmStoreFromFile();
+  return store;
+}
+
+/**
+ * Call this at the start of any GET API route to ensure the store is warmed
+ * from the persisted JSON file on cold starts. No-op after first call.
+ */
+export async function ensureStoreWarmed(): Promise<void> {
+  await warmStoreFromFile();
 }
 
 export function resetStore() {

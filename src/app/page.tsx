@@ -61,6 +61,17 @@ function AppContent() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { botData, loading, refresh, lastFetched } = useBotData();
 
+  // When opened from Telegram with ?sync=1, force refresh to get warmed instance data
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('sync') === '1') {
+      // Force immediate refresh — bot just synced, instance should be warmed
+      refresh();
+      // Clean URL without reload
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [refresh]);
+
   const currentTab = TABS.find(t => t.id === activeTab);
   const [mobileTabLabel, setMobileTabLabel] = useState('Dashboard');
 

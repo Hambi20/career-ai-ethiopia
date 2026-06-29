@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getKnowledge, createKnowledge } from '@/lib/unified-store';
+import { getKnowledge, createKnowledge, ensureStoreWarmed } from '@/lib/unified-store';
 
 export async function GET() {
+  await ensureStoreWarmed();
   const items = getKnowledge();
   return NextResponse.json({ success: true, items, knowledge: items });
 }

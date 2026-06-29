@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getContacts, createContact } from '@/lib/unified-store';
+import { getContacts, createContact, ensureStoreWarmed } from '@/lib/unified-store';
 
 export async function GET() {
+  await ensureStoreWarmed();
   const contacts = getContacts();
   return NextResponse.json({ success: true, contacts });
 }

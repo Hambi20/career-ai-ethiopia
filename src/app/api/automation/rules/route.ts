@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAutomationRules, createAutomationRule, updateAutomationRule, deleteAutomationRule } from '@/lib/unified-store';
+import { getAutomationRules, createAutomationRule, updateAutomationRule, deleteAutomationRule, ensureStoreWarmed } from '@/lib/unified-store';
 
 export async function GET() {
+  await ensureStoreWarmed();
   const rules = getAutomationRules();
   return NextResponse.json({ success: true, rules });
 }

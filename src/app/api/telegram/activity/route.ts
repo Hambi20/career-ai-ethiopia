@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTelegramActivities } from '@/lib/unified-store';
+import { getTelegramActivities, ensureStoreWarmed } from '@/lib/unified-store';
 
 export async function GET(request: NextRequest) {
+  await ensureStoreWarmed();
   const { searchParams } = new URL(request.url);
   const limit = parseInt(searchParams.get('limit') || '30');
   const activities = getTelegramActivities(limit);

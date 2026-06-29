@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStore } from '@/lib/unified-store';
+import { getStore, ensureStoreWarmed } from '@/lib/unified-store';
 
 // Default profile data for Hambisa Bekuma Tefera
 const DEFAULT_PROFILE = {
@@ -36,6 +36,7 @@ const DEFAULT_PROFILE = {
 // GET - Get user profile
 export async function GET() {
   try {
+    await ensureStoreWarmed();
     // Check if bot synced profile data exists
     const store = getStore();
     if (store.rawSyncData?.profile) {

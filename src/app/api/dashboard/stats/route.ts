@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getStore, getDashboardStats } from '@/lib/unified-store';
+import { getStore, getDashboardStats, ensureStoreWarmed } from '@/lib/unified-store';
 
 export async function GET() {
   try {
+    await ensureStoreWarmed();
     const store = getStore();
     const stats = getDashboardStats();
 

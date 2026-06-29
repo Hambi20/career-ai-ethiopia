@@ -26,7 +26,6 @@ export interface BotData {
 }
 
 export interface TabData {
-  // Per-tab data fetched individually
   telegramStats: any;
   telegramUsers: any[];
   telegramActivities: any[];
@@ -59,6 +58,7 @@ const EMPTY_TAB_DATA: TabData = {
 
 const STORAGE_KEY = 'career-ai-bot-data';
 const TAB_STORAGE_KEY = 'career-ai-tab-data';
+const STORAGE_TS_KEY = 'career-ai-data-timestamp';
 
 // ── Context ──
 interface BotDataContextType {
@@ -66,8 +66,7 @@ interface BotDataContextType {
   tabData: TabData;
   loading: boolean;
   lastFetched: string;
-  refresh: (silent?: boolean) => void;
-  // Direct data helpers
+  refresh: () => void;
   hasData: boolean;
   tasks: any[];
   notes: any[];
@@ -82,7 +81,7 @@ interface BotDataContextType {
 const BotDataContext = createContext<BotDataContextType>({
   botData: EMPTY_BOT_DATA,
   tabData: EMPTY_TAB_DATA,
-  loading: true,
+  loading: false,
   lastFetched: '',
   refresh: () => {},
   hasData: false,
@@ -103,7 +102,7 @@ function loadFromStorage<T>(key: string, fallback: T): T {
     const saved = localStorage.getItem(key);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (parsed && parsed.updatedAt) return parsed as T;
+      return parsed as T;
     }
   } catch { /* ignore */ }
   return fallback;
@@ -113,30 +112,72 @@ function saveToStorage(key: string, data: any) {
   if (!isBrowser) return;
   try {
     localStorage.setItem(key, JSON.stringify(data));
+    localStorage.setItem(STORAGE_TS_KEY, Date.now().toString());
   } catch { /* ignore */ }
+}
+
+/** Check if stored data is stale (> 2 hours old) */
+function isStale(key: string): boolean {
+  if (!isBrowser) return true;
+  try {
+    const ts = localStorage.getItem(STORAGE_TS_KEY);
+    if (!ts) return true;
+    const age = Date.now() - parseInt(ts, 10);
+    return age > 2 * 60 * 60 * 1000; // 2 hours
+  } catch { return true; }
+}
+
+/** Count "data weight" of a BotData object — how much real data it contains */
+function dataWeight(d: BotData): number {
+  if (!d) return 0;
+  let w = 0;
+  if (d.syncCount > 0) w += d.syncCount * 10;
+  w += (d.tasks?.list?.length || 0);
+  w += (d.notes?.length || 0);
+  w += (d.contacts?.list?.length || 0);
+  w += (d.knowledgeBase?.length || 0);
+  w += (d.sales?.reports?.length || 0);
+  w += (d.recentActivities?.length || 0);
+  w += (d.vdReports?.length || 0);
+  return w;
 }
 
 // ── Provider ──
 export function BotDataProvider({ children }: { children: ReactNode }) {
+  // Initialize from localStorage FIRST (instant, no loading)
   const [botData, setBotData] = useState<BotData>(() => loadFromStorage(STORAGE_KEY, EMPTY_BOT_DATA));
   const [tabData, setTabData] = useState<TabData>(() => loadFromStorage(TAB_STORAGE_KEY, EMPTY_TAB_DATA));
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [lastFetched, setLastFetched] = useState('');
 
   const fetchBotData = useCallback(async () => {
     try {
+      setLoading(true);
       const res = await fetch('/api/bot/data');
       const json = await res.json();
       if (json.success) {
-        const data: BotData = { ...EMPTY_BOT_DATA, ...json, source: json.source || 'api' };
-        setBotData(data);
-        if (data.hasData || data.syncCount > 0) {
-          saveToStorage(STORAGE_KEY, data);
+        const apiData: BotData = { ...EMPTY_BOT_DATA, ...json, source: json.source || 'api' };
+        const apiWeight = dataWeight(apiData);
+        const currentWeight = dataWeight(botData);
+
+        // KEY FIX: Only update state if API has MORE data than current cache
+        // This prevents cold-start empty responses from wiping localStorage data
+        if (apiWeight >= currentWeight) {
+          setBotData(apiData);
+          // Save to localStorage if we got meaningful data
+          if (apiData.hasData || apiData.syncCount > 0 || apiWeight > 0) {
+            saveToStorage(STORAGE_KEY, apiData);
+          }
         }
+        // If API returned empty but we have cached data, KEEP cached data (do nothing)
       }
-    } catch { /* silent */ }
-    setLastFetched(new Date().toISOString());
-  }, []);
+    } catch {
+      // Network error — keep whatever we have (localStorage or empty)
+    } finally {
+      setLoading(false);
+      setLastFetched(new Date().toISOString());
+    }
+  }, [botData]);
 
   const fetchTabData = useCallback(async () => {
     const newTabData: TabData = { ...EMPTY_TAB_DATA };
@@ -145,42 +186,42 @@ export function BotDataProvider({ children }: { children: ReactNode }) {
     try {
       const r = await fetch('/api/telegram/stats');
       const d = await r.json();
-      if (d.success) newTabData.telegramStats = d.stats;
+      if (d.success && d.stats) newTabData.telegramStats = d.stats;
     } catch { /* silent */ }
 
     // Telegram users
     try {
       const r = await fetch('/api/telegram/users');
       const d = await r.json();
-      if (d.success) newTabData.telegramUsers = d.users || [];
+      if (d.success && d.users?.length > 0) newTabData.telegramUsers = d.users;
     } catch { /* silent */ }
 
     // Telegram activity
     try {
       const r = await fetch('/api/telegram/activity?limit=30');
       const d = await r.json();
-      if (d.success) newTabData.telegramActivities = d.activities || [];
+      if (d.success && d.activities?.length > 0) newTabData.telegramActivities = d.activities;
     } catch { /* silent */ }
 
     // Jobs summary
     try {
       const r = await fetch('/api/jobs/summary?hours=24');
       const d = await r.json();
-      if (d.success) newTabData.jobsSummary = d.summary || d.data;
+      if (d.success && (d.summary || d.data)) newTabData.jobsSummary = d.summary || d.data;
     } catch { /* silent */ }
 
     // CRM stats
     try {
       const r = await fetch('/api/crm/stats');
       const d = await r.json();
-      if (d.success) newTabData.crmStats = d.stats;
+      if (d.success && d.stats) newTabData.crmStats = d.stats;
     } catch { /* silent */ }
 
     // Applications
     try {
       const r = await fetch('/api/applications');
       const d = await r.json();
-      if (d.success) newTabData.applications = d.applications || [];
+      if (d.success && d.applications?.length > 0) newTabData.applications = d.applications;
     } catch { /* silent */ }
 
     // Profile
@@ -194,11 +235,27 @@ export function BotDataProvider({ children }: { children: ReactNode }) {
     try {
       const r = await fetch('/api/automation/rules');
       const d = await r.json();
-      if (d.success) newTabData.automationRules = d.rules || [];
+      if (d.success && d.rules?.length > 0) newTabData.automationRules = d.rules;
     } catch { /* silent */ }
 
+    // Merge: only update fields that have data (don't wipe existing cache with empty arrays)
     setTabData(prev => {
-      const merged = { ...prev, ...newTabData };
+      const merged: TabData = { ...EMPTY_TAB_DATA };
+      // For each field, use new data if it has content, otherwise keep prev
+      (Object.keys(newTabData) as (keyof TabData)[]).forEach(key => {
+        const newVal = newTabData[key];
+        const prevVal = prev[key];
+        if (key === 'profile') {
+          // Profile: use new if exists
+          merged[key] = newVal || prevVal;
+        } else if (Array.isArray(newVal)) {
+          // Arrays: use new if non-empty, keep prev if new is empty
+          merged[key] = newVal.length > 0 ? newVal : prevVal;
+        } else {
+          // Objects: use new if truthy, keep prev otherwise
+          merged[key] = newVal || prevVal;
+        }
+      });
       saveToStorage(TAB_STORAGE_KEY, merged);
       return merged;
     });
@@ -209,16 +266,22 @@ export function BotDataProvider({ children }: { children: ReactNode }) {
     fetchTabData();
   }, [fetchBotData, fetchTabData]);
 
-  // Initial load & polling every 10 seconds
+  // Initial load & polling
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetching
     fetchBotData();
     fetchTabData();
-    const i = setInterval(() => { fetchBotData(); fetchTabData(); }, 30000);
+
+    // Poll every 30 seconds
+    const i = setInterval(() => {
+      fetchBotData();
+      fetchTabData();
+    }, 30000);
     return () => clearInterval(i);
   }, [fetchBotData, fetchTabData]);
 
-  const hasData = botData.hasData || botData.syncCount > 0 || (isBrowser ? !!localStorage.getItem(STORAGE_KEY) : false);
+  const hasData = botData.hasData || botData.syncCount > 0 ||
+    (isBrowser ? !!localStorage.getItem(STORAGE_KEY) : false) ||
+    dataWeight(botData) > 0;
 
   return (
     <BotDataContext.Provider value={{

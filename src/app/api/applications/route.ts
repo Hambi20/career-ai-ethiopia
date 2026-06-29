@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStore, getApplications } from '@/lib/unified-store';
+import { getStore, getApplications, ensureStoreWarmed } from '@/lib/unified-store';
 
 // GET - List all applications
 export async function GET() {
   try {
+    await ensureStoreWarmed();
     const applications = getApplications();
     return NextResponse.json({ success: true, applications });
   } catch (error) {
