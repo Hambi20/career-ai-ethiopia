@@ -40,3 +40,24 @@ Stage Summary:
 - Updated all bot references to @hambi_career_ai_bot (hambisa-executive)
 - User needs to run PM2 commands on Termux to stop old hambisa-bot process
 - Files changed: .env, src/app/api/telegram/webhook/route.ts
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix Bot Report tab crash on Vercel ("Application error: a client-side exception has occurred")
+
+Work Log:
+- Diagnosed root cause: package.json build script had broken standalone copy commands (cp -r .next/static .next/standalone/) but output: "standalone" was removed from next.config.ts
+- This caused Vercel builds to FAIL, so Vercel kept serving OLD code without error boundaries
+- Found secondary bug: bot-report-tab.tsx used Radix UI Select with value="" which is unsupported (empty string crashes Radix Select)
+- Fixed package.json: changed build script from "next build && cp -r ..." to just "next build"
+- Fixed next.config.ts: removed deprecated "eslint" config key that causes warnings
+- Rewrote bot-report-tab.tsx: replaced Radix UI Select with native HTML <select> elements
+- Used "all" sentinel value instead of empty string for filter states
+- Verified locally: page loads, Bot Report tab renders with all elements (header, stats, filters, empty state)
+- Committed and pushed to career main
+
+Stage Summary:
+- Two bugs fixed: broken build script + Radix Select empty value crash
+- Vercel should now build successfully and deploy the latest code
+- Bot Report tab verified working locally via agent browser
+- Push: 7c6b967..429ab94 main -> main
