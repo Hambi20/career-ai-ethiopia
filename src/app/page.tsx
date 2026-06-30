@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { BotDataProvider, useBotData } from '@/lib/bot-data-context';
 import { Toaster } from '@/components/ui/sonner';
+import TabErrorBoundary from '@/components/tab-error-boundary';
 
 // Tab components
 import { DashboardTab } from '@/components/dashboard-tab';
@@ -154,24 +155,24 @@ function AppContent() {
           </div>
         ) : (
           <>
-            {activeTab === 'dashboard' && <DashboardTab />}
-            {activeTab === 'bot-report' && <BotReportTab />}
-            {activeTab === 'bot-hub' && <BotHubTab />}
-            {activeTab === 'ai-chat' && <AiChatTab />}
-            {activeTab === 'executive' && <ExecutiveTab />}
-            {activeTab === 'applications' && <ApplicationsTab />}
-            {activeTab === 'auto-apply' && <AutoApplyTab />}
-            {activeTab === 'cover-letters' && <CoverLettersTab />}
-            {activeTab === 'cv-analyzer' && <CvAnalyzerTab />}
-            {activeTab === 'interview-prep' && <InterviewPrepTab />}
-            {activeTab === 'job-board' && <JobBoardTab />}
-            {activeTab === 'profile' && <ProfileTab />}
-            {activeTab === 'crm' && <CrmTab />}
-            {activeTab === 'knowledge' && <KnowledgeTab />}
-            {activeTab === 'business' && <BusinessTab />}
-            {activeTab === 'automation' && <AutomationTab />}
-            {activeTab === 'cv-intelligence' && <CvIntelligenceTab />}
-            {activeTab === 'messages' && <MessagesTab />}
+            <TabErrorBoundary><div style={{display: activeTab === 'dashboard' ? 'block' : 'none'}}>{activeTab === 'dashboard' && <DashboardTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'bot-report' ? 'block' : 'none'}}>{activeTab === 'bot-report' && <BotReportTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'bot-hub' ? 'block' : 'none'}}>{activeTab === 'bot-hub' && <BotHubTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'ai-chat' ? 'block' : 'none'}}>{activeTab === 'ai-chat' && <AiChatTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'executive' ? 'block' : 'none'}}>{activeTab === 'executive' && <ExecutiveTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'applications' ? 'block' : 'none'}}>{activeTab === 'applications' && <ApplicationsTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'auto-apply' ? 'block' : 'none'}}>{activeTab === 'auto-apply' && <AutoApplyTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'cover-letters' ? 'block' : 'none'}}>{activeTab === 'cover-letters' && <CoverLettersTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'cv-analyzer' ? 'block' : 'none'}}>{activeTab === 'cv-analyzer' && <CvAnalyzerTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'interview-prep' ? 'block' : 'none'}}>{activeTab === 'interview-prep' && <InterviewPrepTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'job-board' ? 'block' : 'none'}}>{activeTab === 'job-board' && <JobBoardTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'profile' ? 'block' : 'none'}}>{activeTab === 'profile' && <ProfileTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'crm' ? 'block' : 'none'}}>{activeTab === 'crm' && <CrmTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'knowledge' ? 'block' : 'none'}}>{activeTab === 'knowledge' && <KnowledgeTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'business' ? 'block' : 'none'}}>{activeTab === 'business' && <BusinessTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'automation' ? 'block' : 'none'}}>{activeTab === 'automation' && <AutomationTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'cv-intelligence' ? 'block' : 'none'}}>{activeTab === 'cv-intelligence' && <CvIntelligenceTab />}</div></TabErrorBoundary>
+            <TabErrorBoundary><div style={{display: activeTab === 'messages' ? 'block' : 'none'}}>{activeTab === 'messages' && <MessagesTab />}</div></TabErrorBoundary>
           </>
         )}
       </main>
