@@ -5,9 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import {
   FileBarChart, Users, Building2, Filter, RefreshCw, Calendar, TrendingUp,
   ChevronDown, ChevronUp, GraduationCap, Monitor, Briefcase,
   Landmark, ClipboardList, Clock, Database,
@@ -50,9 +47,9 @@ function saveCache(data: any[]) {
 export default function BotReportTab() {
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [companyFilter, setCompanyFilter] = useState('');
+  const [period, setPeriod] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [companyFilter, setCompanyFilter] = useState('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
 
@@ -60,9 +57,9 @@ export default function BotReportTab() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (period) params.set('period', period);
-      if (typeFilter) params.set('type', typeFilter);
-      if (companyFilter) params.set('company', companyFilter);
+      if (period && period !== 'all') params.set('period', period);
+      if (typeFilter && typeFilter !== 'all') params.set('type', typeFilter);
+      if (companyFilter && companyFilter !== 'all') params.set('company', companyFilter);
       params.set('limit', '100');
 
       const res = await fetch(`/api/bot/reports?${params.toString()}`);
@@ -76,7 +73,11 @@ export default function BotReportTab() {
         for (const r of cached) {
           if (!allIds.has(r.id)) { merged.push(r); allIds.add(r.id); }
         }
-        merged.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        merged.sort((a: any, b: any) => {
+          const ta = new Date(a.timestamp || a.createdAt || 0).getTime();
+          const tb = new Date(b.timestamp || b.createdAt || 0).getTime();
+          return tb - ta;
+        });
         setReports(merged.slice(0, 100));
         if (merged.length > 0) saveCache(merged);
       }
@@ -86,7 +87,8 @@ export default function BotReportTab() {
   // Initial load from cache first, then fetch from API
   useEffect(() => {
     if (!initialized) {
-      setReports(loadCache());
+      const cached = loadCache();
+      if (cached.length > 0) setReports(cached);
       setInitialized(true);
     }
   }, [initialized]);
@@ -101,21 +103,33 @@ export default function BotReportTab() {
 
   const today = new Date().toISOString().split('T')[0];
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
-  const todayCount = reports.filter((r: any) => r.date === today).length;
-  const weekCount = reports.filter((r: any) => r.date >= weekAgo).length;
-  const allTypes = [...new Set(reports.map((r: any) => r.type))];
-  const allCompanies = [...new Set(reports.filter((r: any) => r.company).map((r: any) => r.company))];
+  const todayCount = reports.filter((r: any) => {
+    const d = r.date || (r.timestamp || '').split('T')[0];
+    return d === today;
+  }).length;
+  const weekCount = reports.filter((r: any) => {
+    const d = r.date || (r.timestamp || '').split('T')[0];
+    return d >= weekAgo;
+  }).length;
+  const allTypes = [...new Set(reports.map((r: any) => r.type).filter(Boolean))];
+  const allCompanies = [...new Set(reports.map((r: any) => r.company).filter(Boolean))];
   const byType: Record<string, number> = {};
-  reports.forEach((r: any) => { byType[r.type] = (byType[r.type] || 0) + 1; });
+  reports.forEach((r: any) => {
+    const t = r.type || 'general';
+    byType[t] = (byType[t] || 0) + 1;
+  });
 
   const filtered = reports.filter((r: any) => {
-    if (period === 'daily' && !(new Date(r.timestamp) >= new Date(Date.now() - 86400000))) return false;
-    if (period === 'weekly' && !(new Date(r.timestamp) >= new Date(Date.now() - 7 * 86400000))) return false;
-    if (period === 'monthly' && !(new Date(r.timestamp) >= new Date(Date.now() - 30 * 86400000))) return false;
-    if (typeFilter && r.type !== typeFilter) return false;
-    if (companyFilter && !(r.company || '').toLowerCase().includes(companyFilter.toLowerCase())) return false;
+    const ts = new Date(r.timestamp || r.createdAt || 0).getTime();
+    if (period === 'daily' && !(ts >= Date.now() - 86400000)) return false;
+    if (period === 'weekly' && !(ts >= Date.now() - 7 * 86400000)) return false;
+    if (period === 'monthly' && !(ts >= Date.now() - 30 * 86400000)) return false;
+    if (typeFilter && typeFilter !== 'all' && r.type !== typeFilter) return false;
+    if (companyFilter && companyFilter !== 'all' && !(r.company || '').toLowerCase().includes(companyFilter.toLowerCase())) return false;
     return true;
   });
+
+  const selectClass = "h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1";
 
   return (
     <div className="space-y-6">
@@ -162,42 +176,33 @@ export default function BotReportTab() {
               <Filter className="h-4 w-4" /> Filters:
             </div>
             <div className="flex flex-1 flex-col gap-3 sm:flex-row">
-              <Select value={period} onValueChange={setPeriod}>
-                <SelectTrigger className="sm:w-[150px]">
-                  <Calendar className="mr-2 h-3.5 w-3.5" />
-                  <SelectValue placeholder="All Time" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Time</SelectItem>
-                  <SelectItem value="daily">Today</SelectItem>
-                  <SelectItem value="weekly">This Week</SelectItem>
-                  <SelectItem value="monthly">This Month</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="sm:w-[180px]">
-                  <Building2 className="mr-2 h-3.5 w-3.5" />
-                  <SelectValue placeholder="All Types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Types</SelectItem>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <select className={selectClass + " sm:w-[150px]"} value={period} onChange={e => setPeriod(e.target.value)}>
+                  <option value="all">All Time</option>
+                  <option value="daily">Today</option>
+                  <option value="weekly">This Week</option>
+                  <option value="monthly">This Month</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <select className={selectClass + " sm:w-[180px]"} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+                  <option value="all">All Types</option>
                   {allTypes.map((t: string) => (
-                    <SelectItem key={t} value={t}>{(typeConfig[t] || typeConfig.general).label}</SelectItem>
+                    <option key={t} value={t}>{(typeConfig[t] || typeConfig.general).label}</option>
                   ))}
-                </SelectContent>
-              </Select>
-              <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                <SelectTrigger className="sm:w-[180px]">
-                  <Building2 className="mr-2 h-3.5 w-3.5" />
-                  <SelectValue placeholder="All Companies" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Companies</SelectItem>
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <select className={selectClass + " sm:w-[180px]"} value={companyFilter} onChange={e => setCompanyFilter(e.target.value)}>
+                  <option value="all">All Companies</option>
                   {allCompanies.map((c: string) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                    <option key={c} value={c}>{c}</option>
                   ))}
-                </SelectContent>
-              </Select>
+                </select>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -208,9 +213,10 @@ export default function BotReportTab() {
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
           {Object.entries(byType).map(([type, count]) => {
             const cfg = typeConfig[type] || typeConfig.general;
+            const isActive = typeFilter === type;
             return (
-              <Card key={type} className="cursor-pointer transition-all hover:shadow-md"
-                onClick={() => setTypeFilter(p => p === type ? '' : type)}>
+              <Card key={type} className={`cursor-pointer transition-all hover:shadow-md ${isActive ? 'ring-2 ring-emerald-500 border-emerald-300' : ''}`}
+                onClick={() => setTypeFilter(p => p === type ? 'all' : type)}>
                 <CardContent className="flex items-center gap-3 p-4">
                   <div className={`rounded-lg p-2 ${cfg.color.split(' ')[0]}`}>{cfg.icon}</div>
                   <div>
@@ -244,6 +250,7 @@ export default function BotReportTab() {
               {filtered.map((report: any) => {
                 const cfg = typeConfig[report.type] || typeConfig.general;
                 const expanded = expandedId === report.id;
+                const reportContent = report.content || report.report || report.details || '';
                 return (
                   <div key={report.id} className="rounded-lg border transition-all hover:border-emerald-200 dark:hover:border-emerald-800">
                     <div className="flex cursor-pointer items-center gap-3 px-4 py-3"
@@ -251,17 +258,17 @@ export default function BotReportTab() {
                       <div className={`shrink-0 rounded-lg p-2 ${cfg.color.split(' ')[0]}`}>{cfg.icon}</div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold truncate">{report.title}</p>
+                          <p className="text-sm font-semibold truncate">{report.title || 'Untitled'}</p>
                           {report.company && <Badge variant="outline" className="shrink-0 text-[10px] px-1.5 py-0">{report.company}</Badge>}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${cfg.color}`}>{cfg.label}</Badge>
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Clock className="h-3 w-3" />{fmtDateTime(report.timestamp)}
+                            <Clock className="h-3 w-3" />{fmtDateTime(report.timestamp || report.createdAt)}
                           </span>
                         </div>
-                        {!expanded && report.content && (
-                          <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{report.content.substring(0, 150)}</p>
+                        {!expanded && reportContent && (
+                          <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{reportContent.substring(0, 150)}</p>
                         )}
                       </div>
                       <div className="shrink-0 text-muted-foreground">
@@ -272,11 +279,11 @@ export default function BotReportTab() {
                       <div className="border-t bg-muted/30 px-4 py-3">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-xs font-medium text-muted-foreground">Full Report:</span>
-                          <span className="text-xs text-muted-foreground">{fmtDate(report.date)}</span>
+                          <span className="text-xs text-muted-foreground">{fmtDate(report.date || (report.timestamp || '').split('T')[0])}</span>
                           {report.company && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{report.company}</Badge>}
                         </div>
                         <pre className="whitespace-pre-wrap text-sm leading-relaxed break-words font-sans max-h-[400px] overflow-y-auto">
-                          {report.content}
+                          {reportContent}
                         </pre>
                       </div>
                     )}
