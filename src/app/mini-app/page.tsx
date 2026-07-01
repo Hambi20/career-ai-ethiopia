@@ -1323,4 +1323,4 @@ export default function MiniAppPage() {
       `}</style>
     </div>
   );
-}
+}// Mini App route deployed
