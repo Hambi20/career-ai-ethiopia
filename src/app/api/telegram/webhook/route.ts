@@ -1452,6 +1452,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     status: 'active',
     bot: '@hambi_career_ai_bot',
+    version: 'v7-savetest-fix',
     message: 'Hambisa Executive webhook running',
     commands: 55,
     endpoints: {
