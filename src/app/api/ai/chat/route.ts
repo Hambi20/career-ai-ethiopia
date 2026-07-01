@@ -62,16 +62,18 @@ export async function POST(request: NextRequest) {
     let reply: string;
 
     try {
-      const ZAI = await import('z-ai-web-dev-sdk');
-      const zai = await ZAI.create();
-
-      const completion = await zai.chat.completions.create({
-        messages: trimmed,
-        thinking: { type: 'disabled' },
-      });
-
-      reply = completion.choices[0]?.message?.content;
-
+      // Dynamic import — use string concatenation so webpack/vercel can't statically analyze it
+      // z-ai-web-dev-sdk is only available in the sandbox, not on Vercel
+      const sdkName = 'z-ai-web-dev-sdk';
+      const ZAI = await import(sdkName).catch(() => null);
+      if (ZAI) {
+        const zai = await ZAI.create();
+        const completion = await zai.chat.completions.create({
+          messages: trimmed,
+          thinking: { type: 'disabled' },
+        });
+        reply = completion.choices[0]?.message?.content;
+      }
       if (!reply || reply.trim().length === 0) {
         reply = generateMockReply(userMessage, context);
       }
