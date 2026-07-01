@@ -113,3 +113,25 @@ Stage Summary:
 - /start updated with Web App button replacing old Dashboard URL
 - Both main dashboard and Mini App work side by side
 - Files changed: src/app/mini-app/page.tsx (new), src/app/api/telegram/webhook/route.ts (updated)
+
+---
+Task ID: 5
+Agent: Main Agent + Sub-agent (full-stack-developer)
+Task: Mini App v2 — comprehensive with all 13 categories and 50+ commands
+
+Work Log:
+- Fixed 3 build blockers: removed webpack config (Turbopack conflict), removed duplicate ensureBotReportTable import, added typeof window SSR guard
+- Build verified passing locally with next build
+- Pushed fixes — Vercel deployment succeeded (green Ready)
+- Rebuilt entire Mini App (1,361 lines) with all 13 command categories
+- 4 bottom tabs: Home (stats + quick actions + activity), Categories (13-card grid), Search (full-text), Profile
+- Category drill-down: tap category → shows command buttons + data view
+- 50+ commands mapped with Telegram showPopup on tap
+- Color-coded categories, Telegram theme integration, pull-to-refresh
+- Build verified passing, browser tested all tabs + drill-downs
+- Pushed to GitHub for Vercel deployment
+
+Stage Summary:
+- Mini App v2 covers all 13 categories from bot's /help
+- Build passes, all 4 tabs + drill-downs verified working
+- Pushed: d95b06f to main
