@@ -84,3 +84,32 @@ Stage Summary:
 - All 18 tabs now render their content correctly
 - File changed: src/lib/bot-data-context.tsx
 - Lint: 0 errors, 0 warnings
+
+---
+Task ID: 4
+Agent: Main Agent + Sub-agent (full-stack-developer)
+Task: Build Telegram Mini App (Option 1 — replace web dashboard)
+
+Work Log:
+- Audited existing API endpoints: /api/bot/data (stats/tasks/notes/contacts), /api/bot/reports (report list with filters)
+- Created /src/app/mini-app/page.tsx (1,325 lines) — complete Telegram Mini App
+- Mini App features: Telegram.WebApp integration (theme, haptics, expand), 4 bottom tabs (Home/Reports/Tasks/Profile)
+- Home tab: 2x2 stat grid, task progress bar, recent activity
+- Reports tab: search bar, filter chips by type, inline-expandable cards, empty states
+- Tasks tab: status summary, priority dots, status badges
+- Profile tab: Telegram user info, quick stats, bot info card
+- Pull-to-refresh with custom touch handling
+- Mobile-first (375-430px), safe area insets, CSS transitions
+- Added /app command to bot webhook with Web App button
+- Updated /start welcome message inline keyboard (replaced Dashboard URL with Web App button)
+- Updated /help text to include /app command
+- Lint: 0 errors, 0 warnings
+- Browser verified: all 4 tabs render correctly, no console errors
+- Main page (/) still works correctly (18 tabs, content renders)
+
+Stage Summary:
+- Telegram Mini App created at /mini-app route
+- /app command added to bot (sends Web App button)
+- /start updated with Web App button replacing old Dashboard URL
+- Both main dashboard and Mini App work side by side
+- Files changed: src/app/mini-app/page.tsx (new), src/app/api/telegram/webhook/route.ts (updated)

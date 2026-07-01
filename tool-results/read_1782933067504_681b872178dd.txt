@@ -1,0 +1,1326 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useRef, useCallback } from 'react';
+     4→import {
+     5→  Home, FileText, CheckSquare, User, RefreshCw, Search,
+     6→  TrendingUp, Briefcase, Users, BookOpen, ChevronDown, ChevronUp,
+     7→  Clock, AlertCircle, CheckCircle2, Circle, Loader2,
+     8→  BarChart3, Bot, Shield
+     9→} from 'lucide-react';
+    10→
+    11→// ─── Telegram WebApp Types ───────────────────────────────────────────────────
+    12→
+    13→interface TelegramWebApp {
+    14→  ready: () => void;
+    15→  expand: () => void;
+    16→  close: () => void;
+    17→  MainButton: {
+    18→    text: string;
+    19→    show: () => void;
+    20→    hide: () => void;
+    21→    onClick: (fn: () => void) => void;
+    22→    color: string;
+    23→    textColor: string;
+    24→  };
+    25→  BackButton: {
+    26→    show: () => void;
+    27→    hide: () => void;
+    28→    onClick: (fn: () => void) => void;
+    29→  };
+    30→  colorScheme: 'light' | 'dark';
+    31→  themeParams: Record<string, string>;
+    32→  initDataUnsafe: {
+    33→    user?: {
+    34→      id: number;
+    35→      first_name: string;
+    36→      last_name?: string;
+    37→      username?: string;
+    38→      language_code?: string;
+    39→      photo_url?: string;
+    40→    };
+    41→    chat?: { id: number; type: string; title?: string };
+    42→    start_param?: string;
+    43→  };
+    44→  HapticFeedback: {
+    45→    impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
+    46→    notificationOccurred: (type: 'error' | 'success' | 'warning') => void;
+    47→    selectionChanged: () => void;
+    48→  };
+    49→  showPopup: (params: { title?: string; message: string; buttons?: Array<{ type: string; text: string }> }) => void;
+    50→  isExpanded: boolean;
+    51→  viewportHeight: number;
+    52→  viewportStableHeight: number;
+    53→  safeAreaInset: { top: number; bottom: number; left: number; right: number };
+    54→  headerColor: string;
+    55→  backgroundColor: string;
+    56→}
+    57→
+    58→declare global {
+    59→  interface Window {
+    60→    Telegram?: { WebApp: TelegramWebApp };
+    61→  }
+    62→}
+    63→
+    64→// ─── Data Types ──────────────────────────────────────────────────────────────
+    65→
+    66→interface Summary {
+    67→  totalRomelReports: number;
+    68→  totalVdReports: number;
+    69→  totalTasks: number;
+    70→  tasksDone: number;
+    71→  tasksTodo: number;
+    72→  tasksInProgress: number;
+    73→  taskCompletionRate: number;
+    74→  totalNotes: number;
+    75→  totalContacts: number;
+    76→  totalKnowledge: number;
+    77→  dailyAchievementRate: number;
+    78→  lastSync: string | null;
+    79→  totalSyncs: number;
+    80→}
+    81→
+    82→interface TaskItem {
+    83→  id: string;
+    84→  title: string;
+    85→  description?: string;
+    86→  priority: string;
+    87→  status: string;
+    88→  dueDate?: string;
+    89→  createdAt?: string;
+    90→  category?: string;
+    91→}
+    92→
+    93→interface NoteItem {
+    94→  id: string;
+    95→  title: string;
+    96→  content: string;
+    97→  createdAt?: string;
+    98→  category?: string;
+    99→}
+   100→
+   101→interface ContactItem {
+   102→  id: string;
+   103→  name: string;
+   104→  company?: string;
+   105→  type?: string;
+   106→  phone?: string;
+   107→  email?: string;
+   108→}
+   109→
+   110→interface KnowledgeItem {
+   111→  id: string;
+   112→  title: string;
+   113→  content: string;
+   114→  category?: string;
+   115→  createdAt?: string;
+   116→}
+   117→
+   118→interface ReportItem {
+   119→  id: string;
+   120→  type: string;
+   121→  company: string;
+   122→  category: string;
+   123→  title: string;
+   124→  content: string;
+   125→  date: string;
+   126→  timestamp: string;
+   127→  firstName?: string;
+   128→}
+   129→
+   130→interface BotDataResponse {
+   131→  success: boolean;
+   132→  hasData: boolean;
+   133→  updatedAt: string | null;
+   134→  syncCount: number;
+   135→  summary: Summary;
+   136→  tasks: {
+   137→    list: TaskItem[];
+   138→    byPriority: Record<string, number>;
+   139→    byStatus: Record<string, number>;
+   140→  };
+   141→  notes: NoteItem[];
+   142→  contacts: { list: ContactItem[]; breakdown: Record<string, number> };
+   143→  knowledgeBase: KnowledgeItem[];
+   144→  vdReports: any[];
+   145→  recentActivities: any[];
+   146→  rawSyncData: {
+   147→    profile?: {
+   148→      name?: string;
+   149→      title?: string;
+   150→      company?: string;
+   151→      location?: string;
+   152→      email?: string;
+   153→      phone?: string;
+   154→      website?: string;
+   155→      bio?: string;
+   156→    };
+   157→    businesses?: any[];
+   158→  };
+   159→}
+   160→
+   161→interface ReportsResponse {
+   162→  success: boolean;
+   163→  total: number;
+   164→  filtered: ReportItem[];
+   165→  filters: { types: string[]; companies: string[] };
+   166→  stats: {
+   167→    total: number;
+   168→    today: number;
+   169→    thisWeek: number;
+   170→    byType: Record<string, number>;
+   171→  };
+   172→}
+   173→
+   174→type TabId = 'home' | 'reports' | 'tasks' | 'profile';
+   175→
+   176→// ─── Theme Helpers ───────────────────────────────────────────────────────────
+   177→
+   178→function getTelegramTheme() {
+   179→  const tg = window.Telegram?.WebApp;
+   180→  if (!tg) {
+   181→    return {
+   182→      isDark: false,
+   183→      bg: '#ffffff',
+   184→      text: '#1a1a2e',
+   185→      hint: '#8e8e93',
+   186→      buttonBg: '#059669',
+   187→      buttonText: '#ffffff',
+   188→      cardBg: '#f9fafb',
+   189→      borderColor: '#e5e7eb',
+   190→      safeTop: 0,
+   191→      safeBottom: 0,
+   192→    };
+   193→  }
+   194→
+   195→  const isDark = tg.colorScheme === 'dark';
+   196→  const tp = tg.themeParams;
+   197→
+   198→  return {
+   199→    isDark,
+   200→    bg: tp.bg_color || (isDark ? '#1a1a2e' : '#ffffff'),
+   201→    text: tp.text_color || (isDark ? '#ffffff' : '#1a1a2e'),
+   202→    hint: tp.hint_color || (isDark ? '#8e8e93' : '#8e8e93'),
+   203→    buttonBg: tp.button_color || '#059669',
+   204→    buttonText: tp.button_text_color || '#ffffff',
+   205→    cardBg: tp.secondary_bg_color || (isDark ? '#24243e' : '#f9fafb'),
+   206→    borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#e5e7eb',
+   207→    safeTop: tg.safeAreaInset?.top || 0,
+   208→    safeBottom: tg.safeAreaInset?.bottom || 0,
+   209→  };
+   210→}
+   211→
+   212→// ─── Type Badge Config ───────────────────────────────────────────────────────
+   213→
+   214→const TYPE_BADGES: Record<string, { label: string; bg: string; text: string }> = {
+   215→  romel: { label: 'Romel', bg: 'bg-emerald-100 dark:bg-emerald-900/40', text: 'text-emerald-700 dark:text-emerald-300' },
+   216→  vd: { label: 'VD', bg: 'bg-purple-100 dark:bg-purple-900/40', text: 'text-purple-700 dark:text-purple-300' },
+   217→  note: { label: 'Note', bg: 'bg-amber-100 dark:bg-amber-900/40', text: 'text-amber-700 dark:text-amber-300' },
+   218→  log: { label: 'Log', bg: 'bg-slate-100 dark:bg-slate-700/40', text: 'text-slate-700 dark:text-slate-300' },
+   219→  sales: { label: 'Sales', bg: 'bg-teal-100 dark:bg-teal-900/40', text: 'text-teal-700 dark:text-teal-300' },
+   220→  general: { label: 'General', bg: 'bg-gray-100 dark:bg-gray-700/40', text: 'text-gray-700 dark:text-gray-300' },
+   221→  college: { label: 'College', bg: 'bg-purple-100 dark:bg-purple-900/40', text: 'text-purple-700 dark:text-purple-300' },
+   222→};
+   223→
+   224→function getTypeBadge(type: string) {
+   225→  return TYPE_BADGES[type.toLowerCase()] || TYPE_BADGES.general;
+   226→}
+   227→
+   228→// ─── Priority Colors ─────────────────────────────────────────────────────────
+   229→
+   230→const PRIORITY_STYLES: Record<string, { dot: string; label: string }> = {
+   231→  high: { dot: 'bg-red-500', label: 'High' },
+   232→  medium: { dot: 'bg-amber-500', label: 'Medium' },
+   233→  low: { dot: 'bg-emerald-500', label: 'Low' },
+   234→};
+   235→
+   236→// ─── Status Config ───────────────────────────────────────────────────────────
+   237→
+   238→const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+   239→  todo: {
+   240→    label: 'To Do',
+   241→    icon: <Circle className="w-3.5 h-3.5 text-slate-400" />,
+   242→    color: 'text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-400',
+   243→  },
+   244→  in_progress: {
+   245→    label: 'In Progress',
+   246→    icon: <Clock className="w-3.5 h-3.5 text-amber-500" />,
+   247→    color: 'text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400',
+   248→  },
+   249→  done: {
+   250→    label: 'Done',
+   251→    icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />,
+   252→    color: 'text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400',
+   253→  },
+   254→  cancelled: {
+   255→    label: 'Cancelled',
+   256→    icon: <AlertCircle className="w-3.5 h-3.5 text-red-400" />,
+   257→    color: 'text-red-500 bg-red-100 dark:bg-red-900/30 dark:text-red-400',
+   258→  },
+   259→};
+   260→
+   261→// ─── Skeleton Component ──────────────────────────────────────────────────────
+   262→
+   263→function Skeleton({ className = '' }: { className?: string }) {
+   264→  return (
+   265→    <div
+   266→      className={`animate-pulse rounded-md ${className}`}
+   267→      style={{ backgroundColor: 'var(--tw-colors-slate-200, #e2e8f0)' }}
+   268→    />
+   269→  );
+   270→}
+   271→
+   272→// ─── Loading Skeletons ───────────────────────────────────────────────────────
+   273→
+   274→function HomeSkeleton() {
+   275→  return (
+   276→    <div className="space-y-4 p-4">
+   277→      <div className="grid grid-cols-2 gap-3">
+   278→        {[1, 2, 3, 4].map((i) => (
+   279→          <Skeleton key={i} className="h-24 rounded-xl" />
+   280→        ))}
+   281→      </div>
+   282→      <Skeleton className="h-6 w-40 mt-6" />
+   283→      {[1, 2, 3].map((i) => (
+   284→        <Skeleton key={i} className="h-20 rounded-xl" />
+   285→      ))}
+   286→    </div>
+   287→  );
+   288→}
+   289→
+   290→function ReportsSkeleton() {
+   291→  return (
+   292→    <div className="space-y-3 p-4">
+   293→      <Skeleton className="h-10 rounded-xl" />
+   294→      <div className="flex gap-2">
+   295→        {[1, 2, 3, 4].map((i) => (
+   296→          <Skeleton key={i} className="h-8 w-16 rounded-full" />
+   297→        ))}
+   298→      </div>
+   299→      {[1, 2, 3, 4].map((i) => (
+   300→        <Skeleton key={i} className="h-24 rounded-xl" />
+   301→      ))}
+   302→    </div>
+   303→  );
+   304→}
+   305→
+   306→function TasksSkeleton() {
+   307→  return (
+   308→    <div className="space-y-3 p-4">
+   309→      {[1, 2, 3, 4].map((i) => (
+   310→        <Skeleton key={i} className="h-20 rounded-xl" />
+   311→      ))}
+   312→    </div>
+   313→  );
+   314→}
+   315→
+   316→function ProfileSkeleton() {
+   317→  return (
+   318→    <div className="space-y-4 p-4">
+   319→      <Skeleton className="h-32 rounded-xl" />
+   320→      <Skeleton className="h-28 rounded-xl" />
+   321→    </div>
+   322→  );
+   323→}
+   324→
+   325→// ─── Format Helpers ──────────────────────────────────────────────────────────
+   326→
+   327→function formatDate(dateStr: string | null | undefined): string {
+   328→  if (!dateStr) return 'N/A';
+   329→  try {
+   330→    const d = new Date(dateStr);
+   331→    const now = new Date();
+   332→    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+   333→    const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+   334→    const diff = Math.floor((today.getTime() - target.getTime()) / 86400000);
+   335→    if (diff === 0) return 'Today';
+   336→    if (diff === 1) return 'Yesterday';
+   337→    if (diff < 7) return `${diff}d ago`;
+   338→    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+   339→  } catch {
+   340→    return dateStr;
+   341→  }
+   342→}
+   343→
+   344→function timeAgo(dateStr: string | null | undefined): string {
+   345→  if (!dateStr) return '';
+   346→  try {
+   347→    const now = Date.now();
+   348→    const then = new Date(dateStr).getTime();
+   349→    const diff = Math.floor((now - then) / 60000);
+   350→    if (diff < 1) return 'just now';
+   351→    if (diff < 60) return `${diff}m ago`;
+   352→    if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
+   353→    return `${Math.floor(diff / 1440)}d ago`;
+   354→  } catch {
+   355→    return '';
+   356→  }
+   357→}
+   358→
+   359→function truncate(str: string, max: number): string {
+   360→  if (!str || str.length <= max) return str || '';
+   361→  return str.slice(0, max).trim() + '...';
+   362→}
+   363→
+   364→// ─── Main Component ──────────────────────────────────────────────────────────
+   365→
+   366→export default function MiniAppPage() {
+   367→  // State
+   368→  const [activeTab, setActiveTab] = useState<TabId>('home');
+   369→  const [loading, setLoading] = useState(true);
+   370→  const [refreshing, setRefreshing] = useState(false);
+   371→  const [botData, setBotData] = useState<BotDataResponse | null>(null);
+   372→  const [reportsData, setReportsData] = useState<ReportsResponse | null>(null);
+   373→  const [expandedReport, setExpandedReport] = useState<string | null>(null);
+   374→  const [searchQuery, setSearchQuery] = useState('');
+   375→  const [filterType, setFilterType] = useState('all');
+   376→  const [theme, setTheme] = useState(() => getTelegramTheme());
+   377→
+   378→  // Pull-to-refresh refs
+   379→  const contentRef = useRef<HTMLDivElement>(null);
+   380→  const pullStartY = useRef(0);
+   381→  const pullDistance = useRef(0);
+   382→  const isPulling = useRef(false);
+   383→  const canPull = useRef(true);
+   384→
+   385→  // ─── Initialize Telegram ──────────────────────────────────────────────
+   386→
+   387→  useEffect(() => {
+   388→    const tg = window.Telegram?.WebApp;
+   389→    if (tg) {
+   390→      tg.ready();
+   391→      tg.expand();
+   392→      tg.HapticFeedback?.impactOccurred?.('light');
+   393→      tg.MainButton.hide();
+   394→      tg.BackButton.hide();
+   395→
+   396→      // Listen for theme changes
+   397→      tg.onEvent?.('themeChanged', () => {
+   398→        setTheme(getTelegramTheme());
+   399→      });
+   400→      setTheme(getTelegramTheme());
+   401→    }
+   402→  }, []);
+   403→
+   404→  // ─── Data Fetching ────────────────────────────────────────────────────
+   405→
+   406→  const fetchData = useCallback(async (isRefresh = false) => {
+   407→    if (isRefresh) {
+   408→      setRefreshing(true);
+   409→    } else {
+   410→      setLoading(true);
+   411→    }
+   412→
+   413→    try {
+   414→      const [dataRes, reportsRes] = await Promise.all([
+   415→        fetch('/api/bot/data'),
+   416→        fetch('/api/bot/reports'),
+   417→      ]);
+   418→
+   419→      if (dataRes.ok) {
+   420→        const data = await dataRes.json();
+   421→        setBotData(data);
+   422→      }
+   423→      if (reportsRes.ok) {
+   424→        const reports = await reportsRes.json();
+   425→        setReportsData(reports);
+   426→      }
+   427→    } catch (err) {
+   428→      console.error('Failed to fetch data:', err);
+   429→    } finally {
+   430→      setLoading(false);
+   431→      setRefreshing(false);
+   432→      canPull.current = true;
+   433→    }
+   434→  }, []);
+   435→
+   436→  useEffect(() => {
+   437→    fetchData();
+   438→  }, [fetchData]);
+   439→
+   440→  // ─── Tab Switch Haptic ────────────────────────────────────────────────
+   441→
+   442→  const handleTabSwitch = (tab: TabId) => {
+   443→    if (tab === activeTab) return;
+   444→    const tg = window.Telegram?.WebApp;
+   445→    tg?.HapticFeedback?.selectionChanged?.();
+   446→    setActiveTab(tab);
+   447→    setExpandedReport(null);
+   448→    setSearchQuery('');
+   449→    setFilterType('all');
+   450→  };
+   451→
+   452→  // ─── Pull-to-Refresh Handlers ─────────────────────────────────────────
+   453→
+   454→  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+   455→    if (!canPull.current) return;
+   456→    const scrollTop = contentRef.current?.scrollTop || 0;
+   457→    if (scrollTop <= 0) {
+   458→      pullStartY.current = e.touches[0].clientY;
+   459→      isPulling.current = true;
+   460→    }
+   461→  }, []);
+   462→
+   463→  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+   464→    if (!isPulling.current || !canPull.current) return;
+   465→    const diff = e.touches[0].clientY - pullStartY.current;
+   466→    if (diff > 0) {
+   467→      pullDistance.current = Math.min(diff * 0.4, 80);
+   468→    }
+   469→  }, []);
+   470→
+   471→  const handleTouchEnd = useCallback(() => {
+   472→    if (!isPulling.current) return;
+   473→    isPulling.current = false;
+   474→    if (pullDistance.current > 50) {
+   475→      canPull.current = false;
+   476→      const tg = window.Telegram?.WebApp;
+   477→      tg?.HapticFeedback?.impactOccurred?.('medium');
+   478→      fetchData(true);
+   479→    }
+   480→    pullDistance.current = 0;
+   481→  }, [fetchData]);
+   482→
+   483→  // ─── Filtered Reports ─────────────────────────────────────────────────
+   484→
+   485→  const getFilteredReports = useCallback((): ReportItem[] => {
+   486→    if (!reportsData?.filtered) return [];
+   487→    let reports = reportsData.filtered;
+   488→
+   489→    if (filterType !== 'all') {
+   490→      reports = reports.filter((r) => r.type.toLowerCase() === filterType.toLowerCase());
+   491→    }
+   492→
+   493→    if (searchQuery.trim()) {
+   494→      const q = searchQuery.toLowerCase();
+   495→      reports = reports.filter(
+   496→        (r) =>
+   497→          (r.title || '').toLowerCase().includes(q) ||
+   498→          (r.content || '').toLowerCase().includes(q) ||
+   499→          (r.company || '').toLowerCase().includes(q)
+   500→      );
+   501→    }
+   502→
+   503→    return reports;
+   504→  }, [reportsData, filterType, searchQuery]);
+   505→
+   506→  // ─── Render Helpers ───────────────────────────────────────────────────
+   507→
+   508→  const summary = botData?.summary;
+   509→
+   510→  const statCards = [
+   511→    {
+   512→      label: 'Reports',
+   513→      value: (summary?.totalRomelReports || 0) + (summary?.totalVdReports || 0),
+   514→      icon: <FileText className="w-5 h-5 text-emerald-600" />,
+   515→      color: 'from-emerald-500 to-teal-500',
+   516→      bgColor: 'bg-emerald-50 dark:bg-emerald-900/20',
+   517→    },
+   518→    {
+   519→      label: 'Tasks',
+   520→      value: summary?.totalTasks || 0,
+   521→      icon: <CheckSquare className="w-5 h-5 text-teal-600" />,
+   522→      color: 'from-teal-500 to-cyan-500',
+   523→      bgColor: 'bg-teal-50 dark:bg-teal-900/20',
+   524→    },
+   525→    {
+   526→      label: 'Contacts',
+   527→      value: summary?.totalContacts || 0,
+   528→      icon: <Users className="w-5 h-5 text-amber-600" />,
+   529→      color: 'from-amber-500 to-orange-500',
+   530→      bgColor: 'bg-amber-50 dark:bg-amber-900/20',
+   531→    },
+   532→    {
+   533→      label: 'Knowledge',
+   534→      value: summary?.totalKnowledge || 0,
+   535→      icon: <BookOpen className="w-5 h-5 text-purple-600" />,
+   536→      color: 'from-purple-500 to-pink-500',
+   537→      bgColor: 'bg-purple-50 dark:bg-purple-900/20',
+   538→    },
+   539→  ];
+   540→
+   541→  // ─── Home Tab ─────────────────────────────────────────────────────────
+   542→
+   543→  function renderHome() {
+   544→    const recentReports = reportsData?.filtered?.slice(0, 5) || [];
+   545→    const lastSync = botData?.updatedAt;
+   546→
+   547→    return (
+   548→      <div className="space-y-5 p-4 pb-4">
+   549→        {/* Sync Status */}
+   550→        <div className="flex items-center justify-between">
+   551→          <div className="flex items-center gap-2">
+   552→            <div className={`w-2 h-2 rounded-full ${botData?.hasData ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+   553→            <span style={{ color: theme.hint }} className="text-xs">
+   554→              {botData?.hasData ? 'Data synced' : 'Waiting for sync'}
+   555→            </span>
+   556→          </div>
+   557→          {lastSync && (
+   558→            <span style={{ color: theme.hint }} className="text-xs">
+   559→              {timeAgo(lastSync)}
+   560→            </span>
+   561→          )}
+   562→        </div>
+   563→
+   564→        {/* Stat Cards */}
+   565→        <div className="grid grid-cols-2 gap-3">
+   566→          {statCards.map((card) => (
+   567→            <div
+   568→              key={card.label}
+   569→              className="rounded-xl p-4 border transition-all duration-200 active:scale-[0.97]"
+   570→              style={{
+   571→                backgroundColor: theme.cardBg,
+   572→                borderColor: theme.borderColor,
+   573→              }}
+   574→            >
+   575→              <div className="flex items-center justify-between mb-2">
+   576→                {card.icon}
+   577→                <span
+   578→                  className="text-2xl font-bold"
+   579→                  style={{ color: theme.text }}
+   580→                >
+   581→                  {card.value}
+   582→                </span>
+   583→              </div>
+   584→              <span style={{ color: theme.hint }} className="text-xs font-medium">
+   585→                {card.label}
+   586→              </span>
+   587→              {card.label === 'Tasks' && summary && summary.totalTasks > 0 && (
+   588→                <div className="mt-2 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+   589→                  <div
+   590→                    className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+   591→                    style={{ width: `${summary.taskCompletionRate}%` }}
+   592→                  />
+   593→                </div>
+   594→              )}
+   595→            </div>
+   596→          ))}
+   597→        </div>
+   598→
+   599→        {/* Task Completion */}
+   600→        {summary && summary.totalTasks > 0 && (
+   601→          <div
+   602→            className="rounded-xl p-4 border"
+   603→            style={{ backgroundColor: theme.cardBg, borderColor: theme.borderColor }}
+   604→          >
+   605→            <div className="flex items-center justify-between mb-1">
+   606→              <span className="text-sm font-medium" style={{ color: theme.text }}>
+   607→                Task Completion
+   608→              </span>
+   609→              <span className="text-sm font-bold text-emerald-600">
+   610→                {summary.taskCompletionRate}%
+   611→              </span>
+   612→            </div>
+   613→            <div className="flex gap-3 text-xs mt-2" style={{ color: theme.hint }}>
+   614→              <span className="flex items-center gap-1">
+   615→                <Circle className="w-2.5 h-2.5 text-slate-400" />
+   616→                {summary.tasksTodo} todo
+   617→              </span>
+   618→              <span className="flex items-center gap-1">
+   619→                <Clock className="w-2.5 h-2.5 text-amber-500" />
+   620→                {summary.tasksInProgress} active
+   621→              </span>
+   622→              <span className="flex items-center gap-1">
+   623→                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
+   624→                {summary.tasksDone} done
+   625→              </span>
+   626→            </div>
+   627→          </div>
+   628→        )}
+   629→
+   630→        {/* Today's Activity */}
+   631→        <div>
+   632→          <h3
+   633→            className="text-sm font-semibold mb-3 flex items-center gap-2"
+   634→            style={{ color: theme.text }}
+   635→          >
+   636→            <TrendingUp className="w-4 h-4 text-emerald-500" />
+   637→            Recent Activity
+   638→          </h3>
+   639→          {recentReports.length > 0 ? (
+   640→            <div className="space-y-2">
+   641→              {recentReports.map((report) => {
+   642→                const badge = getTypeBadge(report.type);
+   643→                return (
+   644→                  <div
+   645→                    key={report.id}
+   646→                    className="rounded-xl p-3.5 border transition-colors duration-150"
+   647→                    style={{ backgroundColor: theme.cardBg, borderColor: theme.borderColor }}
+   648→                  >
+   649→                    <div className="flex items-start justify-between gap-2">
+   650→                      <div className="flex-1 min-w-0">
+   651→                        <div className="flex items-center gap-2 mb-1">
+   652→                          <span
+   653→                            className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold ${badge.bg} ${badge.text}`}
+   654→                          >
+   655→                            {badge.label}
+   656→                          </span>
+   657→                          {report.company && (
+   658→                            <span style={{ color: theme.hint }} className="text-[11px] truncate">
+   659→                              {report.company}
+   660→                            </span>
+   661→                          )}
+   662→                        </div>
+   663→                        <p
+   664→                          className="text-sm font-medium truncate"
+   665→                          style={{ color: theme.text }}
+   666→                        >
+   667→                          {report.title}
+   668→                        </p>
+   669→                        {report.content && (
+   670→                          <p
+   671→                            className="text-xs mt-1 line-clamp-1"
+   672→                            style={{ color: theme.hint }}
+   673→                          >
+   674→                            {truncate(report.content, 80)}
+   675→                          </p>
+   676→                        )}
+   677→                      </div>
+   678→                      <span style={{ color: theme.hint }} className="text-[11px] whitespace-nowrap mt-0.5">
+   679→                        {formatDate(report.date || report.timestamp)}
+   680→                      </span>
+   681→                    </div>
+   682→                  </div>
+   683→                );
+   684→              })}
+   685→            </div>
+   686→          ) : (
+   687→            <div
+   688→              className="rounded-xl p-6 border text-center"
+   689→              style={{ backgroundColor: theme.cardBg, borderColor: theme.borderColor }}
+   690→            >
+   691→              <FileText className="w-8 h-8 mx-auto mb-2" style={{ color: theme.hint }} />
+   692→              <p className="text-sm" style={{ color: theme.hint }}>
+   693→                No reports yet. Start by sending a report via the bot.
+   694→              </p>
+   695→            </div>
+   696→          )}
+   697→        </div>
+   698→      </div>
+   699→    );
+   700→  }
+   701→
+   702→  // ─── Reports Tab ───────────────────────────────────────────────────────
+   703→
+   704→  function renderReports() {
+   705→    const filteredReports = getFilteredReports();
+   706→    const types = reportsData?.filters?.types || [];
+   707→    const typeFilterOptions = ['all', ...types];
+   708→
+   709→    return (
+   710→      <div className="space-y-3 p-4">
+   711→        {/* Search Bar */}
+   712→        <div className="relative">
+   713→          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: theme.hint }} />
+   714→          <input
+   715→            type="text"
+   716→            placeholder="Search reports..."
+   717→            value={searchQuery}
+   718→            onChange={(e) => setSearchQuery(e.target.value)}
+   719→            className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm border outline-none transition-colors"
+   720→            style={{
+   721→              backgroundColor: theme.cardBg,
+   722→              borderColor: theme.borderColor,
+   723→              color: theme.text,
+   724→            }}
+   725→          />
+   726→        </div>
+   727→
+   728→        {/* Filter Chips */}
+   729→        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
+   730→          {typeFilterOptions.map((type) => {
+   731→            const isActive = filterType === type;
+   732→            const badge = type === 'all'
+   733→              ? { label: 'All', bg: '', text: '' }
+   734→              : getTypeBadge(type);
+   735→
+   736→            return (
+   737→              <button
+   738→                key={type}
+   739→                onClick={() => {
+   740→                  setFilterType(type);
+   741→                  window.Telegram?.WebApp?.HapticFeedback?.selectionChanged?.();
+   742→                }}
+   743→                className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all duration-200 active:scale-95 ${
+   744→                  isActive
+   745→                    ? 'bg-emerald-500 text-white border-emerald-500'
+   746→                    : ''
+   747→                }`}
+   748→                style={
+   749→                  !isActive
+   750→                    ? {
+   751→                        backgroundColor: theme.cardBg,
+   752→                        borderColor: theme.borderColor,
+   753→                        color: theme.text,
+   754→                      }
+   755→                    : undefined
+   756→                }
+   757→              >
+   758→                {type === 'all' ? 'All' : badge.label}
+   759→                {type !== 'all' && (
+   760→                  <span className="ml-1 opacity-60">
+   761→                    {reportsData?.stats?.byType?.[type] || 0}
+   762→                  </span>
+   763→                )}
+   764→              </button>
+   765→            );
+   766→          })}
+   767→        </div>
+   768→
+   769→        {/* Report Count */}
+   770→        <div className="flex items-center justify-between px-1">
+   771→          <span style={{ color: theme.hint }} className="text-xs">
+   772→            {filteredReports.length} report{filteredReports.length !== 1 ? 's' : ''}
+   773→          </span>
+   774→          {reportsData?.stats && (
+   775→            <span style={{ color: theme.hint }} className="text-xs">
+   776→              {reportsData.stats.today} today · {reportsData.stats.thisWeek} this week
+   777→            </span>
+   778→          )}
+   779→        </div>
+   780→
+   781→        {/* Report Cards */}
+   782→        {filteredReports.length > 0 ? (
+   783→          <div className="space-y-2">
+   784→            {filteredReports.map((report) => {
+   785→              const badge = getTypeBadge(report.type);
+   786→              const isExpanded = expandedReport === report.id;
+   787→
+   788→              return (
+   789→                <div
+   790→                  key={report.id}
+   791→                  className="rounded-xl border overflow-hidden transition-all duration-200"
+   792→                  style={{ backgroundColor: theme.cardBg, borderColor: theme.borderColor }}
+   793→                >
+   794→                  <button
+   795→                    onClick={() => {
+   796→                      setExpandedReport(isExpanded ? null : report.id);
+   797→                      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.('light');
+   798→                    }}
+   799→                    className="w-full text-left p-3.5 active:bg-black/5 dark:active:bg-white/5 transition-colors"
+   800→                  >
+   801→                    <div className="flex items-start justify-between gap-2">
+   802→                      <div className="flex-1 min-w-0">
+   803→                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+   804→                          <span
+   805→                            className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold ${badge.bg} ${badge.text}`}
+   806→                          >
+   807→                            {badge.label}
+   808→                          </span>
+   809→                          {report.company && (
+   810→                            <span
+   811→                              className="text-[11px] font-medium"
+   812→                              style={{ color: theme.hint }}
+   813→                            >
+   814→                              {report.company}
+   815→                            </span>
+   816→                          )}
+   817→                        </div>
+   818→                        <p className="text-sm font-medium" style={{ color: theme.text }}>
+   819→                          {report.title}
+   820→                        </p>
+   821→                        {!isExpanded && report.content && (
+   822→                          <p className="text-xs mt-1 line-clamp-2" style={{ color: theme.hint }}>
+   823→                            {truncate(report.content, 120)}
+   824→                          </p>
+   825→                        )}
+   826→                      </div>
+   827→                      <div className="flex flex-col items-end gap-1 shrink-0">
+   828→                        <span style={{ color: theme.hint }} className="text-[11px]">
+   829→                          {formatDate(report.date || report.timestamp)}
+   830→                        </span>
+   831→                        {isExpanded ? (
+   832→                          <ChevronUp className="w-4 h-4" style={{ color: theme.hint }} />
+   833→                        ) : (
+   834→                          <ChevronDown className="w-4 h-4" style={{ color: theme.hint }} />
+   835→                        )}
+   836→                      </div>
+   837→                    </div>
+   838→                  </button>
+   839→
+   840→                  {/* Expanded Content */}
+   841→                  {isExpanded && report.content && (
+   842→                    <div
+   843→                      className="px-3.5 pb-3.5 border-t animate-in slide-in-from-top-1 duration-200"
+   844→                      style={{ borderColor: theme.borderColor }}
+   845→                    >
+   846→                      <pre
+   847→                        className="text-xs mt-2.5 whitespace-pre-wrap break-words leading-relaxed font-sans"
+   848→                        style={{ color: theme.text }}
+   849→                      >
+   850→                        {report.content}
+   851→                      </pre>
+   852→                    </div>
+   853→                  )}
+   854→                </div>
+   855→              );
+   856→            })}
+   857→          </div>
+   858→        ) : (
+   859→          <div
+   860→            className="rounded-xl p-8 border text-center"
+   861→            style={{ backgroundColor: theme.cardBg, borderColor: theme.borderColor }}
+   862→          >
+   863→            <Search className="w-10 h-10 mx-auto mb-3" style={{ color: theme.hint, opacity: 0.5 }} />
+   864→            <p className="text-sm font-medium mb-1" style={{ color: theme.text }}>
+   865→              {searchQuery || filterType !== 'all' ? 'No matching reports' : 'No reports yet'}
+   866→            </p>
+   867→            <p className="text-xs" style={{ color: theme.hint }}>
+   868→              {searchQuery || filterType !== 'all'
+   869→                ? 'Try adjusting your search or filters'
+   870→                : 'Send reports via the bot to see them here'}
+   871→            </p>
+   872→          </div>
+   873→        )}
+   874→      </div>
+   875→    );
+   876→  }
+   877→
+   878→  // ─── Tasks Tab ────────────────────────────────────────────────────────
+   879→
+   880→  function renderTasks() {
+   881→    const tasks = botData?.tasks?.list || [];
+   882→    const byStatus = botData?.tasks?.byStatus || {};
+   883→
+   884→    return (
+   885→      <div className="space-y-4 p-4">
+   886→        {/* Status Summary */}
+   887→        <div
+   888→          className="rounded-xl p-4 border"
+   889→          style={{ backgroundColor: theme.cardBg, borderColor: theme.borderColor }}
+   890→        >
+   891→          <div className="flex items-center justify-between mb-3">
+   892→            <span className="text-sm font-semibold" style={{ color: theme.text }}>
+   893→              Tasks Overview
+   894→            </span>
+   895→            <span className="text-xs font-medium" style={{ color: theme.hint }}>
+   896→              {tasks.length} total
+   897→            </span>
+   898→          </div>
+   899→          <div className="grid grid-cols-3 gap-2">
+   900→            {[
+   901→              { key: 'todo', label: 'To Do', count: byStatus.todo || 0, color: 'text-slate-500' },
+   902→              { key: 'in_progress', label: 'Active', count: byStatus.in_progress || 0, color: 'text-amber-500' },
+   903→              { key: 'done', label: 'Done', count: byStatus.done || 0, color: 'text-emerald-500' },
+   904→            ].map((item) => (
+   905→              <div
+   906→                key={item.key}
+   907→                className="text-center p-2 rounded-lg"
+   908→                style={{ backgroundColor: theme.bg }}
+   909→              >
+   910→                <div className={`text-xl font-bold ${item.color}`}>{item.count}</div>
+   911→                <div className="text-[10px] font-medium mt-0.5" style={{ color: theme.hint }}>
+   912→                  {item.label}
+   913→                </div>
+   914→              </div>
+   915→            ))}
+   916→          </div>
+   917→        </div>
+   918→
+   919→        {/* Task List */}
+   920→        {tasks.length > 0 ? (
+   921→          <div className="space-y-2">
+   922→            {tasks.map((task) => {
+   923→              const priority = PRIORITY_STYLES[task.priority?.toLowerCase()] || PRIORITY_STYLES.low;
+   924→              const statusKey = (task.status || 'todo').toLowerCase().replace(/-/g, '_');
+   925→              const status = STATUS_CONFIG[statusKey] || STATUS_CONFIG.todo;
+   926→              const isDone = statusKey === 'done';
+   927→
+   928→              return (
+   929→                <div
+   930→                  key={task.id}
+   931→                  className={`rounded-xl p-3.5 border transition-all duration-200 ${isDone ? 'opacity-60' : ''}`}
+   932→                  style={{ backgroundColor: theme.cardBg, borderColor: theme.borderColor }}
+   933→                >
+   934→                  <div className="flex items-start gap-3">
+   935→                    {/* Priority Dot */}
+   936→                    <div className="mt-1.5 shrink-0">
+   937→                      <div className={`w-2.5 h-2.5 rounded-full ${priority.dot}`} />
+   938→                    </div>
+   939→
+   940→                    <div className="flex-1 min-w-0">
+   941→                      <p
+   942→                        className={`text-sm font-medium ${isDone ? 'line-through' : ''}`}
+   943→                        style={{ color: theme.text }}
+   944→                      >
+   945→                        {task.title || 'Untitled Task'}
+   946→                      </p>
+   947→                      {task.description && (
+   948→                        <p
+   949→                          className="text-xs mt-0.5 line-clamp-1"
+   950→                          style={{ color: theme.hint }}
+   951→                        >
+   952→                          {truncate(task.description, 80)}
+   953→                        </p>
+   954→                      )}
+   955→                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+   956→                        <span
+   957→                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold ${status.color}`}
+   958→                        >
+   959→                          {status.icon}
+   960→                          {status.label}
+   961→                        </span>
+   962→                        <span
+   963→                          className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+   964→                        >
+   965→                          {priority.label}
+   966→                        </span>
+   967→                        {task.dueDate && (
+   968→                          <span style={{ color: theme.hint }} className="text-[11px] flex items-center gap-0.5">
+   969→                            <Clock className="w-3 h-3" />
+   970→                            {formatDate(task.dueDate)}
+   971→                          </span>
+   972→                        )}
+   973→                      </div>
+   974→                    </div>
+   975→                  </div>
+   976→                </div>
+   977→              );
+   978→            })}
+   979→          </div>
+   980→        ) : (
+   981→          <div
+   982→            className="rounded-xl p-8 border text-center"
+   983→            style={{ backgroundColor: theme.cardBg, borderColor: theme.borderColor }}
+   984→          >
+   985→            <CheckSquare className="w-10 h-10 mx-auto mb-3" style={{ color: theme.hint, opacity: 0.5 }} />
+   986→            <p className="text-sm font-medium mb-1" style={{ color: theme.text }}>
+   987→              No tasks yet
+   988→            </p>
+   989→            <p className="text-xs" style={{ color: theme.hint }}>
+   990→              Create tasks via the bot to track your work here
+   991→            </p>
+   992→          </div>
+   993→        )}
+   994→      </div>
+   995→    );
+   996→  }
+   997→
+   998→  // ─── Profile Tab ───────────────────────────────────────────────────────
+   999→
+  1000→  function renderProfile() {
+  1001→    const tg = window.Telegram?.WebApp;
+  1002→    const tgUser = tg?.initDataUnsafe?.user;
+  1003→    const profile = botData?.rawSyncData?.profile;
+  1004→
+  1005→    return (
+  1006→      <div className="space-y-4 p-4">
+  1007→        {/* User Card */}
+  1008→        <div
+  1009→          className="rounded-xl p-5 border text-center"
+  1010→          style={{ backgroundColor: theme.cardBg, borderColor: theme.borderColor }}
+  1011→        >
+  1012→          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 mx-auto mb-3 flex items-center justify-center text-white text-2xl font-bold">
+  1013→            {tgUser?.first_name?.[0] || profile?.name?.[0] || 'C'}
+  1014→          </div>
+  1015→          <h3 className="text-base font-bold" style={{ color: theme.text }}>
+  1016→            {tgUser
+  1017→              ? `${tgUser.first_name}${tgUser.last_name ? ` ${tgUser.last_name}` : ''}`
+  1018→              : profile?.name || 'Career AI User'}
+  1019→          </h3>
+  1020→          {tgUser?.username && (
+  1021→            <p className="text-sm mt-0.5" style={{ color: theme.hint }}>
+  1022→              @{tgUser.username}
+  1023→            </p>
+  1024→          )}
+  1025→          {profile?.title && (
+  1026→            <p className="text-sm mt-1 font-medium text-emerald-600 dark:text-emerald-400">
+  1027→              {profile.title}
+  1028→            </p>
+  1029→          )}
+  1030→          {(profile?.company || profile?.location) && (
+  1031→            <p className="text-xs mt-1" style={{ color: theme.hint }}>
+  1032→              {[profile.company, profile.location].filter(Boolean).join(' · ')}
+  1033→            </p>
+  1034→          )}
+  1035→        </div>
+  1036→
+  1037→        {/* Quick Stats */}
+  1038→        <div
+  1039→          className="rounded-xl p-4 border"
+  1040→          style={{ backgroundColor: theme.cardBg, borderColor: theme.borderColor }}
+  1041→        >
+  1042→          <h4 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: theme.hint }}>
+  1043→            Quick Stats
+  1044→          </h4>
+  1045→          <div className="space-y-3">
+  1046→            {[
+  1047→              { icon: <FileText className="w-4 h-4" />, label: 'Reports', value: (summary?.totalRomelReports || 0) + (summary?.totalVdReports || 0) },
+  1048→              { icon: <CheckSquare className="w-4 h-4" />, label: 'Tasks Done', value: summary?.tasksDone || 0 },
+  1049→              { icon: <Users className="w-4 h-4" />, label: 'Contacts', value: summary?.totalContacts || 0 },
+  1050→              { icon: <BookOpen className="w-4 h-4" />, label: 'Knowledge Base', value: summary?.totalKnowledge || 0 },
+  1051→              { icon: <Briefcase className="w-4 h-4" />, label: 'Notes', value: summary?.totalNotes || 0 },
+  1052→            ].map((stat) => (
+  1053→              <div key={stat.label} className="flex items-center justify-between">
+  1054→                <div className="flex items-center gap-2.5">
+  1055→                  <span className="text-emerald-500">{stat.icon}</span>
+  1056→                  <span className="text-sm" style={{ color: theme.text }}>
+  1057→                    {stat.label}
+  1058→                  </span>
+  1059→                </div>
+  1060→                <span className="text-sm font-semibold" style={{ color: theme.text }}>
+  1061→                  {stat.value}
+  1062→                </span>
+  1063→              </div>
+  1064→            ))}
+  1065→          </div>
+  1066→        </div>
+  1067→
+  1068→        {/* Bot Info Card */}
+  1069→        <div
+  1070→          className="rounded-xl p-4 border"
+  1071→          style={{ backgroundColor: theme.cardBg, borderColor: theme.borderColor }}
+  1072→        >
+  1073→          <div className="flex items-start gap-3">
+  1074→            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shrink-0">
+  1075→              <Bot className="w-5 h-5 text-white" />
+  1076→            </div>
+  1077→            <div className="flex-1 min-w-0">
+  1078→              <h4 className="text-sm font-semibold" style={{ color: theme.text }}>
+  1079→                @hambi_career_ai_bot
+  1080→              </h4>
+  1081→              <p className="text-xs mt-0.5" style={{ color: theme.hint }}>
+  1082→                Hambisa Executive — Career AI Assistant
+  1083→              </p>
+  1084→              <div className="flex items-center gap-1.5 mt-2">
+  1085→                <Shield className="w-3 h-3 text-emerald-500" />
+  1086→                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+  1087→                  {botData?.syncCount || 0} syncs completed
+  1088→                </span>
+  1089→              </div>
+  1090→              {botData?.updatedAt && (
+  1091→                <p className="text-[11px] mt-1" style={{ color: theme.hint }}>
+  1092→                  Last sync: {timeAgo(botData.updatedAt)}
+  1093→                </p>
+  1094→              )}
+  1095→            </div>
+  1096→          </div>
+  1097→        </div>
+  1098→
+  1099→        {/* About */}
+  1100→        <div
+  1101→          className="rounded-xl p-4 border"
+  1102→          style={{ backgroundColor: theme.cardBg, borderColor: theme.borderColor }}
+  1103→        >
+  1104→          <h4 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: theme.hint }}>
+  1105→            About
+  1106→          </h4>
+  1107→          <p className="text-xs leading-relaxed" style={{ color: theme.hint }}>
+  1108→            Career AI Ethiopia helps you manage reports, track tasks, organize contacts, and build knowledge — all from Telegram. Send commands to the bot to add data, and view everything here.
+  1109→          </p>
+  1110→        </div>
+  1111→      </div>
+  1112→    );
+  1113→  }
+  1114→
+  1115→  // ─── Tab Content Switcher ──────────────────────────────────────────────
+  1116→
+  1117→  function renderTabContent() {
+  1118→    if (loading) {
+  1119→      switch (activeTab) {
+  1120→        case 'home': return <HomeSkeleton />;
+  1121→        case 'reports': return <ReportsSkeleton />;
+  1122→        case 'tasks': return <TasksSkeleton />;
+  1123→        case 'profile': return <ProfileSkeleton />;
+  1124→      }
+  1125→    }
+  1126→
+  1127→    switch (activeTab) {
+  1128→      case 'home': return renderHome();
+  1129→      case 'reports': return renderReports();
+  1130→      case 'tasks': return renderTasks();
+  1131→      case 'profile': return renderProfile();
+  1132→    }
+  1133→  }
+  1134→
+  1135→  // ─── Tab Bar Config ────────────────────────────────────────────────────
+  1136→
+  1137→  const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
+  1138→    { id: 'home', label: 'Home', icon: <Home className="w-5 h-5" /> },
+  1139→    { id: 'reports', label: 'Reports', icon: <FileText className="w-5 h-5" /> },
+  1140→    { id: 'tasks', label: 'Tasks', icon: <CheckSquare className="w-5 h-5" /> },
+  1141→    { id: 'profile', label: 'Profile', icon: <User className="w-5 h-5" /> },
+  1142→  ];
+  1143→
+  1144→  // ─── Render ────────────────────────────────────────────────────────────
+  1145→
+  1146→  return (
+  1147→    <div
+  1148→      className="min-h-screen flex flex-col transition-colors duration-300"
+  1149→      style={{
+  1150→        backgroundColor: theme.bg,
+  1151→        color: theme.text,
+  1152→        paddingTop: theme.safeTop,
+  1153→      }}
+  1154→    >
+  1155→      {/* Header */}
+  1156→      <header
+  1157→        className="sticky top-0 z-20 px-4 py-3 border-b backdrop-blur-md transition-colors duration-300"
+  1158→        style={{
+  1159→          backgroundColor: theme.isDark ? 'rgba(26,26,46,0.85)' : 'rgba(255,255,255,0.85)',
+  1160→          borderColor: theme.borderColor,
+  1161→        }}
+  1162→      >
+  1163→        <div className="flex items-center justify-between max-w-lg mx-auto">
+  1164→          <div className="flex items-center gap-2.5">
+  1165→            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center">
+  1166→              <BarChart3 className="w-4 h-4 text-white" />
+  1167→            </div>
+  1168→            <h1 className="text-base font-bold" style={{ color: theme.text }}>
+  1169→              Career AI
+  1170→            </h1>
+  1171→          </div>
+  1172→
+  1173→          {/* Refresh Button */}
+  1174→          <button
+  1175→            onClick={() => {
+  1176→              const tg = window.Telegram?.WebApp;
+  1177→              tg?.HapticFeedback?.impactOccurred?.('light');
+  1178→              fetchData(true);
+  1179→            }}
+  1180→            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90 ${
+  1181→              refreshing ? 'animate-spin' : ''
+  1182→            }`}
+  1183→            style={{
+  1184→              backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+  1185→              color: theme.hint,
+  1186→            }}
+  1187→            aria-label="Refresh data"
+  1188→          >
+  1189→            <RefreshCw className="w-4 h-4" />
+  1190→          </button>
+  1191→        </div>
+  1192→      </header>
+  1193→
+  1194→      {/* Pull-to-Refresh Indicator */}
+  1195→      <div
+  1196→        className="flex items-center justify-center overflow-hidden transition-all duration-200"
+  1197→        style={{ height: pullDistance.current }}
+  1198→      >
+  1199→        {refreshing ? (
+  1200→          <Loader2 className="w-5 h-5 animate-spin text-emerald-500" />
+  1201→        ) : (
+  1202→          <RefreshCw
+  1203→            className="w-5 h-5 text-emerald-500 transition-transform duration-200"
+  1204→            style={{
+  1205→              transform: pullDistance.current > 0
+  1206→                ? `rotate(${pullDistance.current * 2.25}deg)`
+  1207→                : 'rotate(0deg)',
+  1208→              opacity: Math.min(pullDistance.current / 50, 1),
+  1209→            }}
+  1210→          />
+  1211→        )}
+  1212→      </div>
+  1213→
+  1214→      {/* Scrollable Content */}
+  1215→      <main
+  1216→        ref={contentRef}
+  1217→        className="flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain"
+  1218→        onTouchStart={handleTouchStart}
+  1219→        onTouchMove={handleTouchMove}
+  1220→        onTouchEnd={handleTouchEnd}
+  1221→        style={{
+  1222→          paddingBottom: theme.safeBottom + 68,
+  1223→        }}
+  1224→      >
+  1225→        <div className="max-w-lg mx-auto">
+  1226→          {/* Tab Content with Transition */}
+  1227→          <div
+  1228→            key={activeTab}
+  1229→            className="animate-in fade-in duration-200"
+  1230→          >
+  1231→            {renderTabContent()}
+  1232→          </div>
+  1233→        </div>
+  1234→      </main>
+  1235→
+  1236→      {/* Bottom Tab Bar */}
+  1237→      <nav
+  1238→        className="fixed bottom-0 left-0 right-0 z-30 border-t backdrop-blur-md transition-colors duration-300"
+  1239→        style={{
+  1240→          backgroundColor: theme.isDark ? 'rgba(26,26,46,0.92)' : 'rgba(255,255,255,0.92)',
+  1241→          borderColor: theme.borderColor,
+  1242→          paddingBottom: theme.safeBottom,
+  1243→        }}
+  1244→        role="tablist"
+  1245→        aria-label="Main navigation"
+  1246→      >
+  1247→        <div className="flex items-center justify-around max-w-lg mx-auto h-14">
+  1248→          {tabs.map((tab) => {
+  1249→            const isActive = activeTab === tab.id;
+  1250→            return (
+  1251→              <button
+  1252→                key={tab.id}
+  1253→                role="tab"
+  1254→                aria-selected={isActive}
+  1255→                aria-label={tab.label}
+  1256→                onClick={() => handleTabSwitch(tab.id)}
+  1257→                className="flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-xl transition-all duration-200 active:scale-90 min-w-[60px]"
+  1258→                style={{
+  1259→                  color: isActive ? '#059669' : theme.hint,
+  1260→                }}
+  1261→              >
+  1262→                <div
+  1263→                  className={`transition-transform duration-200 ${isActive ? 'scale-110' : ''}`}
+  1264→                >
+  1265→                  {tab.icon}
+  1266→                </div>
+  1267→                <span
+  1268→                  className={`text-[10px] font-semibold transition-all duration-200 ${
+  1269→                    isActive ? 'opacity-100' : 'opacity-70'
+  1270→                  }`}
+  1271→                >
+  1272→                  {tab.label}
+  1273→                </span>
+  1274→                {isActive && (
+  1275→                  <div className="absolute -bottom-0 w-6 h-0.5 rounded-full bg-emerald-500" />
+  1276→                )}
+  1277→              </button>
+  1278→            );
+  1279→          })}
+  1280→        </div>
+  1281→      </nav>
+  1282→
+  1283→      {/* Hide scrollbar utility styles */}
+  1284→      <style jsx>{`
+  1285→        .no-scrollbar::-webkit-scrollbar {
+  1286→          display: none;
+  1287→        }
+  1288→        .no-scrollbar {
+  1289→          -ms-overflow-style: none;
+  1290→          scrollbar-width: none;
+  1291→        }
+  1292→
+  1293→        @keyframes fade-in {
+  1294→          from { opacity: 0; transform: translateY(4px); }
+  1295→          to { opacity: 1; transform: translateY(0); }
+  1296→        }
+  1297→
+  1298→        .animate-in {
+  1299→          animation: fade-in 0.2s ease-out;
+  1300→        }
+  1301→
+  1302→        .line-clamp-1 {
+  1303→          display: -webkit-box;
+  1304→          -webkit-line-clamp: 1;
+  1305→          -webkit-box-orient: vertical;
+  1306→          overflow: hidden;
+  1307→        }
+  1308→        .line-clamp-2 {
+  1309→          display: -webkit-box;
+  1310→          -webkit-line-clamp: 2;
+  1311→          -webkit-box-orient: vertical;
+  1312→          overflow: hidden;
+  1313→        }
+  1314→
+  1315→        /* Slide-in for expanded content */
+  1316→        @keyframes slide-in-from-top-1 {
+  1317→          from { opacity: 0; transform: translateY(-4px); }
+  1318→          to { opacity: 1; transform: translateY(0); }
+  1319→        }
+  1320→        .slide-in-from-top-1 {
+  1321→          animation: slide-in-from-top-1 0.15s ease-out;
+  1322→        }
+  1323→      `}</style>
+  1324→    </div>
+  1325→  );
+  1326→}

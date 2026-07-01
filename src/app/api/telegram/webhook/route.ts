@@ -1021,7 +1021,7 @@ async function handleStart(chatId: number, firstName: string) {
 <b>📚 Knowledge:</b> /learn /knowledge /ask
 <b>👤 CRM:</b> /contact /contacts /analytics
 <b>🔧 Admin:</b> /dbtest /reminder /reminders /task /tasks /clear /backup
-<b>🌐 Web:</b> /dashboard /sync /profile /start /help
+<b>🌐 Web:</b> /dashboard /sync /profile /app /start /help
 <b>🔍 Scraping:</b> /scrape /rawreport
 
 Type any message to chat with AI!`;
@@ -1029,7 +1029,7 @@ Type any message to chat with AI!`;
   const replyMarkup = {
     inline_keyboard: [
       [
-        { text: '📊 Dashboard', url: APP_URL },
+        { text: '📱 Open App', web_app: { url: `${APP_URL}/mini-app` } },
         { text: '📋 Help', callback_data: 'help' },
       ],
       [
@@ -1037,12 +1037,21 @@ Type any message to chat with AI!`;
         { text: '📈 KPIs', callback_data: 'kpi' },
       ],
       [
-        { text: '🔧 DB Test', callback_data: 'dbtest' },
-        { text: '📦 Export', callback_data: 'export' },
+        { text: '📝 Notes', callback_data: 'export' },
+        { text: '📋 Tasks', callback_data: 'tasks' },
       ],
     ],
   };
   await sendTelegramMessage(chatId, welcomeMessage, { replyMarkup });
+}
+
+async function handleApp(chatId: number) {
+  const replyMarkup = {
+    inline_keyboard: [
+      [{ text: '📱 Open Dashboard App', web_app: { url: `${APP_URL}/mini-app` } }],
+    ],
+  };
+  await sendTelegramMessage(chatId, 'Tap below to open your <b>Career Dashboard</b> inside Telegram:', { replyMarkup });
 }
 
 async function handleHelp(chatId: number) {
@@ -1369,6 +1378,7 @@ async function processUpdate(update: any) {
       case '/profile': await handleProfile(chatId); break;
       case '/start': await handleStart(chatId, firstName); break;
       case '/help': await handleHelp(chatId); break;
+      case '/app': await handleApp(chatId); break;
 
       // SCRAPING
       case '/scrape': await handleScrape(chatId, args); break;
