@@ -11,27 +11,27 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  password      String?
-  name          String?
-  phone         String?
-  avatar        String?
-  role          String   @default("jobseeker")
-  tier          String   @default("free")
-  isActive      Boolean  @default(true)
-  lastLogin     DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id        String    @id @default(cuid())
+  email     String    @unique
+  password  String?
+  name      String?
+  phone     String?
+  avatar    String?
+  role      String    @default("jobseeker")
+  tier      String    @default("free")
+  isActive  Boolean   @default(true)
+  lastLogin DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  profile     UserProfile?
-  applications Application[]
-  chatMessages ChatMessage[]
-  cvAnalyses  CvAnalysis[]
+  profile        UserProfile?
+  applications   Application[]
+  chatMessages   ChatMessage[]
+  cvAnalyses     CvAnalysis[]
   interviewPreps InterviewPrep[]
-  savedJobs   SavedJob[]
-  postedJobs  EmployerJob[]
-  usageLogs   UsageLog[]
+  savedJobs      SavedJob[]
+  postedJobs     EmployerJob[]
+  usageLogs      UsageLog[]
 }
 
 model UsageLog {
@@ -39,90 +39,95 @@ model UsageLog {
   userId    String
   action    String
   createdAt DateTime @default(now())
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
 model EmployerJob {
-  id          String   @id @default(cuid())
-  userId      String
-  title       String
-  company     String?
-  location    String?
-  type        String?
-  salary      String?
-  category    String?
-  description String
+  id           String   @id @default(cuid())
+  userId       String
+  title        String
+  company      String?
+  location     String?
+  type         String?
+  salary       String?
+  category     String?
+  description  String
   requirements String?
-  deadline    String?
-  status      String   @default("active")
-  applicants  Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deadline     String?
+  status       String   @default("active")
+  applicants   Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
 model SavedJob {
-  id          String   @id @default(cuid())
-  userId      String?
-  title       String
-  company     String?
-  location    String?
-  type        String?
-  salary      String?
-  description String?
-  url         String
-  source      String?
-  postedDate  String?
-  deadline    String?
-  category    String?
+  id           String   @id @default(cuid())
+  userId       String?
+  title        String
+  company      String?
+  location     String?
+  type         String?
+  salary       String?
+  description  String?
+  url          String
+  source       String?
+  postedDate   String?
+  deadline     String?
+  category     String?
   isBookmarked Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
 model Application {
-  id          String   @id @default(cuid())
-  userId      String?
-  jobId       String?
-  jobTitle    String
-  company     String?
-  location    String?
-  status      String   @default("pending_review")
-  url         String?
-  coverLetter String?
+  id             String    @id @default(cuid())
+  userId         String?
+  jobId          String?
+  jobTitle       String
+  company        String?
+  location       String?
+  status         String    @default("pending_review")
+  url            String?
+  coverLetter    String?
   matchReasoning String?
-  jobDeadline String?
+  jobDeadline    String?
   jobDescription String?
-  notes       String?
-  matchScore  Int?
-  source      String?
-  appliedAt   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes          String?
+  matchScore     Int?
+  source         String?
+  appliedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
 model UserProfile {
-  id          String   @id @default(cuid())
-  userId      String?
-  fullName    String?
-  email       String?
-  phone       String?
-  location    String?
-  title       String?
-  summary     String?
-  skills      String
-  education   String?
-  experience  String?
-  resumeUrl   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  userId     String?
+  fullName   String?
+  email      String?
+  phone      String?
+  location   String?
+  title      String?
+  summary    String?
+  skills     String
+  education  String?
+  experience String?
+  resumeUrl  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([userId])
 }
 
@@ -132,26 +137,28 @@ model ChatMessage {
   role      String
   content   String
   createdAt DateTime @default(now())
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
 model CvAnalysis {
-  id              String   @id @default(cuid())
-  userId          String?
-  overallScore    Int
-  strengths       String
-  weaknesses      String
-  missingSkills   String
-  atsScore        Int
-  formatScore     Int
-  contentScore    Int
-  suggestions     String
-  industryTips    String?
-  recommendation  String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  userId         String?
+  overallScore   Int
+  strengths      String
+  weaknesses     String
+  missingSkills  String
+  atsScore       Int
+  formatScore    Int
+  contentScore   Int
+  suggestions    String
+  industryTips   String?
+  recommendation String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
@@ -168,6 +175,7 @@ model BotReport {
   date      String   @default("")
   timestamp String   @default("")
   createdAt DateTime @default(now())
+
   @@index([type])
   @@index([company])
   @@index([date])
@@ -185,6 +193,109 @@ model InterviewPrep {
   tips            String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
+}
+
+// Phase 1 Models
+
+model Business {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   @default("general") // tech, college, consulting, ev_charging, training
+  industry    String?
+  description String?
+  email       String?
+  phone       String?
+  address     String?
+  website     String?
+  logo        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  businessId  String?
+  type        String   @default("expense") // income, expense, transfer
+  category    String   @default("general") // salary, rent, supplies, sales, service, utility, transport, food, other
+  amount      Float
+  currency    String   @default("ETB")
+  description String?
+  reference   String?
+  date        String
+  timestamp   DateTime @default(now())
+  chatId      Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([businessId])
+  @@index([type])
+  @@index([category])
+  @@index([date])
+  @@index([createdAt])
+}
+
+model CalendarEvent {
+  id               String   @id @default(cuid())
+  businessId       String?
+  title            String
+  description      String?
+  type             String   @default("event") // event, meeting, reminder, deadline, task
+  date             String // YYYY-MM-DD
+  time             String? // HH:MM
+  endTime          String? // HH:MM
+  location         String?
+  isAllDay         Boolean  @default(false)
+  isRecurring      Boolean  @default(false)
+  recurringPattern String? // daily, weekly, monthly
+  status           String   @default("upcoming") // upcoming, completed, cancelled
+  priority         String   @default("medium") // low, medium, high, urgent
+  notifyBefore     Int      @default(15) // minutes before
+  chatId           Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([date])
+  @@index([type])
+  @@index([status])
+}
+
+model Document {
+  id          String   @id @default(cuid())
+  businessId  String?
+  title       String
+  type        String   @default("other") // pdf, image, audio, video, text, spreadsheet, presentation
+  category    String   @default("general") // report, invoice, contract, cv, letter, memo, receipt, certificate, other
+  fileUrl     String? // storage URL
+  fileName    String?
+  fileSize    Int      @default(0)
+  mimeType    String?
+  description String?
+  content     String? // extracted text/OCR
+  tags        String   @default("[]") // JSON array of tag strings
+  chatId      Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([businessId])
+  @@index([type])
+  @@index([category])
+  @@index([createdAt])
+}
+
+model ConversationMemory {
+  id         String   @id @default(cuid())
+  chatId     Int
+  role       String // user, assistant
+  content    String
+  businessId String?
+  context    String? // general, career, sales, college, tech, finance
+  timestamp  DateTime @default(now())
+
+  @@index([chatId])
+  @@index([businessId])
+  @@index([context])
+  @@index([timestamp])
 }

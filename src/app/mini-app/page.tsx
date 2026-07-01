@@ -11,7 +11,8 @@ import {
   MessageSquare, FileUp, PenTool, Compass, AlertCircle, Star,
   ChevronDown, ChevronUp, ArrowLeft, CircleDot, Hash,
   StickyNote, Bookmark, FolderOpen, Link2, Cpu, Heart,
-  Shield, Info, Activity, PieChart, ListChecks, Award
+  Shield, Info, Activity, PieChart, ListChecks, Award,
+  Wallet, ArrowUpRight, ArrowDownRight, ChevronRight, Plus, CheckCircle2
 } from 'lucide-react';
 
 // ─── Telegram WebApp Types ───────────────────────────────────────────────────
@@ -177,7 +178,7 @@ interface ReportItem {
 
 // ─── Category Definitions ────────────────────────────────────────────────────
 
-type CategoryId = 'daily' | 'romel' | 'college' | 'tech' | 'jobs' | 'communication' | 'strategy' | 'learning' | 'reports' | 'data' | 'ai' | 'crm' | 'core';
+type CategoryId = 'daily' | 'romel' | 'college' | 'tech' | 'jobs' | 'communication' | 'strategy' | 'learning' | 'reports' | 'data' | 'ai' | 'crm' | 'core' | 'business' | 'finance' | 'calendar' | 'documents';
 
 interface CommandDef {
   name: string;
@@ -347,6 +348,49 @@ const CATEGORIES: CategoryDef[] = [
     ],
     dataKeys: [],
   },
+  {
+    id: 'business', name: 'Business', emoji: '🏢', color: 'emerald',
+    bgColor: 'bg-emerald-500/15', borderColor: 'border-emerald-500/30', textColor: 'text-emerald-400',
+    commands: [
+      { name: 'Business', cmd: '/business', description: 'Business overview' },
+      { name: 'Businesses', cmd: '/businesses', description: 'View all businesses' },
+      { name: 'Biz', cmd: '/biz', description: 'Quick business info' },
+    ],
+    dataKeys: [],
+  },
+  {
+    id: 'finance', name: 'Finance', emoji: '💰', color: 'orange',
+    bgColor: 'bg-orange-500/15', borderColor: 'border-orange-500/30', textColor: 'text-orange-400',
+    commands: [
+      { name: 'Income', cmd: '/income', description: 'Log income' },
+      { name: 'Expense', cmd: '/expense', description: 'Log expense' },
+      { name: 'Budget', cmd: '/budget', description: 'View/set budget' },
+      { name: 'Finance', cmd: '/finance', description: 'Finance overview' },
+      { name: 'Transfer', cmd: '/transfer', description: 'Transfer funds' },
+    ],
+    dataKeys: [],
+  },
+  {
+    id: 'calendar', name: 'Calendar', emoji: '📅', color: 'cyan',
+    bgColor: 'bg-cyan-500/15', borderColor: 'border-cyan-500/30', textColor: 'text-cyan-400',
+    commands: [
+      { name: 'Event', cmd: '/event', description: 'Create an event' },
+      { name: 'Events', cmd: '/events', description: 'View all events' },
+      { name: 'Remind', cmd: '/remind', description: 'Set a reminder' },
+      { name: 'Schedule', cmd: '/schedule', description: 'View schedule' },
+    ],
+    dataKeys: [],
+  },
+  {
+    id: 'documents', name: 'Documents', emoji: '📄', color: 'slate',
+    bgColor: 'bg-slate-500/15', borderColor: 'border-slate-500/30', textColor: 'text-slate-400',
+    commands: [
+      { name: 'Save File', cmd: '/savefile', description: 'Save a file' },
+      { name: 'Files', cmd: '/files', description: 'View all files' },
+      { name: 'Documents', cmd: '/documents', description: 'View documents' },
+    ],
+    dataKeys: [],
+  },
 ];
 
 // Quick actions for Home tab (most-used commands)
@@ -359,6 +403,10 @@ const QUICK_ACTIONS: CommandDef[] = [
   { name: 'Knowledge', cmd: '/knowledge', description: 'AI knowledge' },
   { name: 'Week Report', cmd: '/weekreport', description: 'Weekly report' },
   { name: 'Find Jobs', cmd: '/findjobs', description: 'Job search' },
+  { name: 'Business', cmd: '/business', description: 'Business overview' },
+  { name: 'Income', cmd: '/income', description: 'Log income' },
+  { name: 'Event', cmd: '/event', description: 'Create event' },
+  { name: 'Files', cmd: '/files', description: 'View files' },
 ];
 
 // ─── Theme Helper ────────────────────────────────────────────────────────────
@@ -457,7 +505,7 @@ function Skeleton({ className }: { className?: string }) {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-type TabId = 'home' | 'categories' | 'search' | 'profile';
+type TabId = 'home' | 'categories' | 'finance' | 'calendar' | 'search' | 'profile';
 
 export default function MiniAppPage() {
   const [activeTab, setActiveTab] = useState<TabId>('home');
@@ -470,6 +518,12 @@ export default function MiniAppPage() {
   const [theme, setTheme] = useState<ThemeColors>(getTelegramTheme);
   const [expandedSearchItem, setExpandedSearchItem] = useState<string | null>(null);
   const [pullRefreshing, setPullRefreshing] = useState(false);
+  const [financeData, setFinanceData] = useState<any>(null);
+  const [calendarData, setCalendarData] = useState<any>(null);
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    if (typeof window === 'undefined') return new Date().toISOString().split('T')[0];
+    return new Date().toISOString().split('T')[0];
+  });
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const pullStartY = useRef(0);
@@ -522,6 +576,20 @@ export default function MiniAppPage() {
       const [dataJson, reportsJson] = await Promise.all([dataRes.json(), reportsRes.json()]);
       setBotData(dataJson);
       setReportsData(reportsJson);
+
+      // Finance
+      try {
+        const r = await fetch('/api/finance?limit=50');
+        const d = await r.json();
+        if (d.success) setFinanceData(d);
+      } catch { /* silent */ }
+
+      // Calendar
+      try {
+        const r = await fetch('/api/calendar?limit=50');
+        const d = await r.json();
+        if (d.success) setCalendarData(d);
+      } catch { /* silent */ }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -1005,7 +1073,7 @@ export default function MiniAppPage() {
       <div>
         <h1 className="text-lg font-bold" style={{ color: t.text }}>All Categories</h1>
         <p className="text-xs mt-0.5" style={{ color: t.textSecondary }}>
-          13 categories · 50+ commands
+          17 categories · 60+ commands
         </p>
       </div>
       <div className="grid grid-cols-2 gap-2.5">
@@ -1266,11 +1334,276 @@ export default function MiniAppPage() {
     );
   };
 
+  // ─── Finance Tab ─────────────────────────────────────────────────────────
+
+  const renderFinance = () => {
+    const txns = (financeData?.transactions || []) as Array<{
+      id: string; type: string; amount: number; category?: string;
+      description?: string; date?: string; currency?: string;
+    }>;
+    const summary = financeData?.summary || {};
+
+    const totalIncome = summary.totalIncome ?? txns.filter((t) => t.type === 'income').reduce((s, t) => s + (t.amount || 0), 0);
+    const totalExpenses = summary.totalExpenses ?? txns.filter((t) => t.type === 'expense').reduce((s, t) => s + (t.amount || 0), 0);
+    const netProfit = totalIncome - totalExpenses;
+
+    const summaryCards = [
+      { label: 'Total Income', value: `${totalIncome.toLocaleString()} ETB`, color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
+      { label: 'Total Expenses', value: `${totalExpenses.toLocaleString()} ETB`, color: 'text-red-400', bg: 'bg-red-500/15' },
+      { label: 'Net Profit', value: `${netProfit.toLocaleString()} ETB`, color: netProfit >= 0 ? 'text-emerald-400' : 'text-red-400', bg: netProfit >= 0 ? 'bg-emerald-500/15' : 'bg-red-500/15' },
+      { label: 'Transactions', value: String(txns.length), color: 'text-cyan-400', bg: 'bg-cyan-500/15' },
+    ];
+
+    return (
+      <div className="flex flex-col gap-5 pb-4">
+        <div>
+          <h1 className="text-lg font-bold" style={{ color: t.text }}>Finance</h1>
+          <p className="text-xs mt-0.5" style={{ color: t.textSecondary }}>
+            Track your income & expenses
+          </p>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 gap-2.5">
+          {summaryCards.map((card) => (
+            <div key={card.label} className={`p-3.5 rounded-xl ${card.bg}`}>
+              <p className="text-[11px]" style={{ color: t.textSecondary }}>{card.label}</p>
+              <p className={`text-lg font-bold mt-1 ${card.color}`}>{card.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Transaction List */}
+        <div>
+          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>
+            Recent Transactions
+          </h2>
+          {txns.length > 0 ? (
+            <div className="flex flex-col gap-2 max-h-96 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+              {txns.map((txn) => {
+                const isIncome = txn.type === 'income';
+                return (
+                  <div
+                    key={txn.id}
+                    className="flex items-center gap-3 p-3 rounded-xl"
+                    style={{ backgroundColor: t.bgCard }}
+                  >
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-emerald-500/15' : 'bg-red-500/15'}`}>
+                      {isIncome
+                        ? <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+                        : <ArrowDownRight className="w-4 h-4 text-red-400" />
+                      }
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium" style={{ color: t.text }}>
+                          {txn.description || (isIncome ? 'Income' : 'Expense')}
+                        </p>
+                        {txn.category && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium bg-slate-500/15 text-slate-400">
+                            {txn.category}
+                          </span>
+                        )}
+                      </div>
+                      {txn.date && (
+                        <p className="text-[10px] mt-0.5" style={{ color: t.textMuted }}>{txn.date}</p>
+                      )}
+                    </div>
+                    <p className={`text-sm font-bold shrink-0 ${isIncome ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {isIncome ? '+' : '-'}{txn.amount?.toLocaleString()} {txn.currency || 'ETB'}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3 py-10 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 flex items-center justify-center">
+                <Wallet className="w-6 h-6 text-emerald-400" />
+              </div>
+              <p className="text-sm font-medium" style={{ color: t.text }}>No transactions yet</p>
+              <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+                Use /income or /expense in Telegram to track your finances
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            onClick={() => showCommandPopup('/income')}
+            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 active:scale-95 transition-transform"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="text-sm font-medium">Add Income</span>
+          </button>
+          <button
+            onClick={() => showCommandPopup('/expense')}
+            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 active:scale-95 transition-transform"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="text-sm font-medium">Add Expense</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── Calendar Tab ────────────────────────────────────────────────────────
+
+  const renderCalendar = () => {
+    const events = (calendarData?.events || []) as Array<{
+      id: string; title: string; date?: string; time?: string;
+      type?: string; priority?: string; description?: string;
+    }>;
+
+    const todayEvents = selectedDate
+      ? events.filter((e) => e.date === selectedDate)
+      : events;
+
+    const typeColors: Record<string, { bg: string; text: string }> = {
+      event: { bg: 'bg-emerald-500/15', text: 'text-emerald-400' },
+      meeting: { bg: 'bg-blue-500/15', text: 'text-blue-400' },
+      reminder: { bg: 'bg-amber-500/15', text: 'text-amber-400' },
+      deadline: { bg: 'bg-red-500/15', text: 'text-red-400' },
+    };
+
+    const priorityColors: Record<string, string> = {
+      high: 'bg-red-500',
+      medium: 'bg-amber-500',
+      low: 'bg-green-500',
+    };
+
+    const navigateDate = (direction: number) => {
+      haptic('light');
+      const d = new Date(selectedDate);
+      d.setDate(d.getDate() + direction);
+      setSelectedDate(d.toISOString().split('T')[0]);
+    };
+
+    const goToday = () => {
+      haptic('light');
+      setSelectedDate(new Date().toISOString().split('T')[0]);
+    };
+
+    const formatDateDisplay = (dateStr: string) => {
+      try {
+        const d = new Date(dateStr + 'T00:00:00');
+        return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+      } catch {
+        return dateStr;
+      }
+    };
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    return (
+      <div className="flex flex-col gap-5 pb-4">
+        <div>
+          <h1 className="text-lg font-bold" style={{ color: t.text }}>Calendar</h1>
+          <p className="text-xs mt-0.5" style={{ color: t.textSecondary }}>
+            Manage your events & reminders
+          </p>
+        </div>
+
+        {/* Date Navigation */}
+        <div className="flex items-center justify-between p-3 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+          <button onClick={() => navigateDate(-1)} className="w-9 h-9 rounded-lg flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bg }}>
+            <ChevronLeft className="w-4 h-4" style={{ color: t.text }} />
+          </button>
+          <button onClick={goToday} className="flex flex-col items-center">
+            <span className="text-sm font-semibold" style={{ color: t.text }}>{formatDateDisplay(selectedDate)}</span>
+            {selectedDate === todayStr && (
+              <span className="text-[10px] text-emerald-400 font-medium">Today</span>
+            )}
+          </button>
+          <button onClick={() => navigateDate(1)} className="w-9 h-9 rounded-lg flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bg }}>
+            <ChevronRight className="w-4 h-4" style={{ color: t.text }} />
+          </button>
+        </div>
+
+        {/* Today's Events */}
+        <div>
+          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>
+            Events for {selectedDate === todayStr ? 'Today' : 'Selected Date'}
+          </h2>
+          {todayEvents.length > 0 ? (
+            <div className="flex flex-col gap-2 max-h-96 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+              {todayEvents.map((evt) => {
+                const tc = typeColors[evt.type || ''] || typeColors.event;
+                const pc = priorityColors[evt.priority || ''];
+                return (
+                  <div
+                    key={evt.id}
+                    className="flex items-start gap-3 p-3 rounded-xl"
+                    style={{ backgroundColor: t.bgCard }}
+                  >
+                    <div className="flex flex-col items-center gap-1.5 shrink-0 pt-0.5">
+                      {pc && <div className={`w-2 h-2 rounded-full ${pc}`} />}
+                      {evt.time && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-500/15 text-slate-400 font-medium whitespace-nowrap">
+                          {evt.time}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium" style={{ color: t.text }}>
+                        {evt.title}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        {evt.type && (
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${tc.bg} ${tc.text}`}>
+                            {evt.type}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3 py-10 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+              <div className="w-14 h-14 rounded-2xl bg-cyan-500/15 flex items-center justify-center">
+                <CalendarDays className="w-6 h-6 text-cyan-400" />
+              </div>
+              <p className="text-sm font-medium" style={{ color: t.text }}>No events</p>
+              <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+                Use /event or /remind in Telegram to add events
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            onClick={() => showCommandPopup('/event')}
+            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 active:scale-95 transition-transform"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="text-sm font-medium">Add Event</span>
+          </button>
+          <button
+            onClick={() => showCommandPopup('/remind')}
+            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 active:scale-95 transition-transform"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="text-sm font-medium">Add Reminder</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // ─── Tab Bar ─────────────────────────────────────────────────────────────
 
   const tabs: { id: TabId; label: string; icon: typeof Home }[] = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'categories', label: 'Categories', icon: LayoutGrid },
+    { id: 'finance', label: 'Finance', icon: Wallet },
+    { id: 'calendar', label: 'Calendar', icon: CalendarDays },
     { id: 'search', label: 'Search', icon: Search },
     { id: 'profile', label: 'Profile', icon: User },
   ];
@@ -1319,6 +1652,10 @@ export default function MiniAppPage() {
             renderHome()
           ) : activeTab === 'categories' ? (
             renderCategories()
+          ) : activeTab === 'finance' ? (
+            renderFinance()
+          ) : activeTab === 'calendar' ? (
+            renderCalendar()
           ) : activeTab === 'search' ? (
             renderSearch()
           ) : activeTab === 'profile' ? (
@@ -1345,7 +1682,7 @@ export default function MiniAppPage() {
             <button
               key={tab.id}
               onClick={() => { haptic('light'); setActiveTab(tab.id); setSelectedCategory(null); }}
-              className="flex flex-col items-center gap-0.5 py-1 px-4 rounded-xl transition-all active:scale-95"
+              className="flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl transition-all active:scale-95"
               style={{ color: isActive ? '#10b981' : t.textMuted }}
             >
               <tab.icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />

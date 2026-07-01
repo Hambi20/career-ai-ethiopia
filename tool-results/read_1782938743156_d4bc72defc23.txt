@@ -1,0 +1,1475 @@
+     1→import { NextRequest, NextResponse } from 'next/server';
+     2→import { db } from '@/lib/db';
+     3→
+     4→// ============================================================
+     5→// CONSTANTS & HELPERS
+     6→// ============================================================
+     7→
+     8→const TELEGRAM_API_BASE = 'https://api.telegram.org';
+     9→const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+    10→const GROQ_MODEL = 'llama-3.3-70b-versatile';
+    11→const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://career-ai-ethiopia-svqn.vercel.app';
+    12→
+    13→function getBotToken(): string {
+    14→  const token = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
+    15→  if (!token) throw new Error('TELEGRAM_BOT_TOKEN is not set');
+    16→  return token;
+    17→}
+    18→
+    19→async function sendTelegramMessage(chatId: number, text: string, options?: {
+    20→  parseMode?: string;
+    21→  replyMarkup?: any;
+    22→  replyToMessageId?: number;
+    23→}): Promise<boolean> {
+    24→  try {
+    25→    const token = getBotToken();
+    26→    const chunks: string[] = [];
+    27→    const maxLen = 4096;
+    28→    if (text.length <= maxLen) {
+    29→      chunks.push(text);
+    30→    } else {
+    31→      // Split on double newlines or single newlines
+    32→      const lines = text.split('\n');
+    33→      let current = '';
+    34→      for (const line of lines) {
+    35→        if ((current + '\n' + line).length > maxLen && current.length > 0) {
+    36→          chunks.push(current);
+    37→          current = line;
+    38→        } else {
+    39→          current = current ? current + '\n' + line : line;
+    40→        }
+    41→      }
+    42→      if (current) chunks.push(current);
+    43→    }
+    44→    for (const chunk of chunks) {
+    45→      const body: any = {
+    46→        chat_id: chatId,
+    47→        text: chunk,
+    48→        parse_mode: options?.parseMode || 'HTML',
+    49→      };
+    50→      if (options?.replyMarkup) body.reply_markup = options.replyMarkup;
+    51→      if (options?.replyToMessageId) body.reply_to_message_id = options.replyToMessageId;
+    52→      const res = await fetch(`${TELEGRAM_API_BASE}/bot${token}/sendMessage`, {
+    53→        method: 'POST',
+    54→        headers: { 'Content-Type': 'application/json' },
+    55→        body: JSON.stringify(body),
+    56→      });
+    57→      if (!res.ok) console.error('sendMessage failed:', await res.text());
+    58→    }
+    59→    return true;
+    60→  } catch (err) {
+    61→    console.error('Send message error:', err);
+    62→    return false;
+    63→  }
+    64→}
+    65→
+    66→async function sendChatAction(chatId: number, action: string = 'typing'): Promise<void> {
+    67→  try {
+    68→    const token = getBotToken();
+    69→    await fetch(`${TELEGRAM_API_BASE}/bot${token}/sendChatAction`, {
+    70→      method: 'POST',
+    71→      headers: { 'Content-Type': 'application/json' },
+    72→      body: JSON.stringify({ chat_id: chatId, action }),
+    73→    });
+    74→  } catch { /* silent */ }
+    75→}
+    76→
+    77→function extractArgs(text: string, cmd: string): string {
+    78→  const idx = text.toLowerCase().indexOf(cmd);
+    79→  if (idx === -1) return text.trim();
+    80→  return text.slice(idx + cmd.length).trim();
+    81→}
+    82→
+    83→function todayStr(): string {
+    84→  return new Date().toISOString().split('T')[0];
+    85→}
+    86→
+    87→function nowStr(): string {
+    88→  return new Date().toISOString();
+    89→}
+    90→
+    91→function uid(prefix: string = 'id'): string {
+    92→  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    93→}
+    94→
+    95→// ============================================================
+    96→// GROQ AI HELPER
+    97→// ============================================================
+    98→
+    99→async function askGroq(prompt: string, systemPrompt?: string): Promise<string> {
+   100→  if (!GROQ_API_KEY) return 'AI not configured (GROQ_API_KEY missing).';
+   101→  try {
+   102→    const messages: any[] = [];
+   103→    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+   104→    messages.push({ role: 'user', content: prompt });
+   105→    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+   106→      method: 'POST',
+   107→      headers: {
+   108→        'Authorization': `Bearer ${GROQ_API_KEY}`,
+   109→        'Content-Type': 'application/json',
+   110→      },
+   111→      body: JSON.stringify({ model: GROQ_MODEL, messages, temperature: 0.7, max_tokens: 2048 }),
+   112→    });
+   113→    const data = await res.json();
+   114→    return data.choices?.[0]?.message?.content || 'AI returned no response.';
+   115→  } catch (err: any) {
+   116→    console.error('Groq error:', err?.message);
+   117→    return `AI error: ${err?.message || 'Unknown'}`;
+   118→  }
+   119→}
+   120→
+   121→// ============================================================
+   122→// SAVE REPORT TO DASHBOARD
+   123→// ============================================================
+   124→
+   125→async function ensureBotReportTable(): Promise<void> {
+   126→  try {
+   127→    await db.$executeRawUnsafe(`
+   128→      CREATE TABLE IF NOT EXISTS "BotReport" (
+   129→        "id" TEXT NOT NULL PRIMARY KEY,
+   130→        "type" TEXT NOT NULL DEFAULT 'general',
+   131→        "company" TEXT NOT NULL DEFAULT '',
+   132→        "category" TEXT NOT NULL DEFAULT 'general',
+   133→        "title" TEXT NOT NULL DEFAULT '',
+   134→        "content" TEXT NOT NULL DEFAULT '',
+   135→        "summary" TEXT NOT NULL DEFAULT '',
+   136→        "chatId" INTEGER NOT NULL DEFAULT 0,
+   137→        "firstName" TEXT NOT NULL DEFAULT '',
+   138→        "date" TEXT NOT NULL DEFAULT '',
+   139→        "timestamp" TEXT NOT NULL DEFAULT '',
+   140→        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+   141→      )
+   142→    `);
+   143→  } catch (err: any) {
+   144→    console.error('[ensureBotReportTable]', err?.message);
+   145→  }
+   146→}
+   147→
+   148→// In-memory fallback store
+   149→const fallbackReports: any[] = [];
+   150→
+   151→async function saveReportToWeb(
+   152→  type: string,
+   153→  company: string,
+   154→  title: string,
+   155→  content: string,
+   156→  chatId?: number,
+   157→  firstName?: string,
+   158→): Promise<boolean> {
+   159→  const reportId = uid('rpt');
+   160→  const now = nowStr();
+   161→  const date = todayStr();
+   162→  const esc = (s: string) => (s || '').replace(/'/g, "''").replace(/\n/g, ' ');
+   163→  const reportData = { id: reportId, type, company, category: type, title, content, summary: '', chatId: chatId || 0, firstName: firstName || '', date, timestamp: now, createdAt: now };
+   164→
+   165→  // PRIMARY: Use the db Proxy from @/lib/db
+   166→  try {
+   167→    await ensureBotReportTable();
+   168→    await db.$executeRawUnsafe(
+   169→      `INSERT INTO "BotReport" ("id","type","company","category","title","content","summary","chatId","firstName","date","timestamp","createdAt") VALUES ('${esc(reportId)}','${esc(type)}','${esc(company)}','${esc(type)}','${esc(title)}','${esc(content)}','',${chatId || 0},'${esc(firstName || '')}','${date}','${now}',CURRENT_TIMESTAMP)`
+   170→    );
+   171→    console.log(`[saveReportToWeb] SUCCESS: id=${reportId}, type=${type}`);
+   172→    return true;
+   173→  } catch (err: any) {
+   174→    console.error(`[saveReportToWeb] DB FAILED: ${err?.message}`);
+   175→  }
+   176→
+   177→  // FALLBACK: HTTP POST to production API
+   178→  try {
+   179→    const res = await fetch(`${APP_URL}/api/bot/reports`, {
+   180→      method: 'POST',
+   181→      headers: { 'Content-Type': 'application/json' },
+   182→      body: JSON.stringify(reportData),
+   183→    });
+   184→    if (res.ok) {
+   185→      console.log(`[saveReportToWeb] HTTP fallback SUCCESS: id=${reportId}`);
+   186→      return true;
+   187→    }
+   188→  } catch (e) { /* silent */ }
+   189→
+   190→  // LAST RESORT: In-memory
+   191→  fallbackReports.unshift(reportData);
+   192→  if (fallbackReports.length > 200) fallbackReports.length = 200;
+   193→  console.log(`[saveReportToWeb] In-memory fallback: id=${reportId}`);
+   194→  return false;
+   195→}
+   196→
+   197→// ============================================================
+   198→// IN-MEMORY STORES
+   199→// ============================================================
+   200→
+   201→interface Reminder {
+   202→  id: string;
+   203→  chatId: number;
+   204→  text: string;
+   205→  due: string;
+   206→  createdAt: string;
+   207→}
+   208→const reminders: Reminder[] = [];
+   209→
+   210→interface Note {
+   211→  id: string;
+   212→  chatId: number;
+   213→  text: string;
+   214→  createdAt: string;
+   215→}
+   216→const notes: Note[] = [];
+   217→
+   218→interface Task {
+   219→  id: string;
+   220→  chatId: number;
+   221→  text: string;
+   222→  done: boolean;
+   223→  createdAt: string;
+   224→}
+   225→const tasks: Task[] = [];
+   226→
+   227→interface KnowledgeEntry {
+   228→  id: string;
+   229→  chatId: number;
+   230→  topic: string;
+   231→  content: string;
+   232→  createdAt: string;
+   233→}
+   234→const knowledgeStore: KnowledgeEntry[] = [];
+   235→
+   236→const savedDataStore: any[] = [];
+   237→
+   238→// ============================================================
+   239→// DAILY COMMANDS
+   240→// ============================================================
+   241→
+   242→async function handleBriefing(chatId: number, _firstName: string) {
+   243→  await sendChatAction(chatId, 'typing');
+   244→  const briefing = await askGroq(
+   245→    `Generate a concise daily executive briefing for today. Include:
+   246→1. Key priorities for the day
+   247→2. Market/industry highlights (general)
+   248→3. Action items
+   249→Keep it under 500 words. Professional tone.`,
+   250→    'You are an executive assistant creating a daily briefing for a business executive in Ethiopia. Be concise, actionable, and professional.'
+   251→  );
+   252→  const saved = await saveReportToWeb('briefing', 'Hambisa', `Daily Briefing - ${todayStr()}`, briefing, chatId);
+   253→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   254→  await sendTelegramMessage(chatId, `<b>📊 Daily Executive Briefing</b>\n${todayStr()}\n\n${briefing}\n\n<i>${tag}</i>`);
+   255→}
+   256→
+   257→async function handleVerse(chatId: number) {
+   258→  await sendChatAction(chatId, 'typing');
+   259→  const verse = await askGroq(
+   260→    'Share a random inspiring Bible verse. Include the reference. Add a brief 1-2 sentence reflection on how it applies to daily life.',
+   261→    'You are a spiritual companion. Share one Bible verse with its reference and a brief reflection.'
+   262→  );
+   263→  await sendTelegramMessage(chatId, `<b>📜 Daily Verse</b>\n\n${verse}`);
+   264→}
+   265→
+   266→async function handleLog(chatId: number, _args: string) {
+   267→  const userNotes = notes.filter(n => n.chatId === chatId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 10);
+   268→  if (userNotes.length === 0) {
+   269→    await sendTelegramMessage(chatId, '📋 No log entries yet. Use /note <text> to add one.');
+   270→    return;
+   271→  }
+   272→  const list = userNotes.map((n, i) => `${i + 1}. ${n.text} <i>(${n.createdAt.split('T')[0]})</i>`).join('\n');
+   273→  await sendTelegramMessage(chatId, `<b>📋 Activity Log</b>\n\n${list}`);
+   274→}
+   275→
+   276→async function handleKpi(chatId: number, _args: string) {
+   277→  const totalReports = fallbackReports.length;
+   278→  const todayReports = fallbackReports.filter(r => r.date === todayStr()).length;
+   279→  const types = [...new Set(fallbackReports.map((r: any) => r.type))];
+   280→  await sendTelegramMessage(chatId, `<b>📈 KPI Summary</b>\n${todayStr()}\n\n<b>Reports Today:</b> ${todayReports}\n<b>Total Reports:</b> ${totalReports}\n<b>Report Types:</b> ${types.join(', ') || 'None'}\n<b>Reminders:</b> ${reminders.filter(r => r.chatId === chatId).length}\n<b>Notes:</b> ${notes.filter(n => n.chatId === chatId).length}\n<b>Tasks:</b> ${tasks.filter(t => t.chatId === chatId).length}`);
+   281→}
+   282→
+   283→async function handleWeather(chatId: number, args: string) {
+   284→  await sendChatAction(chatId, 'typing');
+   285→  const city = args || 'Addis Ababa';
+   286→  const weather = await askGroq(
+   287→    `What is the typical weather in ${city}, Ethiopia today? Include temperature, conditions, and any advice. Be brief.`,
+   288→    'You are a weather assistant for Ethiopia. Give typical/expected weather conditions. Keep it to 3-4 lines.'
+   289→  );
+   290→  await sendTelegramMessage(chatId, `<b>🌤 Weather — ${city}</b>\n\n${weather}`);
+   291→}
+   292→
+   293→async function handleNews(chatId: number, args: string) {
+   294→  await sendChatAction(chatId, 'typing');
+   295→  const topic = args || 'Ethiopia business and technology';
+   296→  const news = await askGroq(
+   297→    `Summarize 3-5 recent notable news items about: ${topic}. Be factual and concise. Format as a numbered list.`,
+   298→    'You are a news summarizer. Provide 3-5 brief, factual news summaries. If you cannot confirm real recent news, provide general context about the topic.'
+   299→  );
+   300→  await sendTelegramMessage(chatId, `<b>📰 News Digest</b>\n\n${news}`);
+   301→}
+   302→
+   303→// ============================================================
+   304→// ROMEL COMMANDS
+   305→// ============================================================
+   306→
+   307→async function handleRomel(chatId: number, args: string, firstName: string) {
+   308→  if (!args) {
+   309→    await sendTelegramMessage(chatId, '<b>Romel Report</b>\n\nPaste your sales report after the command:\n<code>/romel [paste report text]</code>\n\nI will parse the date, sales data, and save it to the dashboard.');
+   310→    return;
+   311→  }
+   312→  await sendChatAction(chatId, 'typing');
+   313→
+   314→  // Extract date from text
+   315→  const dateMatch = args.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{2,4})/i);
+   316→  const reportDate = dateMatch ? dateMatch[0] : todayStr();
+   317→
+   318→  // Parse sales figures
+   319→  const amountMatches = args.match(/[\$]?[\d,]+\.?\d*/g) || [];
+   320→  const amounts = amountMatches.map(a => parseFloat(a.replace(/[$,]/g, ''))).filter(n => n > 10 && n < 10000000);
+   321→
+   322→  const totalSales = amounts.reduce((s, a) => s + a, 0);
+   323→  const summary = `Date: ${reportDate}\nTotal Sales Found: ${amounts.length} figures\nSum: ${totalSales.toLocaleString()}`;
+   324→
+   325→  const saved = await saveReportToWeb('romel', 'Romel', `Sales Report - ${reportDate}`, args, chatId, firstName);
+   326→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   327→
+   328→  await sendTelegramMessage(chatId, `<b>🏪 Romel Report Saved</b>\n\n${summary}\n\n<b>Data points found:</b> ${amounts.length}\n<b>Extracted amounts:</b> ${amounts.slice(0, 10).join(', ')}${amounts.length > 10 ? '...' : ''}\n\n<i>${tag}</i>`);
+   329→}
+   330→
+   331→async function handleTarget(chatId: number, args: string) {
+   332→  if (!args) {
+   333→    await sendTelegramMessage(chatId, '<b>🎯 Set Target</b>\n\nUsage: <code>/target [description]</code>\n\nExample:\n<code>/target Sell 50 units by Friday</code>');
+   334→    return;
+   335→  }
+   336→  const saved = await saveReportToWeb('target', 'Romel', `Target - ${todayStr()}`, args, chatId);
+   337→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   338→  await sendTelegramMessage(chatId, `<b>🎯 Target Saved</b>\n\n${args}\n\n<i>${tag}</i>`);
+   339→}
+   340→
+   341→async function handleRomelReports(chatId: number) {
+   342→  const romelReports = fallbackReports.filter(r => r.type === 'romel').slice(0, 5);
+   343→  if (romelReports.length === 0) {
+   344→    await sendTelegramMessage(chatId, 'No Romel reports found. Use /romel to submit one.');
+   345→    return;
+   346→  }
+   347→  const list = romelReports.map((r, i) => `${i + 1}. <b>${r.title}</b> — ${r.date}`).join('\n');
+   348→  await sendTelegramMessage(chatId, `<b>🏪 Romel Reports</b>\n\n${list}\n\n<b>Total:</b> ${romelReports.length} reports`);
+   349→}
+   350→
+   351→// ============================================================
+   352→// COLLEGE COMMANDS
+   353→// ============================================================
+   354→
+   355→async function handleAdmission(chatId: number, args: string) {
+   356→  if (!args) {
+   357→    await sendTelegramMessage(chatId, '<b>🎓 Admission</b>\n\nUsage: <code>/admission [student info or query]</code>\n\nExample:\n<code>/admission New applicant: Abebe Kebede, Computer Science, GPA 3.5</code>');
+   358→    return;
+   359→  }
+   360→  await sendChatAction(chatId, 'typing');
+   361→  const saved = await saveReportToWeb('admission', 'Olbright College', `Admission - ${todayStr()}`, args, chatId);
+   362→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   363→  await sendTelegramMessage(chatId, `<b>🎓 Admission Record Saved</b>\n\n${args}\n\n<i>${tag}</i>`);
+   364→}
+   365→
+   366→async function handleExam(chatId: number, args: string) {
+   367→  if (!args) {
+   368→    await sendTelegramMessage(chatId, '<b>📝 Exam</b>\n\nUsage: <code>/exam [exam info or results]</code>');
+   369→    return;
+   370→  }
+   371→  const saved = await saveReportToWeb('exam', 'Olbright College', `Exam - ${todayStr()}`, args, chatId);
+   372→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   373→  await sendTelegramMessage(chatId, `<b>📝 Exam Record Saved</b>\n\n${args}\n\n<i>${tag}</i>`);
+   374→}
+   375→
+   376→async function handleReportCollege(chatId: number, args: string) {
+   377→  if (!args) {
+   378→    await sendTelegramMessage(chatId, '<b>🏫 College Report</b>\n\nUsage: <code>/reportcollege [report text]</code>');
+   379→    return;
+   380→  }
+   381→  const saved = await saveReportToWeb('college', 'Olbright College', `College Report - ${todayStr()}`, args, chatId);
+   382→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   383→  await sendTelegramMessage(chatId, `<b>🏫 College Report Saved</b>\n\n<i>${tag}</i>`);
+   384→}
+   385→
+   386→async function handleEval(chatId: number, args: string) {
+   387→  if (!args) {
+   388→    await sendTelegramMessage(chatId, '<b>📋 Evaluation</b>\n\nUsage: <code>/eval [subject to evaluate]</code>\n\nExample:\n<code>/eval Evaluate the Q3 marketing campaign performance</code>');
+   389→    return;
+   390→  }
+   391→  await sendChatAction(chatId, 'typing');
+   392→  const evalResult = await askGroq(
+   393→    `Evaluate the following and provide a structured assessment with strengths, weaknesses, and recommendations:\n\n${args}`,
+   394→    'You are a professional evaluator. Provide structured assessments with clear categories.'
+   395→  );
+   396→  const saved = await saveReportToWeb('eval', 'Olbright College', `Evaluation - ${todayStr()}`, evalResult, chatId);
+   397→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   398→  await sendTelegramMessage(chatId, `<b>📋 Evaluation</b>\n\n${evalResult}\n\n<i>${tag}</i>`);
+   399→}
+   400→
+   401→async function handleVicereport(chatId: number, args: string, firstName: string) {
+   402→  if (!args) {
+   403→    await sendTelegramMessage(chatId, '<b>🏛 Vice Dean Report</b>\n\nPaste your report after the command:\n<code>/vicereport [paste report text]</code>\n\nI will extract date, sections, and action items.');
+   404→    return;
+   405→  }
+   406→  await sendChatAction(chatId, 'typing');
+   407→
+   408→  // Extract date
+   409→  const dateMatch = args.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{2,4})/i);
+   410→  const reportDate = dateMatch ? dateMatch[0] : todayStr();
+   411→
+   412→  // Extract action items (lines with bullets, numbers, or "action")
+   413→  const lines = args.split('\n');
+   414→  const actionItems = lines.filter(l => /^[\s]*[-•*]\s|action\s*:?\s*/i.test(l) || /^\d+[\.\)]\s/i.test(l)).slice(0, 5);
+   415→
+   416→  const summary = `Date: ${reportDate}\nSections: ${lines.filter(l => l.trim().length > 0).length} lines\nAction Items: ${actionItems.length} found`;
+   417→  const fullContent = `${summary}\n\n${args}`;
+   418→
+   419→  const saved = await saveReportToWeb('vd', 'Olbright College', `VD Report - ${reportDate}`, fullContent, chatId, firstName);
+   420→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   421→
+   422→  let response = `<b>🏛 Vice Dean Report Saved</b>\n\n${summary}`;
+   423→  if (actionItems.length > 0) {
+   424→    response += `\n\n<b>Action Items:</b>\n${actionItems.map((a, i) => `${i + 1}. ${a.trim()}`).join('\n')}`;
+   425→  }
+   426→  response += `\n\n<i>${tag}</i>`;
+   427→  await sendTelegramMessage(chatId, response);
+   428→}
+   429→
+   430→async function handleVicereports(chatId: number) {
+   431→  const vdReports = fallbackReports.filter(r => r.type === 'vd').slice(0, 5);
+   432→  if (vdReports.length === 0) {
+   433→    await sendTelegramMessage(chatId, 'No Vice Dean reports found. Use /vicereport to submit one.');
+   434→    return;
+   435→  }
+   436→  const list = vdReports.map((r, i) => `${i + 1}. <b>${r.title}</b> — ${r.date}`).join('\n');
+   437→  await sendTelegramMessage(chatId, `<b>🏛 Vice Dean Reports</b>\n\n${list}\n\n<b>Total:</b> ${vdReports.length} reports`);
+   438→}
+   439→
+   440→async function handleQuarterly(chatId: number, args: string) {
+   441→  if (!args) {
+   442→    await sendTelegramMessage(chatId, '<b>📊 Quarterly Report</b>\n\nUsage: <code>/quarterly [quarterly data]</code>');
+   443→    return;
+   444→  }
+   445→  const saved = await saveReportToWeb('quarterly', 'Olbright College', `Quarterly Report - ${todayStr()}`, args, chatId);
+   446→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   447→  await sendTelegramMessage(chatId, `<b>📊 Quarterly Report Saved</b>\n\n<i>${tag}</i>`);
+   448→}
+   449→
+   450→async function handleQuarterlyReport(chatId: number, args: string) {
+   451→  await handleQuarterly(chatId, args);
+   452→}
+   453→
+   454→async function handleEmployees(chatId: number, args: string) {
+   455→  if (!args) {
+   456→    const count = fallbackReports.filter(r => r.type === 'employees').length;
+   457→    await sendTelegramMessage(chatId, `<b>👥 Employee Records</b>\n\nTotal records: ${count}\n\nUse <code>/employees [name, role, department]</code> to add.`);
+   458→    return;
+   459→  }
+   460→  const saved = await saveReportToWeb('employees', 'Olbright College', `Employee - ${todayStr()}`, args, chatId);
+   461→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   462→  await sendTelegramMessage(chatId, `<b>👥 Employee Record Saved</b>\n\n${args}\n\n<i>${tag}</i>`);
+   463→}
+   464→
+   465→async function handleStaff(chatId: number, args: string) {
+   466→  await handleEmployees(chatId, args);
+   467→}
+   468→
+   469→async function handleStudents(chatId: number, args: string) {
+   470→  if (!args) {
+   471→    const count = fallbackReports.filter(r => r.type === 'students').length;
+   472→    await sendTelegramMessage(chatId, `<b>🎓 Student Records</b>\n\nTotal records: ${count}\n\nUse <code>/students [name, program, year]</code> to add.`);
+   473→    return;
+   474→  }
+   475→  const saved = await saveReportToWeb('students', 'Olbright College', `Student - ${todayStr()}`, args, chatId);
+   476→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   477→  await sendTelegramMessage(chatId, `<b>🎓 Student Record Saved</b>\n\n${args}\n\n<i>${tag}</i>`);
+   478→}
+   479→
+   480→// ============================================================
+   481→// TECH COMMANDS
+   482→// ============================================================
+   483→
+   484→async function handleTech(chatId: number, args: string) {
+   485→  if (!args) {
+   486→    await sendTelegramMessage(chatId, '<b>💻 Tech Report</b>\n\nUsage: <code>/tech [tech issue or report]</code>');
+   487→    return;
+   488→  }
+   489→  const saved = await saveReportToWeb('tech', 'Hambisa', `Tech Report - ${todayStr()}`, args, chatId);
+   490→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   491→  await sendTelegramMessage(chatId, `<b>💻 Tech Report Saved</b>\n\n${args}\n\n<i>${tag}</i>`);
+   492→}
+   493→
+   494→async function handleTechReports(chatId: number) {
+   495→  const techReports = fallbackReports.filter(r => r.type === 'tech').slice(0, 5);
+   496→  if (techReports.length === 0) {
+   497→    await sendTelegramMessage(chatId, 'No tech reports found. Use /tech to submit one.');
+   498→    return;
+   499→  }
+   500→  const list = techReports.map((r, i) => `${i + 1}. <b>${r.title}</b> — ${r.date}`).join('\n');
+   501→  await sendTelegramMessage(chatId, `<b>💻 Tech Reports</b>\n\n${list}\n\n<b>Total:</b> ${techReports.length} reports`);
+   502→}
+   503→
+   504→// ============================================================
+   505→// CAREER COMMANDS
+   506→// ============================================================
+   507→
+   508→async function handleApply(chatId: number, args: string) {
+   509→  if (!args) {
+   510→    await sendTelegramMessage(chatId, '<b>💼 Apply</b>\n\nUsage: <code>/apply [job title, company, or URL]</code>\n\nExample:\n<code>/apply Software Engineer at Ethiopian Airlines</code>');
+   511→    return;
+   512→  }
+   513→  await sendChatAction(chatId, 'typing');
+   514→  const tips = await askGroq(
+   515→    `Provide specific application tips for: ${args}\nInclude: key requirements, application strategy, and 3 bullet points for the cover letter.`,
+   516→    'You are a career advisor specializing in the Ethiopian job market. Be practical and specific.'
+   517→  );
+   518→  const saved = await saveReportToWeb('apply', '', `Application - ${args.slice(0, 50)}`, tips, chatId);
+   519→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   520→  await sendTelegramMessage(chatId, `<b>💼 Application Advice</b>\n\n${tips}\n\n<i>${tag}</i>`);
+   521→}
+   522→
+   523→async function handleCv(chatId: number, args: string) {
+   524→  await sendChatAction(chatId, 'typing');
+   525→  const prompt = args
+   526→    ? `Review and improve this CV/resume content:\n\n${args}\n\nProvide: 1) Overall assessment 2) Key improvements 3) Rewritten sections`
+   527→    : 'Provide a comprehensive CV writing guide for the Ethiopian job market. Include structure, key sections, and ATS optimization tips.';
+   528→  const cvAdvice = await askGroq(prompt, 'You are a professional CV writer and career coach. Focus on the Ethiopian job market.');
+   529→  const saved = await saveReportToWeb('cv', '', `CV Review - ${todayStr()}`, cvAdvice, chatId);
+   530→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   531→  await sendTelegramMessage(chatId, `<b>📄 CV Assistant</b>\n\n${cvAdvice}\n\n<i>${tag}</i>`);
+   532→}
+   533→
+   534→async function handleCourses(chatId: number, args: string) {
+   535→  await sendChatAction(chatId, 'typing');
+   536→  const topic = args || 'professional development';
+   537→  const courses = await askGroq(
+   538→    `Recommend 5 online courses for: ${topic}\nInclude: course name, platform (Coursera, Udemy, etc.), duration, and why it is valuable. Focus on free or affordable options.`,
+   539→    'You are a learning advisor. Recommend practical, affordable courses.'
+   540→  );
+   541→  await sendTelegramMessage(chatId, `<b>📚 Course Recommendations</b>\n${topic}\n\n${courses}`);
+   542→}
+   543→
+   544→async function handleInterview(chatId: number, args: string) {
+   545→  await sendChatAction(chatId, 'typing');
+   546→  const role = args || 'general position';
+   547→  const prep = await askGroq(
+   548→    `Generate interview preparation for: ${role}\nInclude:\n1. 5 likely questions with suggested answers\n2. Company research tips\n3. Common mistakes to avoid\n4. Closing questions to ask`,
+   549→    'You are an interview coach. Provide practical, actionable interview preparation.'
+   550→  );
+   551→  const saved = await saveReportToWeb('interview', '', `Interview Prep - ${role.slice(0, 50)}`, prep, chatId);
+   552→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   553→  await sendTelegramMessage(chatId, `<b>🎯 Interview Prep</b>\n${role}\n\n${prep}\n\n<i>${tag}</i>`);
+   554→}
+   555→
+   556→// ============================================================
+   557→// COMMUNICATION COMMANDS
+   558→// ============================================================
+   559→
+   560→async function handleEmail(chatId: number, args: string) {
+   561→  if (!args) {
+   562→    await sendTelegramMessage(chatId, '<b>✉️ Email Draft</b>\n\nUsage: <code>/email [describe the email you need]</code>\n\nExample:\n<code>/email Request a meeting with the Dean about Q4 budget</code>');
+   563→    return;
+   564→  }
+   565→  await sendChatAction(chatId, 'typing');
+   566→  const email = await askGroq(
+   567→    `Draft a professional email based on this request:\n\n${args}\n\nInclude: subject line, greeting, body, and sign-off. Keep it concise and professional.`,
+   568→    'You are a professional email writer. Draft clear, concise, well-structured emails.'
+   569→  );
+   570→  const saved = await saveReportToWeb('email', '', `Email - ${todayStr()}`, email, chatId);
+   571→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   572→  await sendTelegramMessage(chatId, `<b>✉️ Email Draft</b>\n\n${email}\n\n<i>${tag}</i>`);
+   573→}
+   574→
+   575→async function handleMeeting(chatId: number, args: string) {
+   576→  if (!args) {
+   577→    await sendTelegramMessage(chatId, '<b>📅 Meeting Notes</b>\n\nUsage: <code>/meeting [meeting details or notes]</code>\n\nExample:\n<code>/meeting Weekly standup: discussed Q3 targets, Abebe to follow up on vendor contracts</code>');
+   578→    return;
+   579→  }
+   580→  await sendChatAction(chatId, 'typing');
+   581→  // Structure the meeting notes with AI
+   582→  const structured = await askGroq(
+   583→    `Structure these meeting notes into a clean format with attendees (if mentioned), key decisions, and action items:\n\n${args}`,
+   584→    'You are an executive assistant. Structure meeting notes clearly and concisely.'
+   585→  );
+   586→  const saved = await saveReportToWeb('meeting', '', `Meeting - ${todayStr()}`, structured, chatId);
+   587→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   588→  await sendTelegramMessage(chatId, `<b>📅 Meeting Notes</b>\n\n${structured}\n\n<i>${tag}</i>`);
+   589→}
+   590→
+   591→async function handleDraft(chatId: number, args: string) {
+   592→  if (!args) {
+   593→    await sendTelegramMessage(chatId, '<b>📝 Draft</b>\n\nUsage: <code>/draft [describe what to draft]</code>\n\nExample:\n<code>/draft A proposal letter for partnership with XYZ company</code>');
+   594→    return;
+   595→  }
+   596→  await sendChatAction(chatId, 'typing');
+   597→  const draft = await askGroq(
+   598→    `Draft the following:\n\n${args}\n\nMake it professional and ready to use.`,
+   599→    'You are a professional writer. Draft clear, polished documents.'
+   600→  );
+   601→  const saved = await saveReportToWeb('draft', '', `Draft - ${todayStr()}`, draft, chatId);
+   602→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   603→  await sendTelegramMessage(chatId, `<b>📝 Draft</b>\n\n${draft}\n\n<i>${tag}</i>`);
+   604→}
+   605→
+   606→// ============================================================
+   607→// STRATEGY COMMANDS
+   608→// ============================================================
+   609→
+   610→async function handleGoals(chatId: number, args: string) {
+   611→  await sendChatAction(chatId, 'typing');
+   612→  const context = args || 'business growth and personal development';
+   613→  const goals = await askGroq(
+   614→    `Generate 5 SMART goals for: ${context}\nFormat each goal with:\n- Goal statement\n- Key metrics\n- Timeline\n- Priority (High/Medium/Low)`,
+   615→    'You are a strategic planning consultant. Create actionable SMART goals.'
+   616→  );
+   617→  const saved = await saveReportToWeb('goals', '', `Goals - ${todayStr()}`, goals, chatId);
+   618→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   619→  await sendTelegramMessage(chatId, `<b>🎯 Strategic Goals</b>\n\n${goals}\n\n<i>${tag}</i>`);
+   620→}
+   621→
+   622→async function handleSwot(chatId: number, args: string) {
+   623→  await sendChatAction(chatId, 'typing');
+   624→  const subject = args || 'the current business operations';
+   625→  const swot = await askGroq(
+   626→    `Perform a SWOT analysis for: ${subject}\n\nFormat:\n<b>Strengths:</b>\n- ...\n\n<b>Weaknesses:</b>\n- ...\n\n<b>Opportunities:</b>\n- ...\n\n<b>Threats:</b>\n- ...`,
+   627→    'You are a business strategy consultant. Perform thorough SWOT analyses.'
+   628→  );
+   629→  const saved = await saveReportToWeb('swot', '', `SWOT - ${subject.slice(0, 50)}`, swot, chatId);
+   630→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   631→  await sendTelegramMessage(chatId, `<b>📊 SWOT Analysis</b>\n${subject}\n\n${swot}\n\n<i>${tag}</i>`);
+   632→}
+   633→
+   634→async function handleBrainstorm(chatId: number, args: string) {
+   635→  if (!args) {
+   636→    await sendTelegramMessage(chatId, '<b>💡 Brainstorm</b>\n\nUsage: <code>/brainstorm [topic or question]</code>\n\nExample:\n<code>/brainstorm Ways to increase student enrollment at the college</code>');
+   637→    return;
+   638→  }
+   639→  await sendChatAction(chatId, 'typing');
+   640→  const ideas = await askGroq(
+   641→    `Brainstorm 10 creative ideas for: ${args}\n\nFor each idea provide:\n- A catchy title\n- Brief description (1-2 sentences)\n- Feasibility rating (High/Medium/Low)`,
+   642→    'You are a creative brainstorming partner. Generate diverse, practical, and innovative ideas.'
+   643→  );
+   644→  const saved = await saveReportToWeb('brainstorm', '', `Brainstorm - ${args.slice(0, 50)}`, ideas, chatId);
+   645→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   646→  await sendTelegramMessage(chatId, `<b>💡 Brainstorm</b>\n${args}\n\n${ideas}\n\n<i>${tag}</i>`);
+   647→}
+   648→
+   649→// ============================================================
+   650→// DATA COMMANDS
+   651→// ============================================================
+   652→
+   653→async function handleNote(chatId: number, args: string, firstName: string) {
+   654→  if (!args) {
+   655→    await sendTelegramMessage(chatId, '<b>📝 Save Note</b>\n\nUsage: <code>/note [your note text]</code>');
+   656→    return;
+   657→  }
+   658→  const note: Note = { id: uid('note'), chatId, text: args, createdAt: nowStr() };
+   659→  notes.unshift(note);
+   660→  if (notes.length > 500) notes.length = 500;
+   661→  await sendTelegramMessage(chatId, `<b>📝 Note Saved</b>\n\n"${args.slice(0, 200)}${args.length > 200 ? '...' : ''}"\n\n<i>Total notes: ${notes.filter(n => n.chatId === chatId).length}</i>`);
+   662→}
+   663→
+   664→async function handleNotes(chatId: number) {
+   665→  const userNotes = notes.filter(n => n.chatId === chatId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 15);
+   666→  if (userNotes.length === 0) {
+   667→    await sendTelegramMessage(chatId, '📝 No notes yet. Use /note <text> to save one.');
+   668→    return;
+   669→  }
+   670→  const list = userNotes.map((n, i) => `${i + 1}. ${n.text.slice(0, 100)}${n.text.length > 100 ? '...' : ''} <i>(${n.createdAt.split('T')[0]})</i>`).join('\n');
+   671→  await sendTelegramMessage(chatId, `<b>📝 Your Notes</b> (${userNotes.length})\n\n${list}`);
+   672→}
+   673→
+   674→async function handleExport(chatId: number, args: string) {
+   675→  await sendChatAction(chatId, 'typing');
+   676→  const exportType = (args || '').toLowerCase();
+   677→
+   678→  if (exportType.includes('note') || !exportType) {
+   679→    const userNotes = notes.filter(n => n.chatId === chatId);
+   680→    if (userNotes.length === 0) {
+   681→      await sendTelegramMessage(chatId, 'No data to export. Use /note, /task, or /reminder to create data first.');
+   682→      return;
+   683→    }
+   684→    const text = userNotes.map(n => `[${n.createdAt}] ${n.text}`).join('\n');
+   685→    await sendTelegramMessage(chatId, `<b>📦 Export: Notes</b>\n\n<pre>${text.slice(0, 3800)}</pre>${text.length > 3800 ? '\n<i>...truncated</i>' : ''}`);
+   686→    return;
+   687→  }
+   688→
+   689→  if (exportType.includes('task')) {
+   690→    const userTasks = tasks.filter(t => t.chatId === chatId);
+   691→    if (userTasks.length === 0) {
+   692→      await sendTelegramMessage(chatId, 'No tasks to export.');
+   693→      return;
+   694→    }
+   695→    const text = userTasks.map(t => `[${t.done ? 'DONE' : 'PENDING'}] ${t.text} (${t.createdAt})`).join('\n');
+   696→    await sendTelegramMessage(chatId, `<b>📦 Export: Tasks</b>\n\n<pre>${text.slice(0, 3800)}</pre>`);
+   697→    return;
+   698→  }
+   699→
+   700→  if (exportType.includes('reminder')) {
+   701→    const userReminders = reminders.filter(r => r.chatId === chatId);
+   702→    if (userReminders.length === 0) {
+   703→      await sendTelegramMessage(chatId, 'No reminders to export.');
+   704→      return;
+   705→    }
+   706→    const text = userReminders.map(r => `[${r.due}] ${r.text}`).join('\n');
+   707→    await sendTelegramMessage(chatId, `<b>📦 Export: Reminders</b>\n\n<pre>${text.slice(0, 3800)}</pre>`);
+   708→    return;
+   709→  }
+   710→
+   711→  await sendTelegramMessage(chatId, `<b>📦 Export</b>\n\nUsage: <code>/export [notes|tasks|reminders]</code>`);
+   712→}
+   713→
+   714→async function handleSavedata(chatId: number, args: string) {
+   715→  if (!args) {
+   716→    await sendTelegramMessage(chatId, '<b>💾 Save Data</b>\n\nUsage: <code>/savedata [key:value pairs or JSON]</code>\n\nExample:\n<code>/savedata project: Website Redesign, deadline: 2025-02-28</code>');
+   717→    return;
+   718→  }
+   719→  const entry = { id: uid('data'), chatId, data: args, createdAt: nowStr() };
+   720→  savedDataStore.unshift(entry);
+   721→  if (savedDataStore.length > 200) savedDataStore.length = 200;
+   722→  await sendTelegramMessage(chatId, `<b>💾 Data Saved</b>\n\n${args.slice(0, 300)}\n\n<i>Total entries: ${savedDataStore.filter(d => d.chatId === chatId).length}</i>`);
+   723→}
+   724→
+   725→// ============================================================
+   726→// KNOWLEDGE COMMANDS
+   727→// ============================================================
+   728→
+   729→async function handleLearn(chatId: number, args: string) {
+   730→  if (!args) {
+   731→    await sendTelegramMessage(chatId, '<b>📖 Learn</b>\n\nUsage: <code>/learn [topic to learn about]</code>\n\nExample:\n<code>/learn How to write a business proposal</code>');
+   732→    return;
+   733→  }
+   734→  await sendChatAction(chatId, 'typing');
+   735→  const lesson = await askGroq(
+   736→    `Teach me about: ${args}\n\nProvide:\n1. Brief overview (2-3 sentences)\n2. Key concepts (bullet points)\n3. Practical example\n4. Resources to learn more`,
+   737→    'You are a knowledgeable tutor. Explain topics clearly with practical examples.'
+   738→  );
+   739→  const entry: KnowledgeEntry = { id: uid('learn'), chatId, topic: args, content: lesson, createdAt: nowStr() };
+   740→  knowledgeStore.unshift(entry);
+   741→  if (knowledgeStore.length > 100) knowledgeStore.length = 100;
+   742→  await sendTelegramMessage(chatId, `<b>📖 Learn: ${args}</b>\n\n${lesson}`);
+   743→}
+   744→
+   745→async function handleKnowledge(chatId: number) {
+   746→  const userKnowledge = knowledgeStore.filter(k => k.chatId === chatId).slice(0, 10);
+   747→  if (userKnowledge.length === 0) {
+   748→    await sendTelegramMessage(chatId, '📚 No knowledge entries yet. Use /learn <topic> to learn something.');
+   749→    return;
+   750→  }
+   751→  const list = userKnowledge.map((k, i) => `${i + 1}. <b>${k.topic}</b> — ${k.createdAt.split('T')[0]}`).join('\n');
+   752→  await sendTelegramMessage(chatId, `<b>📚 Knowledge Base</b> (${userKnowledge.length})\n\n${list}`);
+   753→}
+   754→
+   755→async function handleAsk(chatId: number, args: string) {
+   756→  if (!args) {
+   757→    await sendTelegramMessage(chatId, '<b>❓ Ask</b>\n\nUsage: <code>/ask [your question]</code>');
+   758→    return;
+   759→  }
+   760→  await sendChatAction(chatId, 'typing');
+   761→  const answer = await askGroq(args, 'You are a helpful AI assistant. Provide clear, accurate, and concise answers.');
+   762→  await sendTelegramMessage(chatId, `<b>❓ Question:</b> ${args}\n\n<b>Answer:</b>\n${answer}`);
+   763→}
+   764→
+   765→// ============================================================
+   766→// CRM COMMANDS
+   767→// ============================================================
+   768→
+   769→async function handleContact(chatId: number, args: string) {
+   770→  if (!args) {
+   771→    await sendTelegramMessage(chatId, '<b>👤 Add Contact</b>\n\nUsage: <code>/contact [name, company, phone, email, notes]</code>\n\nExample:\n<code>/contact Abebe Kebede, Ethiotelecom, 0911223344, abebe@example.com, IT Manager</code>');
+   772→    return;
+   773→  }
+   774→  const saved = await saveReportToWeb('contact', '', `Contact - ${todayStr()}`, args, chatId);
+   775→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+   776→  await sendTelegramMessage(chatId, `<b>👤 Contact Saved</b>\n\n${args}\n\n<i>${tag}</i>`);
+   777→}
+   778→
+   779→async function handleContacts(chatId: number) {
+   780→  const contacts = fallbackReports.filter(r => r.type === 'contact').slice(0, 10);
+   781→  if (contacts.length === 0) {
+   782→    await sendTelegramMessage(chatId, '📇 No contacts found. Use /contact to add one.');
+   783→    return;
+   784→  }
+   785→  const list = contacts.map((c, i) => `${i + 1}. ${c.content.split(',')[0] || c.title} — ${c.date}`).join('\n');
+   786→  await sendTelegramMessage(chatId, `<b>📇 Contacts</b> (${contacts.length})\n\n${list}`);
+   787→}
+   788→
+   789→async function handleAnalytics(chatId: number) {
+   790→  const total = fallbackReports.length;
+   791→  const types: Record<string, number> = {};
+   792→  fallbackReports.forEach((r: any) => { types[r.type] = (types[r.type] || 0) + 1; });
+   793→  const sorted = Object.entries(types).sort((a, b) => b[1] - a[1]);
+   794→
+   795→  const todayCount = fallbackReports.filter(r => r.date === todayStr()).length;
+   796→  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+   797→  const weekCount = fallbackReports.filter(r => r.date >= weekAgo).length;
+   798→
+   799→  let report = `<b>📊 Analytics</b>\n\n`;
+   800→  report += `<b>Total Reports:</b> ${total}\n`;
+   801→  report += `<b>Today:</b> ${todayCount}\n`;
+   802→  report += `<b>This Week:</b> ${weekCount}\n\n`;
+   803→  report += `<b>By Type:</b>\n`;
+   804→  sorted.forEach(([type, count]) => {
+   805→    report += `  • ${type}: ${count}\n`;
+   806→  });
+   807→
+   808→  await sendTelegramMessage(chatId, report);
+   809→}
+   810→
+   811→// ============================================================
+   812→// ADMIN COMMANDS
+   813→// ============================================================
+   814→
+   815→async function handleDbTest(chatId: number) {
+   816→  await sendChatAction(chatId, 'typing');
+   817→  let report = '<b>🔧 DB Diagnostic</b>\n\n';
+   818→
+   819→  // Test 1: Raw SQL
+   820→  try {
+   821→    await ensureBotReportTable();
+   822→    const countResult: any[] = await db.$queryRawUnsafe(`SELECT COUNT(*) as cnt FROM "BotReport"`);
+   823→    const count = countResult[0]?.cnt || 0;
+   824→    report += `<b>✅ SQLite (Raw SQL):</b> Connected\n`;
+   825→    report += `  BotReport rows: ${count}\n`;
+   826→  } catch (err: any) {
+   827→    report += `<b>❌ SQLite (Raw SQL):</b> ${err?.message}\n`;
+   828→  }
+   829→
+   830→  // Test 2: Prisma ORM
+   831→  try {
+   832→    await db.user.count();
+   833→    report += `<b>✅ Prisma ORM:</b> Connected\n`;
+   834→  } catch (err: any) {
+   835→    report += `<b>❌ Prisma ORM:</b> ${err?.message}\n`;
+   836→  }
+   837→
+   838→  // Test 3: Memory stores
+   839→  report += `\n<b>Memory Stores:</b>\n`;
+   840→  report += `  Reports: ${fallbackReports.length}\n`;
+   841→  report += `  Notes: ${notes.length}\n`;
+   842→  report += `  Tasks: ${tasks.length}\n`;
+   843→  report += `  Reminders: ${reminders.length}\n`;
+   844→  report += `  Knowledge: ${knowledgeStore.length}\n`;
+   845→
+   846→  // Test 4: Groq API
+   847→  if (GROQ_API_KEY) {
+   848→    try {
+   849→      const start = Date.now();
+   850→      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+   851→        method: 'POST',
+   852→        headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+   853→        body: JSON.stringify({ model: GROQ_MODEL, messages: [{ role: 'user', content: 'Say OK' }], max_tokens: 5 }),
+   854→      });
+   855→      const data = await res.json();
+   856→      const latency = Date.now() - start;
+   857→      report += `\n<b>✅ Groq API:</b> ${res.ok ? 'Connected' : `Error ${res.status}`} (${latency}ms)\n`;
+   858→    } catch (err: any) {
+   859→      report += `<b>❌ Groq API:</b> ${err?.message}\n`;
+   860→    }
+   861→  } else {
+   862→    report += `\n<b>⚠️ Groq API:</b> No API key configured\n`;
+   863→  }
+   864→
+   865→  await sendTelegramMessage(chatId, report);
+   866→}
+   867→
+   868→async function handleSaveTest(chatId: number) {
+   869→  await sendChatAction(chatId, 'typing');
+   870→  const testContent = `Save test at ${nowStr()} — verifying saveReportToWeb works inside webhook`;
+   871→
+   872→  try {
+   873→    const saved = await saveReportToWeb('savetest', 'System', `Save Test ${todayStr()}`, testContent);
+   874→    if (saved) {
+   875→      await sendTelegramMessage(chatId, `<b>✅ SaveTest PASSED</b>\n\nsaveReportToWeb returned true.\nReport should now appear on dashboard.\nCheck: /api/debug/db → latest_reports`);
+   876→    } else {
+   877→      await sendTelegramMessage(chatId, `<b>❌ SaveTest FAILED</b>\n\nsaveReportToWeb returned false.\nThis means all 3 strategies failed:\n1. Raw SQL\n2. HTTP POST\n3. (In-memory is last resort → false)`);
+   878→    }
+   879→  } catch (err: any) {
+   880→    await sendTelegramMessage(chatId, `<b>💥 SaveTest CRASHED</b>\n\n${err?.message || String(err)}`);
+   881→  }
+   882→
+   883→  // Cleanup test report
+   884→  try {
+   885→    await db.$executeRawUnsafe(`DELETE FROM "BotReport" WHERE "type" = 'savetest'`);
+   886→  } catch { /* ignore */ }
+   887→}
+   888→
+   889→async function handleReminder(chatId: number, args: string, firstName: string) {
+   890→  if (!args) {
+   891→    await sendTelegramMessage(chatId, '<b>⏰ Set Reminder</b>\n\nUsage: <code>/reminder [description] | [due date/time]</code>\n\nExample:\n<code>/reminder Call the supplier | tomorrow 2pm</code>');
+   892→    return;
+   893→  }
+   894→  const parts = args.split('|').map(s => s.trim());
+   895→  const text = parts[0] || args;
+   896→  const due = parts[1] || 'No due date set';
+   897→  const reminder: Reminder = { id: uid('rem'), chatId, text, due, createdAt: nowStr() };
+   898→  reminders.unshift(reminder);
+   899→  if (reminders.length > 200) reminders.length = 200;
+   900→  await sendTelegramMessage(chatId, `<b>⏰ Reminder Set</b>\n\n${text}\n<b>Due:</b> ${due}\n\n<i>Total reminders: ${reminders.filter(r => r.chatId === chatId).length}</i>`);
+   901→}
+   902→
+   903→async function handleReminders(chatId: number) {
+   904→  const userReminders = reminders.filter(r => r.chatId === chatId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 15);
+   905→  if (userReminders.length === 0) {
+   906→    await sendTelegramMessage(chatId, '⏰ No reminders. Use /reminder <text> | <due date> to add one.');
+   907→    return;
+   908→  }
+   909→  const list = userReminders.map((r, i) => `${i + 1}. ${r.text}\n   <i>Due: ${r.due} | ${r.createdAt.split('T')[0]}</i>`).join('\n\n');
+   910→  await sendTelegramMessage(chatId, `<b>⏰ Reminders</b> (${userReminders.length})\n\n${list}`);
+   911→}
+   912→
+   913→async function handleTask(chatId: number, args: string, firstName: string) {
+   914→  if (!args) {
+   915→    await sendTelegramMessage(chatId, '<b>✅ Add Task</b>\n\nUsage: <code>/task [task description]</code>\n\nExample:\n<code>/task Review the Q3 financial report</code>');
+   916→    return;
+   917→  }
+   918→  const task: Task = { id: uid('task'), chatId, text: args, done: false, createdAt: nowStr() };
+   919→  tasks.unshift(task);
+   920→  if (tasks.length > 300) tasks.length = 300;
+   921→  await sendTelegramMessage(chatId, `<b>✅ Task Added</b>\n\n${args}\n\n<i>Pending tasks: ${tasks.filter(t => t.chatId === chatId && !t.done).length}</i>`);
+   922→}
+   923→
+   924→async function handleTasks(chatId: number) {
+   925→  const userTasks = tasks.filter(t => t.chatId === chatId);
+   926→  const pending = userTasks.filter(t => !t.done);
+   927→  const done = userTasks.filter(t => t.done);
+   928→
+   929→  if (userTasks.length === 0) {
+   930→    await sendTelegramMessage(chatId, '✅ No tasks. Use /task <description> to add one.');
+   931→    return;
+   932→  }
+   933→
+   934→  let response = `<b>📋 Tasks</b>\n\n`;
+   935→  if (pending.length > 0) {
+   936→    response += `<b>Pending (${pending.length}):</b>\n`;
+   937→    pending.slice(0, 10).forEach((t, i) => {
+   938→      response += `${i + 1}. ☐ ${t.text}\n`;
+   939→    });
+   940→  }
+   941→  if (done.length > 0) {
+   942→    response += `\n<b>Done (${done.length}):</b>\n`;
+   943→    done.slice(0, 5).forEach((t, i) => {
+   944→      response += `${i + 1}. ☑ ${t.text}\n`;
+   945→    });
+   946→  }
+   947→  await sendTelegramMessage(chatId, response);
+   948→}
+   949→
+   950→async function handleClear(chatId: number, args: string) {
+   951→  const target = (args || '').toLowerCase();
+   952→  const userFilter = (arr: any) => arr.filter((item: any) => item.chatId === chatId);
+   953→
+   954→  if (!target || target === 'all') {
+   955→    // Clear all user data
+   956→    const before = notes.length + tasks.length + reminders.length;
+   957→    for (let i = notes.length - 1; i >= 0; i--) { if (notes[i].chatId === chatId) notes.splice(i, 1); }
+   958→    for (let i = tasks.length - 1; i >= 0; i--) { if (tasks[i].chatId === chatId) tasks.splice(i, 1); }
+   959→    for (let i = reminders.length - 1; i >= 0; i--) { if (reminders[i].chatId === chatId) reminders.splice(i, 1); }
+   960→    for (let i = knowledgeStore.length - 1; i >= 0; i--) { if (knowledgeStore[i].chatId === chatId) knowledgeStore.splice(i, 1); }
+   961→    const after = notes.length + tasks.length + reminders.length;
+   962→    await sendTelegramMessage(chatId, `<b>🗑 Cleared</b>\n\nRemoved ${before - after} items (notes, tasks, reminders, knowledge).`);
+   963→    return;
+   964→  }
+   965→
+   966→  if (target === 'notes') {
+   967→    const count = userFilter(notes).length;
+   968→    for (let i = notes.length - 1; i >= 0; i--) { if (notes[i].chatId === chatId) notes.splice(i, 1); }
+   969→    await sendTelegramMessage(chatId, `<b>🗑 Cleared</b>\n\nRemoved ${count} notes.`);
+   970→  } else if (target === 'tasks') {
+   971→    const count = userFilter(tasks).length;
+   972→    for (let i = tasks.length - 1; i >= 0; i--) { if (tasks[i].chatId === chatId) tasks.splice(i, 1); }
+   973→    await sendTelegramMessage(chatId, `<b>🗑 Cleared</b>\n\nRemoved ${count} tasks.`);
+   974→  } else if (target === 'reminders') {
+   975→    const count = userFilter(reminders).length;
+   976→    for (let i = reminders.length - 1; i >= 0; i--) { if (reminders[i].chatId === chatId) reminders.splice(i, 1); }
+   977→    await sendTelegramMessage(chatId, `<b>🗑 Cleared</b>\n\nRemoved ${count} reminders.`);
+   978→  } else {
+   979→    await sendTelegramMessage(chatId, '<b>🗑 Clear</b>\n\nUsage: <code>/clear [notes|tasks|reminders|all]</code>');
+   980→  }
+   981→}
+   982→
+   983→async function handleBackup(chatId: number) {
+   984→  await sendChatAction(chatId, 'typing');
+   985→  const backup = {
+   986→    date: nowStr(),
+   987→    chatId,
+   988→    notes: notes.filter(n => n.chatId === chatId),
+   989→    tasks: tasks.filter(t => t.chatId === chatId),
+   990→    reminders: reminders.filter(r => r.chatId === chatId),
+   991→    knowledge: knowledgeStore.filter(k => k.chatId === chatId),
+   992→  };
+   993→  const json = JSON.stringify(backup, null, 2);
+   994→  const totalItems = backup.notes.length + backup.tasks.length + backup.reminders.length + backup.knowledge.length;
+   995→
+   996→  if (json.length > 3800) {
+   997→    // Send summary if too large
+   998→    await sendTelegramMessage(chatId, `<b>💾 Backup Summary</b>\n\nNotes: ${backup.notes.length}\nTasks: ${backup.tasks.length}\nReminders: ${backup.reminders.length}\nKnowledge: ${backup.knowledge.length}\n\nTotal: ${totalItems} items\n\n<i>Data is too large for Telegram. Use /export for individual categories.</i>`);
+   999→  } else {
+  1000→    await sendTelegramMessage(chatId, `<b>💾 Backup</b>\n\n<pre>${json}</pre>`);
+  1001→  }
+  1002→}
+  1003→
+  1004→// ============================================================
+  1005→// WEB COMMANDS
+  1006→// ============================================================
+  1007→
+  1008→async function handleStart(chatId: number, firstName: string) {
+  1009→  const welcomeMessage = `Welcome <b>${firstName}</b> to <b>Hambisa Executive</b>! 🚀
+  1010→
+  1011→<b>📋 Command Categories:</b>
+  1012→
+  1013→<b>📊 Daily:</b> /briefing /verse /log /kpi /weather /news
+  1014→<b>🏪 Romel:</b> /romel /target /romelreports
+  1015→<b>🏫 College:</b> /admission /exam /reportcollege /eval /vicereport /vicereports /quarterly /employees /staff /students
+  1016→<b>💻 Tech:</b> /tech /techreports
+  1017→<b>💼 Career:</b> /apply /cv /courses /interview
+  1018→<b>✉️ Communication:</b> /email /meeting /draft
+  1019→<b>🎯 Strategy:</b> /goals /swot /brainstorm
+  1020→<b>📝 Data:</b> /note /notes /export /savedata
+  1021→<b>📚 Knowledge:</b> /learn /knowledge /ask
+  1022→<b>👤 CRM:</b> /contact /contacts /analytics
+  1023→<b>🔧 Admin:</b> /dbtest /reminder /reminders /task /tasks /clear /backup
+  1024→<b>🌐 Web:</b> /dashboard /sync /profile /app /start /help
+  1025→<b>🔍 Scraping:</b> /scrape /rawreport
+  1026→
+  1027→Type any message to chat with AI!`;
+  1028→
+  1029→  const replyMarkup = {
+  1030→    inline_keyboard: [
+  1031→      [
+  1032→        { text: '📱 Open App', web_app: { url: `${APP_URL}/mini-app` } },
+  1033→        { text: '📋 Help', callback_data: 'help' },
+  1034→      ],
+  1035→      [
+  1036→        { text: '📊 Briefing', callback_data: 'briefing' },
+  1037→        { text: '📈 KPIs', callback_data: 'kpi' },
+  1038→      ],
+  1039→      [
+  1040→        { text: '📝 Notes', callback_data: 'export' },
+  1041→        { text: '📋 Tasks', callback_data: 'tasks' },
+  1042→      ],
+  1043→    ],
+  1044→  };
+  1045→  await sendTelegramMessage(chatId, welcomeMessage, { replyMarkup });
+  1046→}
+  1047→
+  1048→async function handleApp(chatId: number) {
+  1049→  const replyMarkup = {
+  1050→    inline_keyboard: [
+  1051→      [{ text: '📱 Open Dashboard App', web_app: { url: `${APP_URL}/mini-app` } }],
+  1052→    ],
+  1053→  };
+  1054→  await sendTelegramMessage(chatId, 'Tap below to open your <b>Career Dashboard</b> inside Telegram:', { replyMarkup });
+  1055→}
+  1056→
+  1057→async function handleHelp(chatId: number) {
+  1058→  const helpText = `<b>📚 Hambisa Executive — All Commands</b>
+  1059→
+  1060→<b>📊 DAILY</b>
+  1061→/briefing — AI daily executive briefing
+  1062→/verse — Daily Bible verse
+  1063→/log — View activity log
+  1064→/kpi — KPI summary
+  1065→/weather [city] — Weather info
+  1066→/news [topic] — News digest
+  1067→
+  1068→<b>🏪 ROMEL</b>
+  1069→/romel [report] — Submit sales report
+  1070→/target [desc] — Set sales target
+  1071→/romelreports — View Romel reports
+  1072→
+  1073→<b>🏫 COLLEGE</b>
+  1074→/admission [info] — Record admission
+  1075→/exam [info] — Record exam
+  1076→/reportcollege [text] — College report
+  1077→/eval [subject] — AI evaluation
+  1078→/vicereport [text] — Vice Dean report
+  1079→/vicereports — View VD reports
+  1080→/quarterly [data] — Quarterly report
+  1081→/employees [info] — Employee record
+  1082→/staff [info] — Staff record
+  1083→/students [info] — Student record
+  1084→
+  1085→<b>💻 TECH</b>
+  1086→/tech [report] — Submit tech report
+  1087→/techreports — View tech reports
+  1088→
+  1089→<b>💼 CAREER</b>
+  1090→/apply [job] — Application advice
+  1091→/cv [content] — CV review/help
+  1092→/courses [topic] — Course recommendations
+  1093→/interview [role] — Interview prep
+  1094→
+  1095→<b>✉️ COMMUNICATION</b>
+  1096→/email [desc] — Draft email
+  1097→/meeting [notes] — Meeting notes
+  1098→/draft [desc] — Draft document
+  1099→
+  1100→<b>🎯 STRATEGY</b>
+  1101→/goals [context] — SMART goals
+  1102→/swot [subject] — SWOT analysis
+  1103→/brainstorm [topic] — Brainstorm ideas
+  1104→
+  1105→<b>📝 DATA</b>
+  1106→/note [text] — Save note
+  1107→/notes — View notes
+  1108→/export [type] — Export data
+  1109→/savedata [data] — Save custom data
+  1110→
+  1111→<b>📚 KNOWLEDGE</b>
+  1112→/learn [topic] — Learn about topic
+  1113→/knowledge — View knowledge base
+  1114→/ask [question] — Ask AI anything
+  1115→
+  1116→<b>👤 CRM</b>
+  1117→/contact [info] — Add contact
+  1118→/contacts — View contacts
+  1119→/analytics — View analytics
+  1120→
+  1121→<b>🔧 ADMIN</b>
+  1122→/dbtest — Database diagnostic
+  1123→/reminder [text] | [due] — Set reminder
+  1124→/reminders — View reminders
+  1125→/task [desc] — Add task
+  1126→/tasks — View tasks
+  1127→/clear [type] — Clear data
+  1128→/backup — Backup your data
+  1129→
+  1130→<b>🌐 WEB</b>
+  1131→/dashboard — Open web dashboard
+  1132→/sync — Sync data
+  1133→/profile — View profile
+  1134→/start — Welcome message
+  1135→/help — This help message
+  1136→
+  1137→<b>🔍 SCRAPING</b>
+  1138→/scrape [url] — Scrape web page
+  1139→/rawreport [text] — Save raw report`;
+  1140→
+  1141→  await sendTelegramMessage(chatId, helpText);
+  1142→}
+  1143→
+  1144→async function handleDashboard(chatId: number) {
+  1145→  await sendTelegramMessage(chatId, `<b>🌐 Dashboard</b>\n\n<a href="${APP_URL}">Open Dashboard</a>`, {
+  1146→    replyMarkup: { inline_keyboard: [[{ text: 'Open Dashboard', url: APP_URL }]] },
+  1147→  });
+  1148→}
+  1149→
+  1150→async function handleSync(chatId: number) {
+  1151→  await sendChatAction(chatId, 'typing');
+  1152→  try {
+  1153→    const res = await fetch(`${APP_URL}/api/bot/sync`, {
+  1154→      method: 'POST',
+  1155→      headers: { 'Content-Type': 'application/json' },
+  1156→      body: JSON.stringify({ botId: 'telegram-bot' }),
+  1157→    });
+  1158→    const data = await res.json();
+  1159→    if (data.success) {
+  1160→      await sendTelegramMessage(chatId, '<b>✅ Sync Complete</b>\n\nData synced to dashboard successfully.');
+  1161→    } else {
+  1162→      await sendTelegramMessage(chatId, '<b>⚠️ Sync</b>\n\nSync returned no success flag. Data may already be up to date.');
+  1163→    }
+  1164→  } catch {
+  1165→    await sendTelegramMessage(chatId, '<b>❌ Sync Failed</b>\n\nCould not reach the server. Try again later.');
+  1166→  }
+  1167→}
+  1168→
+  1169→async function handleProfile(chatId: number) {
+  1170→  await sendChatAction(chatId, 'typing');
+  1171→  try {
+  1172→    const res = await fetch(`${APP_URL}/api/profile`);
+  1173→    const data = await res.json();
+  1174→    if (data.success && data.profile) {
+  1175→      const p = data.profile;
+  1176→      await sendTelegramMessage(chatId, `<b>👤 Profile</b>\n\n<b>Name:</b> ${p.fullName || 'N/A'}\n<b>Title:</b> ${p.title || 'N/A'}\n<b>Email:</b> ${p.email || 'N/A'}\n<b>Phone:</b> ${p.phone || 'N/A'}`);
+  1177→    } else {
+  1178→      await sendTelegramMessage(chatId, '<b>👤 Profile</b>\n\nProfile not found. Set up from the web dashboard.');
+  1179→    }
+  1180→  } catch {
+  1181→    await sendTelegramMessage(chatId, '<b>❌ Profile</b>\n\nCould not fetch profile from server.');
+  1182→  }
+  1183→}
+  1184→
+  1185→// ============================================================
+  1186→// SCRAPING COMMANDS
+  1187→// ============================================================
+  1188→
+  1189→async function handleScrape(chatId: number, args: string) {
+  1190→  if (!args) {
+  1191→    await sendTelegramMessage(chatId, '<b>🔍 Scrape</b>\n\nUsage: <code>/scrape [URL]</code>\n\nExtracts text content from a web page.');
+  1192→    return;
+  1193→  }
+  1194→  await sendChatAction(chatId, 'typing');
+  1195→
+  1196→  // Extract URL from args
+  1197→  const urlMatch = args.match(/https?:\/\/[^\s]+/);
+  1198→  if (!urlMatch) {
+  1199→    await sendTelegramMessage(chatId, 'Please provide a valid URL starting with http:// or https://');
+  1200→    return;
+  1201→  }
+  1202→  const url = urlMatch[0];
+  1203→
+  1204→  try {
+  1205→    const res = await fetch(url, {
+  1206→      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; HambisaBot/1.0)' },
+  1207→      signal: AbortSignal.timeout(15000),
+  1208→    });
+  1209→    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  1210→    const html = await res.text();
+  1211→
+  1212→    // Extract text content (simple HTML strip)
+  1213→    const text = html
+  1214→      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+  1215→      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+  1216→      .replace(/<[^>]+>/g, ' ')
+  1217→      .replace(/\s+/g, ' ')
+  1218→      .trim()
+  1219→      .slice(0, 3500);
+  1220→
+  1221→    const saved = await saveReportToWeb('scrape', '', `Scraped - ${url.slice(0, 60)}`, text, chatId);
+  1222→    const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+  1223→
+  1224→    await sendTelegramMessage(chatId, `<b>🔍 Scraped: ${url.slice(0, 60)}</b>\n\n${text}...\n\n<i>${tag}</i>`);
+  1225→  } catch (err: any) {
+  1226→    await sendTelegramMessage(chatId, `<b>❌ Scrape Failed</b>\n\n${err?.message || 'Could not fetch URL'}`);
+  1227→  }
+  1228→}
+  1229→
+  1230→async function handleRawReport(chatId: number, args: string, firstName: string) {
+  1231→  if (!args) {
+  1232→    await sendTelegramMessage(chatId, '<b>📄 Raw Report</b>\n\nPaste any report text after the command:\n<code>/rawreport [paste text]</code>\n\nIt will be saved to the dashboard as-is.');
+  1233→    return;
+  1234→  }
+  1235→  const saved = await saveReportToWeb('raw', '', `Raw Report - ${todayStr()}`, args, chatId, firstName);
+  1236→  const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+  1237→  await sendTelegramMessage(chatId, `<b>📄 Raw Report Saved</b>\n\n${args.slice(0, 200)}${args.length > 200 ? '...' : ''}\n\n<i>${tag}</i>`);
+  1238→}
+  1239→
+  1240→// ============================================================
+  1241→// GENERAL AI CHAT (non-command messages)
+  1242→// ============================================================
+  1243→
+  1244→async function handleChat(chatId: number, text: string) {
+  1245→  await sendChatAction(chatId, 'typing');
+  1246→  const answer = await askGroq(text, 'You are Hambisa Executive, a helpful AI assistant for a business executive in Ethiopia. You help with career advice, business strategy, document writing, and daily productivity. Be concise and professional.');
+  1247→  await sendTelegramMessage(chatId, answer);
+  1248→}
+  1249→
+  1250→// ============================================================
+  1251→// MAIN COMMAND DISPATCH
+  1252→// ============================================================
+  1253→
+  1254→async function processUpdate(update: any) {
+  1255→  // Handle callback queries (inline buttons)
+  1256→  if (update.callback_query) {
+  1257→    const cb = update.callback_query;
+  1258→    const chatId = cb.message?.chat?.id;
+  1259→    const firstName = cb.from?.first_name || 'User';
+  1260→    if (!chatId) return;
+  1261→
+  1262→    await sendChatAction(chatId, 'typing');
+  1263→    switch (cb.data) {
+  1264→      case 'sync': await handleSync(chatId); break;
+  1265→      case 'help': await handleHelp(chatId); break;
+  1266→      case 'briefing': await handleBriefing(chatId, firstName); break;
+  1267→      case 'kpi': await handleKpi(chatId, ''); break;
+  1268→      case 'dbtest': await handleDbTest(chatId); break;
+  1269→      case 'export': await handleExport(chatId, ''); break;
+  1270→      case 'analyze_cv':
+  1271→        await sendTelegramMessage(chatId, 'Send your CV text after /cv or use the web dashboard for full analysis.');
+  1272→        break;
+  1273→      case 'cover_letter':
+  1274→        await sendTelegramMessage(chatId, 'Describe the job and company after /email for a cover letter draft.');
+  1275→        break;
+  1276→      default: await sendTelegramMessage(chatId, 'Button pressed! Use /help to see commands.');
+  1277→    }
+  1278→    try {
+  1279→      const token = getBotToken();
+  1280→      await fetch(`${TELEGRAM_API_BASE}/bot${token}/answerCallbackQuery`, {
+  1281→        method: 'POST',
+  1282→        headers: { 'Content-Type': 'application/json' },
+  1283→        body: JSON.stringify({ callback_query_id: cb.id }),
+  1284→      });
+  1285→    } catch { /* silent */ }
+  1286→    return;
+  1287→  }
+  1288→
+  1289→  // Handle messages
+  1290→  const message = update.message;
+  1291→  if (!message) return;
+  1292→  const chatId = message.chat?.id;
+  1293→  const text = message.text || '';
+  1294→  const firstName = message.from?.first_name || 'User';
+  1295→  if (!chatId || !text) return;
+  1296→
+  1297→  // Command dispatch
+  1298→  if (text.startsWith('/')) {
+  1299→    const cmd = text.split(' ')[0].toLowerCase().split('@')[0];
+  1300→    const args = extractArgs(text, cmd);
+  1301→
+  1302→    switch (cmd) {
+  1303→      // DAILY
+  1304→      case '/briefing': await handleBriefing(chatId, firstName); break;
+  1305→      case '/verse': await handleVerse(chatId); break;
+  1306→      case '/log': await handleLog(chatId, args); break;
+  1307→      case '/kpi': await handleKpi(chatId, args); break;
+  1308→      case '/weather': await handleWeather(chatId, args); break;
+  1309→      case '/news': await handleNews(chatId, args); break;
+  1310→
+  1311→      // ROMEL
+  1312→      case '/romel': await handleRomel(chatId, args, firstName); break;
+  1313→      case '/target': await handleTarget(chatId, args); break;
+  1314→      case '/romelreports': await handleRomelReports(chatId); break;
+  1315→
+  1316→      // COLLEGE
+  1317→      case '/admission': await handleAdmission(chatId, args); break;
+  1318→      case '/exam': await handleExam(chatId, args); break;
+  1319→      case '/reportcollege': await handleReportCollege(chatId, args); break;
+  1320→      case '/eval': await handleEval(chatId, args); break;
+  1321→      case '/vicereport': await handleVicereport(chatId, args, firstName); break;
+  1322→      case '/vicereports': await handleVicereports(chatId); break;
+  1323→      case '/quarterly': await handleQuarterly(chatId, args); break;
+  1324→      case '/quarterlyreport': await handleQuarterlyReport(chatId, args); break;
+  1325→      case '/employees': await handleEmployees(chatId, args); break;
+  1326→      case '/staff': await handleStaff(chatId, args); break;
+  1327→      case '/students': await handleStudents(chatId, args); break;
+  1328→
+  1329→      // TECH
+  1330→      case '/tech': await handleTech(chatId, args); break;
+  1331→      case '/techreports': await handleTechReports(chatId); break;
+  1332→
+  1333→      // CAREER
+  1334→      case '/apply': await handleApply(chatId, args); break;
+  1335→      case '/cv': await handleCv(chatId, args); break;
+  1336→      case '/courses': await handleCourses(chatId, args); break;
+  1337→      case '/interview': await handleInterview(chatId, args); break;
+  1338→
+  1339→      // COMMUNICATION
+  1340→      case '/email': await handleEmail(chatId, args); break;
+  1341→      case '/meeting': await handleMeeting(chatId, args); break;
+  1342→      case '/draft': await handleDraft(chatId, args); break;
+  1343→
+  1344→      // STRATEGY
+  1345→      case '/goals': await handleGoals(chatId, args); break;
+  1346→      case '/swot': await handleSwot(chatId, args); break;
+  1347→      case '/brainstorm': await handleBrainstorm(chatId, args); break;
+  1348→
+  1349→      // DATA
+  1350→      case '/note': await handleNote(chatId, args, firstName); break;
+  1351→      case '/notes': await handleNotes(chatId); break;
+  1352→      case '/export': await handleExport(chatId, args); break;
+  1353→      case '/savedata': await handleSavedata(chatId, args); break;
+  1354→
+  1355→      // KNOWLEDGE
+  1356→      case '/learn': await handleLearn(chatId, args); break;
+  1357→      case '/knowledge': await handleKnowledge(chatId); break;
+  1358→      case '/ask': await handleAsk(chatId, args); break;
+  1359→
+  1360→      // CRM
+  1361→      case '/contact': await handleContact(chatId, args); break;
+  1362→      case '/contacts': await handleContacts(chatId); break;
+  1363→      case '/analytics': await handleAnalytics(chatId); break;
+  1364→
+  1365→      // ADMIN
+  1366→      case '/dbtest': await handleDbTest(chatId); break;
+  1367→      case '/savetest': await handleSaveTest(chatId); break;
+  1368→      case '/reminder': await handleReminder(chatId, args, firstName); break;
+  1369→      case '/reminders': await handleReminders(chatId); break;
+  1370→      case '/task': await handleTask(chatId, args, firstName); break;
+  1371→      case '/tasks': await handleTasks(chatId); break;
+  1372→      case '/clear': await handleClear(chatId, args); break;
+  1373→      case '/backup': await handleBackup(chatId); break;
+  1374→
+  1375→      // WEB
+  1376→      case '/dashboard': case '/dash': case '/web': await handleDashboard(chatId); break;
+  1377→      case '/sync': await handleSync(chatId); break;
+  1378→      case '/profile': await handleProfile(chatId); break;
+  1379→      case '/start': await handleStart(chatId, firstName); break;
+  1380→      case '/help': await handleHelp(chatId); break;
+  1381→      case '/app': await handleApp(chatId); break;
+  1382→
+  1383→      // SCRAPING
+  1384→      case '/scrape': await handleScrape(chatId, args); break;
+  1385→      case '/rawreport': await handleRawReport(chatId, args, firstName); break;
+  1386→
+  1387→      default:
+  1388→        await sendTelegramMessage(chatId, `Unknown command: <code>${cmd}</code>\n\nType <b>/help</b> to see all available commands.`);
+  1389→    }
+  1390→    return;
+  1391→  }
+  1392→
+  1393→  // Non-command messages → AI chat
+  1394→  await handleChat(chatId, text);
+  1395→}
+  1396→
+  1397→// ============================================================
+  1398→// ROUTE HANDLERS (POST + GET)
+  1399→// ============================================================
+  1400→
+  1401→export async function POST(request: NextRequest) {
+  1402→  try {
+  1403→    const update = await request.json();
+  1404→    if (!process.env.TELEGRAM_BOT_TOKEN && !process.env.BOT_TOKEN) {
+  1405→      return NextResponse.json({ error: 'BOT_TOKEN not configured' }, { status: 500 });
+  1406→    }
+  1407→    // IMPORTANT: await processUpdate to keep Vercel function alive
+  1408→    await processUpdate(update);
+  1409→    return NextResponse.json({ ok: true });
+  1410→  } catch (err) {
+  1411→    console.error('Webhook error:', err);
+  1412→    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+  1413→  }
+  1414→}
+  1415→
+  1416→export async function GET(request: NextRequest) {
+  1417→  const token = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
+  1418→  if (!token) {
+  1419→    return NextResponse.json({
+  1420→      status: 'error',
+  1421→      message: 'TELEGRAM_BOT_TOKEN not set',
+  1422→    });
+  1423→  }
+  1424→
+  1425→  const { searchParams } = new URL(request.url);
+  1426→  const action = searchParams.get('set') || searchParams.get('action');
+  1427→
+  1428→  if (action === '1' || action === 'set') {
+  1429→    const webhookUrl = searchParams.get('url') ||
+  1430→      `${APP_URL}/api/telegram/webhook`;
+  1431→    try {
+  1432→      const res = await fetch(`${TELEGRAM_API_BASE}/bot${token}/setWebhook`, {
+  1433→        method: 'POST',
+  1434→        headers: { 'Content-Type': 'application/json' },
+  1435→        body: JSON.stringify({ url: webhookUrl, allowed_updates: ['message', 'callback_query'], drop_pending_updates: true }),
+  1436→      });
+  1437→      const data = await res.json();
+  1438→      return NextResponse.json({ status: data.ok ? 'success' : 'error', telegram_response: data });
+  1439→    } catch (err: any) {
+  1440→      return NextResponse.json({ status: 'error', message: err.message });
+  1441→    }
+  1442→  }
+  1443→
+  1444→  if (action === 'delete' || action === 'remove') {
+  1445→    try {
+  1446→      const res = await fetch(`${TELEGRAM_API_BASE}/bot${token}/deleteWebhook`, { method: 'POST' });
+  1447→      return NextResponse.json({ status: 'deleted', telegram_response: await res.json() });
+  1448→    } catch (err: any) {
+  1449→      return NextResponse.json({ status: 'error', message: err.message });
+  1450→    }
+  1451→  }
+  1452→
+  1453→  if (action === 'info') {
+  1454→    try {
+  1455→      const res = await fetch(`${TELEGRAM_API_BASE}/bot${token}/getWebhookInfo`);
+  1456→      return NextResponse.json({ status: 'info', webhook: await res.json() });
+  1457→    } catch (err: any) {
+  1458→      return NextResponse.json({ status: 'error', message: err.message });
+  1459→    }
+  1460→  }
+  1461→
+  1462→  return NextResponse.json({
+  1463→    status: 'active',
+  1464→    bot: '@hambi_career_ai_bot',
+  1465→    version: 'v7-savetest-fix',
+  1466→    message: 'Hambisa Executive webhook running',
+  1467→    commands: 55,
+  1468→    endpoints: {
+  1469→      set: '/api/telegram/webhook?set=1',
+  1470→      delete: '/api/telegram/webhook?action=delete',
+  1471→      info: '/api/telegram/webhook?action=info',
+  1472→    },
+  1473→  });
+  1474→}// v6-force-deploy
+  1475→

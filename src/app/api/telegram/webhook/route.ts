@@ -1021,6 +1021,10 @@ async function handleStart(chatId: number, firstName: string) {
 <b>📚 Knowledge:</b> /learn /knowledge /ask
 <b>👤 CRM:</b> /contact /contacts /analytics
 <b>🔧 Admin:</b> /dbtest /reminder /reminders /task /tasks /clear /backup
+<b>🏢 Business:</b> /business /businesses /biz
+<b>💰 Finance:</b> /income /expense /budget /finance /transfer
+<b>📅 Calendar:</b> /event /events /remind /schedule
+<b>📄 Documents:</b> /savefile /files /documents
 <b>🌐 Web:</b> /dashboard /sync /profile /app /start /help
 <b>🔍 Scraping:</b> /scrape /rawreport
 
@@ -1136,7 +1140,30 @@ async function handleHelp(chatId: number) {
 
 <b>🔍 SCRAPING</b>
 /scrape [url] — Scrape web page
-/rawreport [text] — Save raw report`;
+/rawreport [text] — Save raw report
+
+<b>🏢 BUSINESS</b>
+/business [name] — List or create business
+/businesses — List all businesses
+/biz [name] — Shortcut for /business
+
+<b>💰 FINANCE</b>
+/income [amount] [desc] — Log income
+/expense [amount] [desc] — Log expense
+/budget — Monthly budget summary
+/finance — Recent transactions
+/transfer [amount] [from] [to] — Log transfer
+
+<b>📅 CALENDAR</b>
+/event [title] [date] [time] — Create event
+/events — List upcoming events
+/remind [title] [date] [time] — Set reminder
+/schedule — Today's schedule
+
+<b>📄 DOCUMENTS</b>
+/savefile [title] [desc] — Save document
+/files — List documents
+/documents — List documents`;
 
   await sendTelegramMessage(chatId, helpText);
 }
@@ -1235,6 +1262,481 @@ async function handleRawReport(chatId: number, args: string, firstName: string) 
   const saved = await saveReportToWeb('raw', '', `Raw Report - ${todayStr()}`, args, chatId, firstName);
   const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
   await sendTelegramMessage(chatId, `<b>📄 Raw Report Saved</b>\n\n${args.slice(0, 200)}${args.length > 200 ? '...' : ''}\n\n<i>${tag}</i>`);
+}
+
+// ============================================================
+// BUSINESS COMMANDS
+// ============================================================
+
+async function ensureBusinessTable(): Promise<void> {
+  try {
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Business" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "name" TEXT NOT NULL,
+        "type" TEXT NOT NULL DEFAULT 'general',
+        "industry" TEXT,
+        "description" TEXT,
+        "email" TEXT,
+        "phone" TEXT,
+        "address" TEXT,
+        "website" TEXT,
+        "logo" TEXT,
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (err: any) {
+    console.error('[ensureBusinessTable]', err?.message);
+  }
+}
+
+async function handleBusiness(chatId: number, args: string) {
+  const esc = (s: string) => (s || '').replace(/'/g, "''").replace(/\n/g, ' ');
+  if (!args.trim()) {
+    // List businesses
+    try {
+      await ensureBusinessTable();
+      const rows: any[] = await db.$queryRawUnsafe(`SELECT * FROM "Business" ORDER BY "createdAt" DESC LIMIT 20`);
+      if (rows.length === 0) {
+        await sendTelegramMessage(chatId, '📋 <b>No businesses yet</b>\n\nUse /business <name> to add one.');
+        return;
+      }
+      let text = `📋 <b>Your Businesses (${rows.length})</b>\n\n`;
+      rows.forEach((r, i) => {
+        text += `${i + 1}. <b>${r.name}</b>\n   ${r.type} • ${r.industry || 'N/A'}\n\n`;
+      });
+      await sendTelegramMessage(chatId, text);
+    } catch (err: any) {
+      await sendTelegramMessage(chatId, `❌ Error: ${err.message}`);
+    }
+    return;
+  }
+
+  // Create business
+  const name = args.trim();
+  const id = uid('biz');
+  try {
+    await ensureBusinessTable();
+    await db.$executeRawUnsafe(`INSERT INTO "Business" ("id","name","type","createdAt","updatedAt") VALUES ('${esc(id)}','${esc(name)}','general',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`);
+    await sendTelegramMessage(chatId, `✅ Business <b>${name}</b> created!`);
+  } catch (err: any) {
+    await sendTelegramMessage(chatId, `❌ Error: ${err.message}`);
+  }
+}
+
+// ============================================================
+// FINANCE COMMANDS
+// ============================================================
+
+async function ensureTransactionTable(): Promise<void> {
+  try {
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Transaction" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "businessId" TEXT,
+        "type" TEXT NOT NULL DEFAULT 'expense',
+        "category" TEXT NOT NULL DEFAULT 'general',
+        "amount" REAL NOT NULL DEFAULT 0,
+        "currency" TEXT NOT NULL DEFAULT 'ETB',
+        "description" TEXT,
+        "reference" TEXT,
+        "date" TEXT NOT NULL DEFAULT '',
+        "timestamp" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "chatId" INTEGER NOT NULL DEFAULT 0,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (err: any) {
+    console.error('[ensureTransactionTable]', err?.message);
+  }
+}
+
+async function handleIncome(chatId: number, args: string) {
+  const esc = (s: string) => (s || '').replace(/'/g, "''").replace(/\n/g, ' ');
+  if (!args.trim()) {
+    await sendTelegramMessage(chatId, '<b>💰 Log Income</b>\n\nUsage: <code>/income [amount] [description]</code>\n\nExample:\n<code>/income 5000 Client payment</code>');
+    return;
+  }
+  const parts = args.trim().split(/\s+/);
+  const amount = parseFloat(parts[0]);
+  if (isNaN(amount) || amount <= 0) {
+    await sendTelegramMessage(chatId, '❌ Invalid amount. Usage: <code>/income [amount] [description]</code>');
+    return;
+  }
+  const description = parts.slice(1).join(' ') || 'No description';
+  const id = uid('inc');
+  try {
+    await ensureTransactionTable();
+    await db.$executeRawUnsafe(`INSERT INTO "Transaction" ("id","type","category","amount","description","date","chatId","createdAt") VALUES ('${esc(id)}','income','general',${amount},'${esc(description)}','${todayStr()}',${chatId},CURRENT_TIMESTAMP)`);
+    await sendTelegramMessage(chatId, `✅ Income logged: <b>${amount.toLocaleString()} ETB</b>\n${description}`);
+  } catch (err: any) {
+    await sendTelegramMessage(chatId, `❌ Error: ${err.message}`);
+  }
+}
+
+async function handleExpense(chatId: number, args: string) {
+  const esc = (s: string) => (s || '').replace(/'/g, "''").replace(/\n/g, ' ');
+  if (!args.trim()) {
+    await sendTelegramMessage(chatId, '<b>💸 Log Expense</b>\n\nUsage: <code>/expense [amount] [description]</code>\n\nExample:\n<code>/expense 1200 Office supplies</code>');
+    return;
+  }
+  const parts = args.trim().split(/\s+/);
+  const amount = parseFloat(parts[0]);
+  if (isNaN(amount) || amount <= 0) {
+    await sendTelegramMessage(chatId, '❌ Invalid amount. Usage: <code>/expense [amount] [description]</code>');
+    return;
+  }
+  const description = parts.slice(1).join(' ') || 'No description';
+  const id = uid('exp');
+  try {
+    await ensureTransactionTable();
+    await db.$executeRawUnsafe(`INSERT INTO "Transaction" ("id","type","category","amount","description","date","chatId","createdAt") VALUES ('${esc(id)}','expense','general',${amount},'${esc(description)}','${todayStr()}',${chatId},CURRENT_TIMESTAMP)`);
+    await sendTelegramMessage(chatId, `✅ Expense logged: <b>${amount.toLocaleString()} ETB</b>\n${description}`);
+  } catch (err: any) {
+    await sendTelegramMessage(chatId, `❌ Error: ${err.message}`);
+  }
+}
+
+async function handleBudget(chatId: number) {
+  try {
+    await ensureTransactionTable();
+    const now = new Date();
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const rows: any[] = await db.$queryRawUnsafe(`SELECT type, SUM(amount) as total FROM "Transaction" WHERE "chatId" = ${chatId} AND "date" >= '${monthStart}' GROUP BY type`);
+    let income = 0;
+    let expense = 0;
+    for (const r of rows) {
+      if (r.type === 'income') income += r.total || 0;
+      else expense += r.total || 0;
+    }
+    const net = income - expense;
+    const status = net >= 0 ? '✅ Surplus' : '⚠️ Deficit';
+    await sendTelegramMessage(chatId, `<b>💰 Budget Summary — ${now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</b>\n\n<b>Income:</b> ${income.toLocaleString()} ETB\n<b>Expense:</b> ${expense.toLocaleString()} ETB\n<b>Net:</b> ${net >= 0 ? '+' : ''}${net.toLocaleString()} ETB\n\n${status}`);
+  } catch (err: any) {
+    await sendTelegramMessage(chatId, `❌ Error: ${err.message}`);
+  }
+}
+
+async function handleFinance(chatId: number) {
+  try {
+    await ensureTransactionTable();
+    const rows: any[] = await db.$queryRawUnsafe(`SELECT * FROM "Transaction" WHERE "chatId" = ${chatId} ORDER BY "createdAt" DESC LIMIT 15`);
+    if (rows.length === 0) {
+      await sendTelegramMessage(chatId, '💰 <b>No transactions yet</b>\n\nUse /income or /expense to log transactions.');
+      return;
+    }
+    let text = `💰 <b>Recent Transactions (${rows.length})</b>\n\n`;
+    rows.forEach((r, i) => {
+      const icon = r.type === 'income' ? '🟢' : '🔴';
+      const sign = r.type === 'income' ? '+' : '-';
+      text += `${i + 1}. ${icon} ${sign}${(r.amount || 0).toLocaleString()} ETB\n   ${r.description || 'N/A'} • ${r.date || ''}\n\n`;
+    });
+    await sendTelegramMessage(chatId, text);
+  } catch (err: any) {
+    await sendTelegramMessage(chatId, `❌ Error: ${err.message}`);
+  }
+}
+
+async function handleTransfer(chatId: number, args: string) {
+  const esc = (s: string) => (s || '').replace(/'/g, "''").replace(/\n/g, ' ');
+  if (!args.trim()) {
+    await sendTelegramMessage(chatId, '<b>🔄 Log Transfer</b>\n\nUsage: <code>/transfer [amount] [from] [to]</code>\n\nExample:\n<code>/transfer 2000 Savings Checking</code>');
+    return;
+  }
+  const parts = args.trim().split(/\s+/);
+  const amount = parseFloat(parts[0]);
+  if (isNaN(amount) || amount <= 0) {
+    await sendTelegramMessage(chatId, '❌ Invalid amount. Usage: <code>/transfer [amount] [from] [to]</code>');
+    return;
+  }
+  const from = parts[1] || 'Unknown';
+  const to = parts.slice(2).join(' ') || 'Unknown';
+  const description = `Transfer: ${from} → ${to}`;
+  const id = uid('trf');
+  try {
+    await ensureTransactionTable();
+    await db.$executeRawUnsafe(`INSERT INTO "Transaction" ("id","type","category","amount","description","reference","date","chatId","createdAt") VALUES ('${esc(id)}','transfer','transfer',${amount},'${esc(description)}','${esc(from)}→${esc(to)}','${todayStr()}',${chatId},CURRENT_TIMESTAMP)`);
+    await sendTelegramMessage(chatId, `✅ Transfer logged: <b>${amount.toLocaleString()} ETB</b>\n${from} → ${to}`);
+  } catch (err: any) {
+    await sendTelegramMessage(chatId, `❌ Error: ${err.message}`);
+  }
+}
+
+// ============================================================
+// CALENDAR COMMANDS
+// ============================================================
+
+async function ensureCalendarEventTable(): Promise<void> {
+  try {
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "CalendarEvent" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "businessId" TEXT,
+        "title" TEXT NOT NULL,
+        "description" TEXT,
+        "type" TEXT NOT NULL DEFAULT 'event',
+        "date" TEXT NOT NULL DEFAULT '',
+        "time" TEXT,
+        "endTime" TEXT,
+        "location" TEXT,
+        "isAllDay" BOOLEAN NOT NULL DEFAULT false,
+        "status" TEXT NOT NULL DEFAULT 'upcoming',
+        "priority" TEXT NOT NULL DEFAULT 'medium',
+        "chatId" INTEGER NOT NULL DEFAULT 0,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (err: any) {
+    console.error('[ensureCalendarEventTable]', err?.message);
+  }
+}
+
+function parseDate(dateStr: string): string {
+  if (!dateStr) return todayStr();
+  const lower = dateStr.toLowerCase();
+  if (lower === 'today') return todayStr();
+  if (lower === 'tomorrow') {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  }
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  // Try to parse
+  const parsed = new Date(dateStr);
+  if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+  return todayStr();
+}
+
+async function handleEvents(chatId: number, args: string) {
+  const esc = (s: string) => (s || '').replace(/'/g, "''").replace(/\n/g, ' ');
+
+  // If /events (no args or cmd is /events), list upcoming events
+  if (!args.trim()) {
+    try {
+      await ensureCalendarEventTable();
+      const rows: any[] = await db.$queryRawUnsafe(`SELECT * FROM "CalendarEvent" WHERE "chatId" = ${chatId} AND "date" >= '${todayStr()}' AND "status" = 'upcoming' ORDER BY "date" ASC, "time" ASC LIMIT 20`);
+      if (rows.length === 0) {
+        await sendTelegramMessage(chatId, '📅 <b>No upcoming events</b>\n\nUse /event [title] [date] [time] to add one.');
+        return;
+      }
+      let text = `📅 <b>Upcoming Events (${rows.length})</b>\n\n`;
+      rows.forEach((r, i) => {
+        text += `${i + 1}. <b>${r.title}</b>\n   📆 ${r.date}${r.time ? ` ⏰ ${r.time}` : ''}\n   ${r.description || ''}\n\n`;
+      });
+      await sendTelegramMessage(chatId, text);
+    } catch (err: any) {
+      await sendTelegramMessage(chatId, `❌ Error: ${err.message}`);
+    }
+    return;
+  }
+
+  // /event with args — create event
+  // Parse: title can be multiple words until a date pattern or "today"/"tomorrow" is found
+  const parts = args.trim().split(/\s+/);
+  let title = '';
+  let dateStr = '';
+  let timeStr = '';
+  let descParts: string[] = [];
+
+  let i = 0;
+  // Collect title until we hit a date or time
+  while (i < parts.length) {
+    const p = parts[i];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(p) || p.toLowerCase() === 'today' || p.toLowerCase() === 'tomorrow') {
+      dateStr = p;
+      i++;
+      break;
+    }
+    if (/^\d{1,2}:\d{2}$/.test(p)) {
+      timeStr = p;
+      i++;
+      break;
+    }
+    title += (title ? ' ' : '') + p;
+    i++;
+  }
+  // After date, check for time
+  while (i < parts.length) {
+    if (!timeStr && /^\d{1,2}:\d{2}$/.test(parts[i])) {
+      timeStr = parts[i];
+      i++;
+      continue;
+    }
+    if (!dateStr && (/^\d{4}-\d{2}-\d{2}$/.test(parts[i]) || parts[i].toLowerCase() === 'today' || parts[i].toLowerCase() === 'tomorrow')) {
+      dateStr = parts[i];
+      i++;
+      continue;
+    }
+    descParts.push(parts[i]);
+    i++;
+  }
+
+  if (!title) {
+    await sendTelegramMessage(chatId, '❌ Please provide a title. Usage: <code>/event [title] [date] [time]</code>');
+    return;
+  }
+
+  const date = parseDate(dateStr);
+  const id = uid('evt');
+  try {
+    await ensureCalendarEventTable();
+    await db.$executeRawUnsafe(`INSERT INTO "CalendarEvent" ("id","title","description","type","date","time","status","chatId","createdAt","updatedAt") VALUES ('${esc(id)}','${esc(title)}','${esc(descParts.join(' '))}','event','${date}','${esc(timeStr)}','upcoming',${chatId},CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`);
+    let msg = `✅ Event <b>${title}</b> created!\n\n📆 ${date}`;
+    if (timeStr) msg += `\n⏰ ${timeStr}`;
+    if (descParts.length) msg += `\n📝 ${descParts.join(' ')}`;
+    await sendTelegramMessage(chatId, msg);
+  } catch (err: any) {
+    await sendTelegramMessage(chatId, `❌ Error: ${err.message}`);
+  }
+}
+
+async function handleRemind(chatId: number, args: string) {
+  const esc = (s: string) => (s || '').replace(/'/g, "''").replace(/\n/g, ' ');
+  if (!args.trim()) {
+    await sendTelegramMessage(chatId, '<b>⏰ Set Reminder</b>\n\nUsage: <code>/remind [title] [date] [time]</code>\n\nExample:\n<code>/remind Team meeting tomorrow 14:00</code>');
+    return;
+  }
+
+  const parts = args.trim().split(/\s+/);
+  let title = '';
+  let dateStr = '';
+  let timeStr = '';
+
+  let i = 0;
+  while (i < parts.length) {
+    const p = parts[i];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(p) || p.toLowerCase() === 'today' || p.toLowerCase() === 'tomorrow') {
+      dateStr = p;
+      i++;
+      break;
+    }
+    if (/^\d{1,2}:\d{2}$/.test(p)) {
+      timeStr = p;
+      i++;
+      break;
+    }
+    title += (title ? ' ' : '') + p;
+    i++;
+  }
+  while (i < parts.length) {
+    if (!timeStr && /^\d{1,2}:\d{2}$/.test(parts[i])) {
+      timeStr = parts[i];
+      i++;
+      continue;
+    }
+    if (!dateStr && (/^\d{4}-\d{2}-\d{2}$/.test(parts[i]) || parts[i].toLowerCase() === 'today' || parts[i].toLowerCase() === 'tomorrow')) {
+      dateStr = parts[i];
+      i++;
+      continue;
+    }
+    i++;
+  }
+
+  if (!title) {
+    await sendTelegramMessage(chatId, '❌ Please provide a title. Usage: <code>/remind [title] [date] [time]</code>');
+    return;
+  }
+
+  const date = parseDate(dateStr);
+  const id = uid('rmd');
+  try {
+    await ensureCalendarEventTable();
+    await db.$executeRawUnsafe(`INSERT INTO "CalendarEvent" ("id","title","type","date","time","status","priority","chatId","createdAt","updatedAt") VALUES ('${esc(id)}','${esc(title)}','reminder','${date}','${esc(timeStr)}','upcoming','high',${chatId},CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`);
+    let msg = `⏰ Reminder <b>${title}</b> set!\n\n📆 ${date}`;
+    if (timeStr) msg += `\n⏰ ${timeStr}`;
+    await sendTelegramMessage(chatId, msg);
+  } catch (err: any) {
+    await sendTelegramMessage(chatId, `❌ Error: ${err.message}`);
+  }
+}
+
+async function handleSchedule(chatId: number) {
+  try {
+    await ensureCalendarEventTable();
+    const rows: any[] = await db.$queryRawUnsafe(`SELECT * FROM "CalendarEvent" WHERE "chatId" = ${chatId} AND "date" = '${todayStr()}' ORDER BY "time" ASC`);
+    if (rows.length === 0) {
+      await sendTelegramMessage(chatId, `📅 <b>Today's Schedule</b>\n\nNo events for today. Use /event or /remind to add some!`);
+      return;
+    }
+    let text = `📅 <b>Today's Schedule — ${todayStr()}</b>\n\n`;
+    rows.forEach((r, i) => {
+      const icon = r.type === 'reminder' ? '⏰' : '📌';
+      text += `${i + 1}. ${icon} <b>${r.title}</b>\n   ${r.time || 'All day'}${r.description ? ` • ${r.description}` : ''}\n\n`;
+    });
+    await sendTelegramMessage(chatId, text);
+  } catch (err: any) {
+    await sendTelegramMessage(chatId, `❌ Error: ${err.message}`);
+  }
+}
+
+// ============================================================
+// DOCUMENT COMMANDS
+// ============================================================
+
+async function ensureDocumentTable(): Promise<void> {
+  try {
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Document" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "businessId" TEXT,
+        "title" TEXT NOT NULL,
+        "type" TEXT NOT NULL DEFAULT 'other',
+        "category" TEXT NOT NULL DEFAULT 'general',
+        "fileUrl" TEXT,
+        "fileName" TEXT,
+        "fileSize" INTEGER NOT NULL DEFAULT 0,
+        "mimeType" TEXT,
+        "description" TEXT,
+        "content" TEXT,
+        "tags" TEXT NOT NULL DEFAULT '[]',
+        "chatId" INTEGER NOT NULL DEFAULT 0,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (err: any) {
+    console.error('[ensureDocumentTable]', err?.message);
+  }
+}
+
+async function handleSaveFile(chatId: number, args: string) {
+  const esc = (s: string) => (s || '').replace(/'/g, "''").replace(/\n/g, ' ');
+  if (!args.trim()) {
+    await sendTelegramMessage(chatId, '<b>📄 Save File</b>\n\nUsage: <code>/savefile [title] [description]</code>\n\nExample:\n<code>/savefile Contract v2 Legal agreement with supplier</code>');
+    return;
+  }
+  const parts = args.trim().split(/\s+/);
+  const title = parts[0];
+  const description = parts.slice(1).join(' ') || 'No description';
+  const id = uid('doc');
+  try {
+    await ensureDocumentTable();
+    await db.$executeRawUnsafe(`INSERT INTO "Document" ("id","title","type","category","description","chatId","createdAt") VALUES ('${esc(id)}','${esc(title)}','document','general','${esc(description)}',${chatId},CURRENT_TIMESTAMP)`);
+    await sendTelegramMessage(chatId, `✅ Document <b>${title}</b> saved!\n${description}`);
+  } catch (err: any) {
+    await sendTelegramMessage(chatId, `❌ Error: ${err.message}`);
+  }
+}
+
+async function handleFiles(chatId: number) {
+  try {
+    await ensureDocumentTable();
+    const rows: any[] = await db.$queryRawUnsafe(`SELECT * FROM "Document" WHERE "chatId" = ${chatId} ORDER BY "createdAt" DESC LIMIT 20`);
+    if (rows.length === 0) {
+      await sendTelegramMessage(chatId, '📄 <b>No documents yet</b>\n\nUse /savefile [title] [description] to add one.');
+      return;
+    }
+    let text = `📄 <b>Your Documents (${rows.length})</b>\n\n`;
+    rows.forEach((r, i) => {
+      text += `${i + 1}. <b>${r.title}</b>\n   ${r.category || 'general'} • ${r.type || 'document'}\n   ${r.description || 'No description'}\n\n`;
+    });
+    await sendTelegramMessage(chatId, text);
+  } catch (err: any) {
+    await sendTelegramMessage(chatId, `❌ Error: ${err.message}`);
+  }
 }
 
 // ============================================================
@@ -1383,6 +1885,25 @@ async function processUpdate(update: any) {
       // SCRAPING
       case '/scrape': await handleScrape(chatId, args); break;
       case '/rawreport': await handleRawReport(chatId, args, firstName); break;
+
+      // BUSINESS
+      case '/biz': case '/business': case '/businesses': await handleBusiness(chatId, args); break;
+
+      // FINANCE
+      case '/income': await handleIncome(chatId, args); break;
+      case '/expense': await handleExpense(chatId, args); break;
+      case '/budget': await handleBudget(chatId); break;
+      case '/finance': await handleFinance(chatId); break;
+      case '/transfer': await handleTransfer(chatId, args); break;
+
+      // CALENDAR
+      case '/event': case '/events': await handleEvents(chatId, args); break;
+      case '/remind': await handleRemind(chatId, args); break;
+      case '/schedule': await handleSchedule(chatId); break;
+
+      // DOCUMENTS
+      case '/savefile': await handleSaveFile(chatId, args); break;
+      case '/files': case '/documents': await handleFiles(chatId); break;
 
       default:
         await sendTelegramMessage(chatId, `Unknown command: <code>${cmd}</code>\n\nType <b>/help</b> to see all available commands.`);
