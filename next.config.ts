@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import path from "path";
+import { resolve } from "path";
 
 const nextConfig: NextConfig = {
   typescript: {
@@ -9,17 +9,16 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: [
     "preview-chat-9a896c83-4103-42a4-bd75-fac98488b50b.space-z.ai",
   ],
-  webpack: (config, { isServer }) => {
-    // Alias z-ai-web-dev-sdk to our stub so Vercel build doesn't fail
-    if (isServer) {
-      config.resolve = {
-        ...config.resolve,
-        alias: {
-          ...config.resolve.alias,
-          'z-ai-web-dev-sdk': path.resolve('./src/ai-sdk-stub/index.ts'),
-        },
-      };
-    }
+  // Use webpack so resolve.alias works for z-ai-web-dev-sdk stub
+  // Turbopack doesn't support resolve.alias yet
+  webpack: (config) => {
+    config.resolve = {
+      ...config.resolve,
+      alias: {
+        ...config.resolve.alias,
+        'z-ai-web-dev-sdk': resolve('./src/ai-sdk-stub/index.ts'),
+      },
+    };
     return config;
   },
 };

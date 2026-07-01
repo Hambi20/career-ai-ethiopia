@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node build.mjs && next build",
+  "buildCommand": "node build.mjs && next build --no-turbopack",
   "functions": {
     "src/app/api/telegram/webhook/route.ts": {
       "maxDuration": 60
