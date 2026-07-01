@@ -8,7 +8,7 @@ export async function GET() {
   info.database_url_masked = atIndex > 0 ? dbUrl.substring(0, dbUrl.indexOf('://') + 3) + '***' + dbUrl.substring(atIndex) : dbUrl.substring(0, 30) + '...';
   info.database_type = dbUrl.startsWith('postgres') ? 'PostgreSQL' : dbUrl.startsWith('file:') ? 'SQLite' : 'Unknown';
   info.node_env = process.env.NODE_ENV || 'not set';
-  info.webhook_version = 'v3-fresh-dbx';
+  info.webhook_version = 'v4-buildfix';
 
   try {
     const result = await db.$queryRawUnsafe(
