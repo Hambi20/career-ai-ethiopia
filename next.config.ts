@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
   typescript: {
@@ -9,16 +10,17 @@ const nextConfig: NextConfig = {
     "preview-chat-9a896c83-4103-42a4-bd75-fac98488b50b.space-z.ai",
   ],
   webpack: (config, { isServer }) => {
-    // z-ai-web-dev-sdk only exists in sandbox — stub it out for Vercel builds
+    // Alias z-ai-web-dev-sdk to our stub so Vercel build doesn't fail
     if (isServer) {
-      config.resolve = config.resolve || {};
-      config.resolve.fallback = { ...config.resolve.fallback };
+      config.resolve = {
+        ...config.resolve,
+        alias: {
+          ...config.resolve.alias,
+          'z-ai-web-dev-sdk': path.resolve('./src/ai-sdk-stub/index.ts'),
+        },
+      };
     }
     return config;
-  },
-  // Tell Next.js to externalize this module so it's not bundled
-  experimental: {
-    serverComponentsExternalPackages: ['z-ai-web-dev-sdk'],
   },
 };
 
