@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 
 // ── Types ──
 export interface BotDataSummary {
@@ -150,6 +150,10 @@ export function BotDataProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [lastFetched, setLastFetched] = useState('');
 
+  // Use ref to track current botData for weight comparison without creating callback loop
+  const botDataRef = useRef(botData);
+  botDataRef.current = botData;
+
   const fetchBotData = useCallback(async () => {
     try {
       setLoading(true);
@@ -158,7 +162,7 @@ export function BotDataProvider({ children }: { children: ReactNode }) {
       if (json.success) {
         const apiData: BotData = { ...EMPTY_BOT_DATA, ...json, source: json.source || 'api' };
         const apiWeight = dataWeight(apiData);
-        const currentWeight = dataWeight(botData);
+        const currentWeight = dataWeight(botDataRef.current);
 
         // KEY FIX: Only update state if API has MORE data than current cache
         // This prevents cold-start empty responses from wiping localStorage data
@@ -177,7 +181,7 @@ export function BotDataProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       setLastFetched(new Date().toISOString());
     }
-  }, [botData]);
+  }, []);
 
   const fetchTabData = useCallback(async () => {
     const newTabData: TabData = { ...EMPTY_TAB_DATA };
@@ -265,6 +269,12 @@ export function BotDataProvider({ children }: { children: ReactNode }) {
     fetchBotData();
     fetchTabData();
   }, [fetchBotData, fetchTabData]);
+
+  // Stable refresh ref for external use without re-subscribing
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  const stableRefresh = useCallback(() => refreshRef.current(), []);
 
   // Initial load & polling
   useEffect(() => {

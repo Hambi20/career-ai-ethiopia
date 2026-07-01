@@ -61,3 +61,26 @@ Stage Summary:
 - Vercel should now build successfully and deploy the latest code
 - Bot Report tab verified working locally via agent browser
 - Push: 7c6b967..429ab94 main -> main
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix infinite re-fetch loop causing all tab content to stay in loading state
+
+Work Log:
+- Discovered `<main>` was empty — only loading skeletons rendered
+- Root cause: `fetchBotData` useCallback had `[botData]` in dependency array
+- Every fetch → botData state update → new callback ref → useEffect re-runs → fetch again → infinite loop
+- `loading` never settled to `false` permanently, so skeleton always showed
+- Fixed by using `useRef` to track botData for weight comparison instead of depending on state
+- Changed `fetchBotData` dependency to `[]` (stable reference)
+- Added `stableRefresh` via ref pattern for useBotData consumers
+- Verified all 18 tabs render correctly with Agent Browser
+- Lint passes clean, dev logs show no errors
+- Polling works correctly (30s interval, no continuous re-renders)
+
+Stage Summary:
+- Critical bug fixed: infinite re-fetch loop in bot-data-context.tsx
+- All 18 tabs now render their content correctly
+- File changed: src/lib/bot-data-context.tsx
+- Lint: 0 errors, 0 warnings
