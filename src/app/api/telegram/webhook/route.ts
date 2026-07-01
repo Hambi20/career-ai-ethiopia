@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, ensureBotReportTable } from '@/lib/db';
+import { db } from '@/lib/db';
 
 // ============================================================
 // CONSTANTS & HELPERS

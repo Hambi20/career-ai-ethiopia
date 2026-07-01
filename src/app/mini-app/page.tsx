@@ -176,6 +176,20 @@ type TabId = 'home' | 'reports' | 'tasks' | 'profile';
 // ─── Theme Helpers ───────────────────────────────────────────────────────────
 
 function getTelegramTheme() {
+  if (typeof window === 'undefined') {
+    return {
+      isDark: false,
+      bg: '#ffffff',
+      text: '#1a1a2e',
+      hint: '#8e8e93',
+      buttonBg: '#059669',
+      buttonText: '#ffffff',
+      cardBg: '#f9fafb',
+      borderColor: '#e5e7eb',
+      safeTop: 0,
+      safeBottom: 0,
+    };
+  }
   const tg = window.Telegram?.WebApp;
   if (!tg) {
     return {
