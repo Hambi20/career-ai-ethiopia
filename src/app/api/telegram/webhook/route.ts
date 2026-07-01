@@ -865,6 +865,27 @@ async function handleDbTest(chatId: number) {
   await sendTelegramMessage(chatId, report);
 }
 
+async function handleSaveTest(chatId: number) {
+  await sendChatAction(chatId, 'typing');
+  const testContent = `Save test at ${nowStr()} — verifying saveReportToWeb works inside webhook`;
+
+  try {
+    const saved = await saveReportToWeb('savetest', 'System', `Save Test ${todayStr()}`, testContent);
+    if (saved) {
+      await sendTelegramMessage(chatId, `<b>✅ SaveTest PASSED</b>\n\nsaveReportToWeb returned true.\nReport should now appear on dashboard.\nCheck: /api/debug/db → latest_reports`);
+    } else {
+      await sendTelegramMessage(chatId, `<b>❌ SaveTest FAILED</b>\n\nsaveReportToWeb returned false.\nThis means all 3 strategies failed:\n1. Raw SQL\n2. HTTP POST\n3. (In-memory is last resort → false)`);
+    }
+  } catch (err: any) {
+    await sendTelegramMessage(chatId, `<b>💥 SaveTest CRASHED</b>\n\n${err?.message || String(err)}`);
+  }
+
+  // Cleanup test report
+  try {
+    await db.$executeRawUnsafe(`DELETE FROM "BotReport" WHERE "type" = 'savetest'`);
+  } catch { /* ignore */ }
+}
+
 async function handleReminder(chatId: number, args: string, firstName: string) {
   if (!args) {
     await sendTelegramMessage(chatId, '<b>⏰ Set Reminder</b>\n\nUsage: <code>/reminder [description] | [due date/time]</code>\n\nExample:\n<code>/reminder Call the supplier | tomorrow 2pm</code>');
@@ -1334,6 +1355,7 @@ async function processUpdate(update: any) {
 
       // ADMIN
       case '/dbtest': await handleDbTest(chatId); break;
+      case '/savetest': await handleSaveTest(chatId); break;
       case '/reminder': await handleReminder(chatId, args, firstName); break;
       case '/reminders': await handleReminders(chatId); break;
       case '/task': await handleTask(chatId, args, firstName); break;
