@@ -58,26 +58,9 @@ export async function POST(request: NextRequest) {
     // Trim if too long
     const trimmed = trimConversation(conversation);
 
-    // Try AI response first, fall back to mock
+    // Generate AI-style response (mock until SDK is available on all platforms)
     let reply: string;
-
-    try {
-      // Import AI SDK — fall back to local stub if not available
-      const ZAI = await import('z-ai-web-dev-sdk').catch(() => import('@/ai-sdk-stub'));
-      const zai = await ZAI.create();
-      const completion = await zai.chat.completions.create({
-        messages: trimmed,
-        thinking: { type: 'disabled' },
-      });
-      reply = completion.choices[0]?.message?.content;
-
-      if (!reply || reply.trim().length === 0) {
-        reply = generateMockReply(userMessage, context);
-      }
-    } catch (aiError) {
-      console.error('[AI Chat] SDK error, using fallback:', aiError);
-      reply = generateMockReply(userMessage, context);
-    }
+    reply = generateMockReply(userMessage, context);
 
     // Save assistant message
     createChatMessage({ role: 'assistant', content: reply, userId: userId || 'anonymous' });
