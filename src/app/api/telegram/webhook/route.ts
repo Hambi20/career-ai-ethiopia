@@ -1460,4 +1460,4 @@ export async function GET(request: NextRequest) {
       info: '/api/telegram/webhook?action=info',
     },
   });
-}
+}// v6-force-deploy
