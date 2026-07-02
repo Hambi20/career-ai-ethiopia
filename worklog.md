@@ -261,3 +261,22 @@ Stage Summary:
 - "Close & Type" buttons are now visible throughout the app (Home, Categories, empty states)
 - Inline forms work for: income, expense, event, reminder, business, note, document + 17 more command mappings
 - All 6 tabs verified working: Home, Categories, Finance, Calendar, AI Tools, Profile
+---
+Task ID: 2d
+Agent: Main Agent
+Task: Remove BotFather menu button that auto-opens Mini App and blocks typing
+
+Work Log:
+- Analyzed screenshot: Mini App is open, URL "https://career-ai-ethiopia-svq..." blocks the typing area
+- Root cause: BotFather menu button auto-opens Mini App every time user opens the bot
+- Added `removeMenuButton()` function to webhook/route.ts that calls Telegram API setChatMenuButton
+- Added automatic removal on /start — next time user types /start, menu button gets removed
+- Added `/removeapp` and `/closeapp` commands for manual removal anytime
+- Created `/api/telegram/menu-button/route.ts` API endpoint for programmatic removal
+- Lint passes, dev server running
+
+Stage Summary:
+- The BotFather menu button that auto-opens the Mini App will be removed
+- User needs to: close current Mini App → type /removeapp → menu button gone → type freely
+- /app command still available to open Mini App on demand
+- /start auto-removes menu button as safety net

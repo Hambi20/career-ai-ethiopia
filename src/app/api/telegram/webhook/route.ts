@@ -1002,10 +1002,28 @@ async function handleBackup(chatId: number) {
 }
 
 // ============================================================
+// REMOVE MENU BUTTON (so typing area is free)
+// ============================================================
+
+async function removeMenuButton() {
+  try {
+    const token = getBotToken();
+    await fetch(`${TELEGRAM_API_BASE}/bot${token}/setChatMenuButton`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ menu_button: { type: 'commands' } }),
+    });
+  } catch { /* silent */ }
+}
+
+// ============================================================
 // WEB COMMANDS
 // ============================================================
 
 async function handleStart(chatId: number, firstName: string) {
+  // Remove the Mini App menu button so the user can type freely
+  await removeMenuButton();
+
   const welcomeMessage = `Welcome <b>${firstName}</b> to <b>Hambisa Executive</b>! 🚀
 
 <b>📋 Command Categories:</b>
@@ -1881,6 +1899,7 @@ async function processUpdate(update: any) {
       case '/start': await handleStart(chatId, firstName); break;
       case '/help': await handleHelp(chatId); break;
       case '/app': await handleApp(chatId); break;
+      case '/removeapp': case '/closeapp': await removeMenuButton(); await sendTelegramMessage(chatId, '✅ <b>Mini App menu button removed!</b>\n\nThe link in the typing area is now gone. You can type commands freely.\n\nTo open the Mini App again, type <b>/app</b>'); break;
 
       // SCRAPING
       case '/scrape': await handleScrape(chatId, args); break;
