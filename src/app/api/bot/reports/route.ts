@@ -1,8 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStoreAsync } from '@/lib/unified-store';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 // Module-level in-memory cache
 let reportsCache: any[] = [];
+
+const DATA_FILE = path.join(process.cwd(), 'public', 'bot-data.json');
+
+async function readPersistedData(): Promise<any> {
+  try {
+    const raw = await fs.readFile(DATA_FILE, 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return { syncCount: 0, allReports: [] };
+  }
+}
+
+async function writeReportToPersistedFile(report: any): Promise<void> {
+  try {
+    const data = await readPersistedData();
+    if (!data.allReports) data.allReports = [];
+    // Deduplicate
+    if (!data.allReports.find((r: any) => r.id === report.id)) {
+      data.allReports.unshift(report);
+      if (data.allReports.length > 500) data.allReports.length = 500;
+    }
+    // Also add to type-specific arrays
+    if (report.type === 'romel' || report.type === 'sales' || report.type === 'target') {
+      if (!data.romelReports) data.romelReports = [];
+      if (!data.romelReports.find((r: any) => r.id === report.id)) {
+        data.romelReports.unshift(report);
+        if (data.romelReports.length > 200) data.romelReports.length = 200;
+      }
+    } else if (report.type === 'vd') {
+      if (!data.vdReports) data.vdReports = [];
+      if (!data.vdReports.find((r: any) => r.id === report.id)) {
+        data.vdReports.unshift(report);
+        if (data.vdReports.length > 200) data.vdReports.length = 200;
+      }
+    }
+    data.syncCount = (data.syncCount || 0) + 1;
+    data.lastSync = new Date().toISOString();
+    await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
+  } catch (err) {
+    console.error('[writeReportToPersistedFile]', (err as any)?.message);
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,6 +89,9 @@ export async function POST(request: NextRequest) {
       store.applications.unshift(item);
       if (store.applications.length > 300) store.applications.length = 300;
     } catch { /* silent */ }
+
+    // Persist to bot-data.json
+    await writeReportToPersistedFile(report);
 
     return NextResponse.json({ success: true, reportId: report.id, totalReports: reportsCache.length });
   } catch (err: any) {
@@ -190,7 +237,32 @@ export async function GET(request: NextRequest) {
       }
     } catch { /* silent */ }
 
-    // Pull from database (persistent)
+    // Pull from persisted bot-data.json file (survives serverless cold starts)
+    try {
+      const persisted = await readPersistedData();
+      const existingIds = new Set(reports.map((r: any) => r.id));
+      const allReports: any[] = persisted.allReports || [];
+      for (const r of allReports) {
+        if (r.id && !existingIds.has(r.id)) {
+          reports.push({
+            id: r.id,
+            type: r.type || 'general',
+            company: r.company || '',
+            category: r.category || r.type || 'general',
+            title: r.title || 'Untitled Report',
+            content: r.content || '',
+            summary: r.summary || '',
+            chatId: r.chatId || 0,
+            firstName: r.firstName || '',
+            date: r.date || '',
+            timestamp: r.timestamp || r.createdAt || '',
+          });
+          existingIds.add(r.id);
+        }
+      }
+    } catch { /* silent */ }
+
+    // Pull from database (persistent - local SQLite)
     const dbReports = await fetchFromDatabase();
     const existingIds = new Set(reports.map((r: any) => r.id));
     for (const r of dbReports) {

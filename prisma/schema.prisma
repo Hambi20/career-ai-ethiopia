@@ -147,6 +147,22 @@ model ChatMessage {
   @@index([userId])
 }
 
+// ====== BOT REPORT (Telegram bot reports) ======
+model BotReport {
+  id        String   @id
+  type      String   @default("general")
+  company   String   @default("")
+  category  String   @default("general")
+  title     String   @default("")
+  content   String   @default("")
+  summary   String   @default("")
+  chatId    Int      @default(0)
+  firstName String   @default("")
+  date      String   @default("")
+  timestamp String   @default("")
+  createdAt DateTime @default(now())
+}
+
 // ====== CV ANALYSIS (existing - add userId) ======
 model CvAnalysis {
   id              String   @id @default(cuid())

@@ -81,6 +81,11 @@ async function warmStoreFromFile(): Promise<void> {
       if (persisted.knowledge?.length) store.knowledge = persisted.knowledge;
       if (persisted.romelReports?.length) store.romelReports = persisted.romelReports;
       if (persisted.vdReports?.length) store.vdReports = persisted.vdReports;
+      // Load allReports as romel/vd type-specific arrays if not already loaded
+      if (persisted.allReports?.length && !persisted.romelReports?.length) {
+        store.romelReports = persisted.allReports.filter((r: any) => r.type === 'romel' || r.type === 'sales' || r.type === 'target');
+        store.vdReports = persisted.allReports.filter((r: any) => r.type === 'vd');
+      }
       if (persisted.salesSummary) store.salesSummary = persisted.salesSummary;
       if (persisted.jobSearchResults?.length) store.jobSearchResults = persisted.jobSearchResults;
       if (persisted.bots?.length) store.bots = persisted.bots;
@@ -96,7 +101,7 @@ async function warmStoreFromFile(): Promise<void> {
       if (persisted.profile) {
         store.rawSyncData = { ...(store.rawSyncData || {}), profile: persisted.profile };
       }
-      console.log(`[unified-store] Warmed from persisted file: syncCount=${store.syncCount}, tasks=${store.tasks.length}`);
+      console.log(`[unified-store] Warmed from persisted file: syncCount=${store.syncCount}, tasks=${store.tasks.length}, allReports=${persisted.allReports?.length || 0}`);
     }
   } catch (err) {
     console.log('[unified-store] No persisted file found, using empty store');

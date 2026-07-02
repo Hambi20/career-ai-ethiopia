@@ -123,21 +123,12 @@ async function askGroq(prompt: string, systemPrompt?: string): Promise<string> {
 // ============================================================
 
 async function ensureBotReportTable(): Promise<void> {
+  // Table is now defined in prisma/schema.prisma, pushed via db:push
+  // No-op for safety — create only if missing (for backward compat with DBs created before schema update)
   try {
     await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "BotReport" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "type" TEXT NOT NULL DEFAULT 'general',
-        "company" TEXT NOT NULL DEFAULT '',
-        "category" TEXT NOT NULL DEFAULT 'general',
-        "title" TEXT NOT NULL DEFAULT '',
-        "content" TEXT NOT NULL DEFAULT '',
-        "summary" TEXT NOT NULL DEFAULT '',
-        "chatId" INTEGER NOT NULL DEFAULT 0,
-        "firstName" TEXT NOT NULL DEFAULT '',
-        "date" TEXT NOT NULL DEFAULT '',
-        "timestamp" TEXT NOT NULL DEFAULT '',
-        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      INSERT INTO "BotReport" ("id") SELECT 'skip' WHERE 0 = (
+        SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='BotReport'
       )
     `);
   } catch (err: any) {
@@ -147,6 +138,44 @@ async function ensureBotReportTable(): Promise<void> {
 
 // In-memory fallback store
 const fallbackReports: any[] = [];
+
+async function appendReportToPersistedFile(report: any): Promise<void> {
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    const dataFile = path.join(process.cwd(), 'public', 'bot-data.json');
+    let data: any = { syncCount: 0 };
+    try {
+      const raw = await fs.promises.readFile(dataFile, 'utf-8');
+      data = JSON.parse(raw);
+    } catch { /* file doesn't exist yet */ }
+
+    // Determine which array to store in based on type
+    const type = report.type || 'general';
+    if (!data.allReports) data.allReports = [];
+    data.allReports.unshift(report);
+    if (data.allReports.length > 500) data.allReports.length = 500;
+
+    // Also add to romel/vd specific arrays for backward compat
+    if (type === 'romel' || type === 'sales' || type === 'target') {
+      if (!data.romelReports) data.romelReports = [];
+      data.romelReports.unshift(report);
+      if (data.romelReports.length > 200) data.romelReports.length = 200;
+    } else if (type === 'vd') {
+      if (!data.vdReports) data.vdReports = [];
+      data.vdReports.unshift(report);
+      if (data.vdReports.length > 200) data.vdReports.length = 200;
+    }
+
+    data.syncCount = (data.syncCount || 0) + 1;
+    data.lastSync = new Date().toISOString();
+
+    await fs.promises.writeFile(dataFile, JSON.stringify(data, null, 2));
+    console.log(`[appendReportToPersistedFile] SUCCESS: id=${report.id}, total allReports=${data.allReports.length}`);
+  } catch (err: any) {
+    console.error(`[appendReportToPersistedFile] FAILED: ${err?.message}`);
+  }
+}
 
 async function saveReportToWeb(
   type: string,
@@ -162,19 +191,29 @@ async function saveReportToWeb(
   const esc = (s: string) => (s || '').replace(/'/g, "''").replace(/\n/g, ' ');
   const reportData = { id: reportId, type, company, category: type, title, content, summary: '', chatId: chatId || 0, firstName: firstName || '', date, timestamp: now, createdAt: now };
 
-  // PRIMARY: Use the db Proxy from @/lib/db
+  let saved = false;
+
+  // 1. Save to SQLite DB (works on local dev)
   try {
     await ensureBotReportTable();
     await db.$executeRawUnsafe(
       `INSERT INTO "BotReport" ("id","type","company","category","title","content","summary","chatId","firstName","date","timestamp","createdAt") VALUES ('${esc(reportId)}','${esc(type)}','${esc(company)}','${esc(type)}','${esc(title)}','${esc(content)}','',${chatId || 0},'${esc(firstName || '')}','${date}','${now}',CURRENT_TIMESTAMP)`
     );
-    console.log(`[saveReportToWeb] SUCCESS: id=${reportId}, type=${type}`);
-    return true;
+    console.log(`[saveReportToWeb] DB SUCCESS: id=${reportId}, type=${type}`);
+    saved = true;
   } catch (err: any) {
     console.error(`[saveReportToWeb] DB FAILED: ${err?.message}`);
   }
 
-  // FALLBACK: HTTP POST to production API
+  // 2. Save to persisted JSON file (works on both local AND Vercel)
+  try {
+    await appendReportToPersistedFile(reportData);
+    saved = true;
+  } catch (err: any) {
+    console.error(`[saveReportToWeb] FILE FAILED: ${err?.message}`);
+  }
+
+  // 3. Also POST to production API (for serverless where files are read-only at build)
   try {
     const res = await fetch(`${APP_URL}/api/bot/reports`, {
       method: 'POST',
@@ -182,16 +221,16 @@ async function saveReportToWeb(
       body: JSON.stringify(reportData),
     });
     if (res.ok) {
-      console.log(`[saveReportToWeb] HTTP fallback SUCCESS: id=${reportId}`);
-      return true;
+      console.log(`[saveReportToWeb] HTTP SUCCESS: id=${reportId}`);
+      saved = true;
     }
   } catch (e) { /* silent */ }
 
-  // LAST RESORT: In-memory
+  // 4. In-memory fallback always (for current instance)
   fallbackReports.unshift(reportData);
   if (fallbackReports.length > 200) fallbackReports.length = 200;
-  console.log(`[saveReportToWeb] In-memory fallback: id=${reportId}`);
-  return false;
+
+  return saved;
 }
 
 // ============================================================

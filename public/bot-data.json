@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "lastSync": null,
-  "syncCount": 0,
+  "lastSync": "2026-07-02T08:37:59.955Z",
+  "syncCount": 3,
   "profile": {
     "fullName": "Hambisa Bekuma Tefera",
     "email": "hambisa1992@gmail.com",
@@ -9,16 +9,51 @@
     "location": "Addis Ababa, Ethiopia",
     "title": "Sales Manager",
     "summary": "Experienced Sales Manager with 8+ years across Eastern Ethiopia and Addis Ababa. MBA and BSc in Agribusiness.",
-    "skills": ["Territory Management", "Route-to-Market", "Market Expansion", "New Account Opening", "Field Team Leadership", "Negotiation", "B2B Account Management", "Distributor Development", "Sales Planning", "Market Intelligence"],
+    "skills": [
+      "Territory Management",
+      "Route-to-Market",
+      "Market Expansion",
+      "New Account Opening",
+      "Field Team Leadership",
+      "Negotiation",
+      "B2B Account Management",
+      "Distributor Development",
+      "Sales Planning",
+      "Market Intelligence"
+    ],
     "education": [
-      { "degree": "MBA", "institution": "Addis Ababa Medical & Business College", "year": "2018" },
-      { "degree": "BSc Agribusiness", "institution": "Jimma University", "year": "2014" }
+      {
+        "degree": "MBA",
+        "institution": "Addis Ababa Medical & Business College",
+        "year": "2018"
+      },
+      {
+        "degree": "BSc Agribusiness",
+        "institution": "Jimma University",
+        "year": "2014"
+      }
     ],
     "experience": [
-      { "title": "Route Sales Representative", "company": "Romel General Trading", "period": "Jan 2026 – Present" },
-      { "title": "Marketing Manager", "company": "OL-BRIGHT International College", "period": "Dec 2022 – Nov 2025" },
-      { "title": "Marketing & Sales Manager", "company": "Deran PLC", "period": "Dec 2020 – Nov 2022" },
-      { "title": "Territory Sales Manager", "company": "SMADL Communication", "period": "Jul 2016 – Nov 2020" }
+      {
+        "title": "Route Sales Representative",
+        "company": "Romel General Trading",
+        "period": "Jan 2026 – Present"
+      },
+      {
+        "title": "Marketing Manager",
+        "company": "OL-BRIGHT International College",
+        "period": "Dec 2022 – Nov 2025"
+      },
+      {
+        "title": "Marketing & Sales Manager",
+        "company": "Deran PLC",
+        "period": "Dec 2020 – Nov 2022"
+      },
+      {
+        "title": "Territory Sales Manager",
+        "company": "SMADL Communication",
+        "period": "Jul 2016 – Nov 2020"
+      }
     ],
     "cvScore": 72,
     "targetRole": "Sales Manager"
@@ -27,8 +62,49 @@
   "notes": [],
   "contacts": [],
   "knowledge": [],
-  "romelReports": [],
-  "vdReports": [],
+  "romelReports": [
+    {
+      "id": "test_003",
+      "type": "romel",
+      "company": "Romel",
+      "category": "romel",
+      "title": "Sales Report - Jemo Route",
+      "content": "Date: 2/07/26\nName: Hambisa\nRoute: Jemo\nVisit call existing: 15\nActual sales: 75000",
+      "summary": "",
+      "chatId": 12345,
+      "firstName": "",
+      "date": "2026-07-02",
+      "timestamp": "2026-07-02T08:37:59.954Z"
+    },
+    {
+      "id": "test_001",
+      "type": "romel",
+      "company": "Romel",
+      "category": "romel",
+      "title": "Sales Report - Test",
+      "content": "Date: 1/07/26\nName: Hambisa\nRoute: jemo\nDaily target: 138872.79\nActual sales: 50000",
+      "summary": "",
+      "chatId": 12345,
+      "firstName": "",
+      "date": "2026-07-01",
+      "timestamp": "2026-07-02T08:37:26.781Z"
+    }
+  ],
+  "vdReports": [
+    {
+      "id": "test_002",
+      "type": "vd",
+      "company": "Olbright College",
+      "category": "vd",
+      "title": "VD Report - Faculty Meeting",
+      "content": "Faculty meeting held on Monday. Discussed curriculum changes and student enrollment targets for Q3.",
+      "summary": "",
+      "chatId": 12345,
+      "firstName": "",
+      "date": "2026-06-30",
+      "timestamp": "2026-07-02T08:37:59.927Z"
+    }
+  ],
   "salesSummary": null,
   "jobSearchResults": [],
   "bots": [],
@@ -38,5 +114,46 @@
   "automationRules": [],
   "businesses": [],
   "messages": [],
-  "dailyPlans": []
+  "dailyPlans": [],
+  "allReports": [
+    {
+      "id": "test_003",
+      "type": "romel",
+      "company": "Romel",
+      "category": "romel",
+      "title": "Sales Report - Jemo Route",
+      "content": "Date: 2/07/26\nName: Hambisa\nRoute: Jemo\nVisit call existing: 15\nActual sales: 75000",
+      "summary": "",
+      "chatId": 12345,
+      "firstName": "",
+      "date": "2026-07-02",
+      "timestamp": "2026-07-02T08:37:59.954Z"
+    },
+    {
+      "id": "test_002",
+      "type": "vd",
+      "company": "Olbright College",
+      "category": "vd",
+      "title": "VD Report - Faculty Meeting",
+      "content": "Faculty meeting held on Monday. Discussed curriculum changes and student enrollment targets for Q3.",
+      "summary": "",
+      "chatId": 12345,
+      "firstName": "",
+      "date": "2026-06-30",
+      "timestamp": "2026-07-02T08:37:59.927Z"
+    },
+    {
+      "id": "test_001",
+      "type": "romel",
+      "company": "Romel",
+      "category": "romel",
+      "title": "Sales Report - Test",
+      "content": "Date: 1/07/26\nName: Hambisa\nRoute: jemo\nDaily target: 138872.79\nActual sales: 50000",
+      "summary": "",
+      "chatId": 12345,
+      "firstName": "",
+      "date": "2026-07-01",
+      "timestamp": "2026-07-02T08:37:26.781Z"
+    }
+  ]
 }
