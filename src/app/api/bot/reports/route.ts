@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
         date: report.date, createdAt: report.timestamp,
         timestamp: report.timestamp, type: report.type,
         company: report.company, category: report.category,
+        summary: report.summary,
       };
       if (report.type === 'romel' || report.type === 'sales') {
         store.romelReports.unshift(item);
@@ -51,17 +52,111 @@ export async function POST(request: NextRequest) {
   }
 }
 
+async function fetchFromDatabase(): Promise<any[]> {
+  try {
+    const { db } = await import('@/lib/db');
+    const result = await db.$queryRawUnsafe(
+      `SELECT * FROM "BotReport" ORDER BY "createdAt" DESC LIMIT 500`
+    );
+    return (result as any[]).map((r: any) => ({
+      id: r.id,
+      type: r.type || 'general',
+      company: r.company || '',
+      category: r.category || r.type || 'general',
+      title: r.title || 'Untitled Report',
+      content: r.content || '',
+      summary: r.summary || '',
+      chatId: r.chatId || 0,
+      firstName: r.firstName || '',
+      date: r.date || r.createdAt?.split('T')[0] || '',
+      timestamp: r.timestamp || r.createdAt || '',
+    }));
+  } catch (err) {
+    console.error('[fetchFromDatabase]', (err as any)?.message);
+    return [];
+  }
+}
+
+function getPeriodRange(period: string, refDate?: string): { from: Date; to: Date } | null {
+  const now = refDate ? new Date(refDate) : new Date();
+  const to = new Date(now);
+  to.setHours(23, 59, 59, 999);
+
+  switch (period) {
+    case 'daily':
+    case 'today': {
+      const from = new Date(now);
+      from.setHours(0, 0, 0, 0);
+      return { from, to };
+    }
+    case 'yesterday': {
+      const from = new Date(now);
+      from.setDate(from.getDate() - 1);
+      from.setHours(0, 0, 0, 0);
+      const yTo = new Date(from);
+      yTo.setHours(23, 59, 59, 999);
+      return { from, to: yTo };
+    }
+    case 'week':
+    case 'thisweek': {
+      const from = new Date(now);
+      from.setDate(from.getDate() - 7);
+      from.setHours(0, 0, 0, 0);
+      return { from, to };
+    }
+    case 'lastweek': {
+      const from = new Date(now);
+      from.setDate(from.getDate() - 14);
+      from.setHours(0, 0, 0, 0);
+      const lTo = new Date(now);
+      lTo.setDate(lTo.getDate() - 7);
+      lTo.setHours(23, 59, 59, 999);
+      return { from, to: lTo };
+    }
+    case 'month':
+    case 'thismonth': {
+      const from = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { from, to };
+    }
+    case 'lastmonth': {
+      const from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lmTo = new Date(now.getFullYear(), now.getMonth(), 0);
+      lmTo.setHours(23, 59, 59, 999);
+      return { from, to: lmTo };
+    }
+    case 'quarter':
+    case 'thisquarter': {
+      const qMonth = Math.floor(now.getMonth() / 3) * 3;
+      const from = new Date(now.getFullYear(), qMonth, 1);
+      return { from, to };
+    }
+    case 'lastquarter': {
+      const qMonth = Math.floor(now.getMonth() / 3) * 3 - 3;
+      const from = new Date(now.getFullYear(), qMonth, 1);
+      const lqTo = new Date(now.getFullYear(), qMonth + 3, 0);
+      lqTo.setHours(23, 59, 59, 999);
+      return { from, to: lqTo };
+    }
+    default:
+      return null;
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || '';
     const company = searchParams.get('company') || '';
     const period = searchParams.get('period') || '';
+    const from = searchParams.get('from') || '';
+    const to = searchParams.get('to') || '';
     const limit = parseInt(searchParams.get('limit') || '100');
+    const includeStats = searchParams.get('stats') !== 'false';
 
-    let reports = [...reportsCache];
+    // Step 1: Collect from all sources
+    let reports: any[] = [...reportsCache];
 
-    // Also pull from unified-store
+    // Pull from unified-store
     try {
       const store = await getStoreAsync();
       const existingIds = new Set(reports.map((r: any) => r.id));
@@ -74,6 +169,7 @@ export async function GET(request: NextRequest) {
             content: r.report || r.content || r.details || JSON.stringify(r),
             date: r.date || r.createdAt?.split('T')[0] || '',
             timestamp: r.timestamp || r.createdAt || '',
+            summary: r.summary || '',
           });
           existingIds.add(r.id);
         }
@@ -87,37 +183,108 @@ export async function GET(request: NextRequest) {
             content: r.report || r.content || r.details || JSON.stringify(r),
             date: r.date || r.createdAt?.split('T')[0] || '',
             timestamp: r.timestamp || r.createdAt || '',
+            summary: r.summary || '',
           });
           existingIds.add(r.id);
         }
       }
     } catch { /* silent */ }
 
-    // Filter
-    if (type) { const types = type.split(','); reports = reports.filter((r: any) => types.includes(r.type)); }
-    if (company) { const cs = company.split(',').map(c => c.toLowerCase()); reports = reports.filter((r: any) => r.company && cs.some(c => r.company!.toLowerCase().includes(c))); }
-    if (period) {
-      const now = new Date(); const from = new Date();
-      if (period === 'daily') from.setDate(now.getDate() - 1);
-      else if (period === 'weekly') from.setDate(now.getDate() - 7);
-      else if (period === 'monthly') from.setMonth(now.getMonth() - 1);
-      reports = reports.filter((r: any) => new Date(r.timestamp) >= from);
+    // Pull from database (persistent)
+    const dbReports = await fetchFromDatabase();
+    const existingIds = new Set(reports.map((r: any) => r.id));
+    for (const r of dbReports) {
+      if (!existingIds.has(r.id)) {
+        reports.push(r);
+        existingIds.add(r.id);
+      }
     }
 
-    reports.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    // Step 2: Deduplicate by id
+    const deduped = new Map<string, any>();
+    for (const r of reports) {
+      if (r.id && !deduped.has(r.id)) deduped.set(r.id, r);
+    }
+    reports = Array.from(deduped.values());
 
-    const types = [...new Set(reports.map((r: any) => r.type))];
-    const companies = [...new Set(reports.filter((r: any) => r.company).map((r: any) => r.company))];
-    const today = new Date().toISOString().split('T')[0];
-    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
-    const byType: Record<string, number> = {};
-    reports.forEach((r: any) => { byType[r.type] = (byType[r.type] || 0) + 1; });
+    // Step 3: Filter by type
+    if (type) {
+      const types = type.split(',').map(t => t.trim());
+      reports = reports.filter((r: any) => types.includes(r.type));
+    }
+
+    // Step 4: Filter by company
+    if (company) {
+      const cs = company.split(',').map(c => c.toLowerCase().trim());
+      reports = reports.filter((r: any) => r.company && cs.some(c => r.company!.toLowerCase().includes(c)));
+    }
+
+    // Step 5: Filter by date range (period or explicit from/to)
+    let dateLabel = 'All time';
+    if (period) {
+      const range = getPeriodRange(period);
+      if (range) {
+        reports = reports.filter((r: any) => {
+          const d = new Date(r.timestamp || r.date);
+          return d >= range.from && d <= range.to;
+        });
+        dateLabel = period.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+      }
+    } else if (from || to) {
+      if (from) {
+        const fromDate = new Date(from);
+        fromDate.setHours(0, 0, 0, 0);
+        reports = reports.filter((r: any) => new Date(r.timestamp || r.date) >= fromDate);
+      }
+      if (to) {
+        const toDate = new Date(to);
+        toDate.setHours(23, 59, 59, 999);
+        reports = reports.filter((r: any) => new Date(r.timestamp || r.date) <= toDate);
+      }
+      if (from && to) dateLabel = `${from} to ${to}`;
+      else if (from) dateLabel = `From ${from}`;
+      else dateLabel = `Until ${to}`;
+    }
+
+    // Sort by timestamp descending
+    reports.sort((a: any, b: any) => {
+      const ta = new Date(a.timestamp || a.date || 0).getTime();
+      const tb = new Date(b.timestamp || b.date || 0).getTime();
+      return tb - ta;
+    });
+
+    // Step 6: Compute stats
+    let stats = null;
+    if (includeStats) {
+      const types = [...new Set(reports.map((r: any) => r.type))];
+      const companies = [...new Set(reports.filter((r: any) => r.company).map((r: any) => r.company))];
+      const today = new Date().toISOString().split('T')[0];
+      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+      const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+      const byType: Record<string, number> = {};
+      reports.forEach((r: any) => { byType[r.type] = (byType[r.type] || 0) + 1; });
+
+      // Compute date range of filtered reports
+      const dates = reports.filter((r: any) => r.date).map((r: any) => r.date).sort();
+      const dateRange = dates.length > 0 ? `${dates[0]} → ${dates[dates.length - 1]}` : 'No dates';
+
+      stats = {
+        total: reports.length,
+        today: reports.filter((r: any) => r.date === today).length,
+        thisWeek: reports.filter((r: any) => r.date >= weekAgo).length,
+        thisMonth: reports.filter((r: any) => r.date >= monthAgo).length,
+        byType,
+        dateRange,
+        dateLabel,
+      };
+    }
 
     return NextResponse.json({
-      success: true, total: reports.length,
+      success: true,
+      total: reports.length,
       filtered: reports.slice(0, limit),
-      filters: { types, companies },
-      stats: { total: reports.length, today: reports.filter((r: any) => r.date === today).length, thisWeek: reports.filter((r: any) => r.date >= weekAgo).length, byType },
+      filters: { types: stats ? Object.keys(stats.byType) : [], companies: [] },
+      stats,
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

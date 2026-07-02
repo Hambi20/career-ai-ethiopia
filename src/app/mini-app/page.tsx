@@ -527,7 +527,7 @@ function Skeleton({ className }: { className?: string }) {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-type TabId = 'home' | 'categories' | 'finance' | 'calendar' | 'ai' | 'search' | 'profile';
+type TabId = 'home' | 'categories' | 'reports' | 'finance' | 'calendar' | 'ai' | 'search' | 'profile';
 
 export default function MiniAppPage() {
   const [activeTab, setActiveTab] = useState<TabId>('home');
@@ -561,6 +561,13 @@ export default function MiniAppPage() {
     if (typeof window === 'undefined') return new Date().toISOString().split('T')[0];
     return new Date().toISOString().split('T')[0];
   });
+
+  // Reports filter state
+  const [reportPeriod, setReportPeriod] = useState<string>('all');
+  const [reportTypeFilter, setReportTypeFilter] = useState<string>('all');
+  const [reportSearch, setReportSearch] = useState('');
+  const [expandedReport, setExpandedReport] = useState<string | null>(null);
+  const [reportsLoading, setReportsLoading] = useState(false);
 
   // Form modal state
   const [formModal, setFormModal] = useState<{
@@ -1201,6 +1208,29 @@ export default function MiniAppPage() {
         return null;
     }
   };
+
+  // ─── Reports Filter Fetch ──────────────────────────────────────────────────
+
+  const fetchFilteredReports = useCallback(async () => {
+    setReportsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (reportPeriod && reportPeriod !== 'all') params.set('period', reportPeriod);
+      if (reportTypeFilter && reportTypeFilter !== 'all') params.set('type', reportTypeFilter);
+      params.set('limit', '100');
+      const res = await fetch(`/api/bot/reports?${params.toString()}`);
+      const data = await res.json();
+      if (data.success) setReportsData(data);
+    } catch { /* silent */ }
+    finally { setReportsLoading(false); }
+  }, [reportPeriod, reportTypeFilter]);
+
+  // Fetch filtered reports when period/type filter changes
+  useEffect(() => {
+    if (reportPeriod !== 'all' || reportTypeFilter !== 'all') {
+      fetchFilteredReports();
+    }
+  }, [reportPeriod, reportTypeFilter, fetchFilteredReports]);
 
   // ─── Render Helpers ──────────────────────────────────────────────────────
 
@@ -2847,11 +2877,266 @@ export default function MiniAppPage() {
     );
   };
 
+  // ─── Reports Tab ──────────────────────────────────────────────────────────
+
+  const renderReports = () => {
+    const reports = reportsData?.filtered || [];
+    const stats = reportsData?.stats;
+    const allTypes = reportsData?.filters?.types || [];
+    const typeLabels: Record<string, { emoji: string; label: string }> = {
+      romel: { emoji: '🏪', label: 'Sales' },
+      vd: { emoji: '🏛', label: 'VD' },
+      college: { emoji: '🏫', label: 'College' },
+      tech: { emoji: '💻', label: 'Tech' },
+      eval: { emoji: '📋', label: 'Eval' },
+      quarterly: { emoji: '📈', label: 'Quarterly' },
+      admission: { emoji: '🎓', label: 'Admission' },
+      exam: { emoji: '📝', label: 'Exam' },
+      employees: { emoji: '👥', label: 'Staff' },
+      students: { emoji: '🎓', label: 'Students' },
+      briefing: { emoji: '📋', label: 'Briefing' },
+      raw: { emoji: '📄', label: 'Raw' },
+      general: { emoji: '📄', label: 'General' },
+      target: { emoji: '🎯', label: 'Target' },
+      scrape: { emoji: '🔍', label: 'Scrape' },
+    };
+
+    const periods = [
+      { value: 'all', label: 'All Time' },
+      { value: 'today', label: 'Today' },
+      { value: 'yesterday', label: 'Yesterday' },
+      { value: 'thisweek', label: 'This Week' },
+      { value: 'lastweek', label: 'Last Week' },
+      { value: 'thismonth', label: 'This Month' },
+      { value: 'lastmonth', label: 'Last Month' },
+      { value: 'thisquarter', label: 'This Quarter' },
+      { value: 'lastquarter', label: 'Last Quarter' },
+    ];
+
+    // Filter by search
+    const filtered = reportSearch.trim()
+      ? reports.filter((r: ReportItem) =>
+          r.title.toLowerCase().includes(reportSearch.toLowerCase()) ||
+          r.content.toLowerCase().includes(reportSearch.toLowerCase()) ||
+          r.type.toLowerCase().includes(reportSearch.toLowerCase()) ||
+          (r.company || '').toLowerCase().includes(reportSearch.toLowerCase())
+        )
+      : reports;
+
+    return (
+      <div className="flex flex-col gap-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold" style={{ color: t.text }}>
+            📊 Reports
+          </h2>
+          <button
+            onClick={() => { haptic('light'); fetchFilteredReports(); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium active:scale-95 transition-transform"
+            style={{ backgroundColor: t.cardBg, color: t.textSecondary, border: `1px solid ${t.border}` }}
+          >
+            <RefreshCw className={`w-3 h-3 ${reportsLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
+
+        {/* Stats Cards */}
+        {stats && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl p-3" style={{ backgroundColor: t.cardBg, border: `1px solid ${t.border}` }}>
+              <div className="flex items-center gap-2 mb-1">
+                <FileText className="w-3.5 h-3.5" style={{ color: '#10b981' }} />
+                <span className="text-[10px] font-medium" style={{ color: t.textSecondary }}>Total Reports</span>
+              </div>
+              <p className="text-xl font-bold" style={{ color: t.text }}>{stats.total}</p>
+            </div>
+            <div className="rounded-xl p-3" style={{ backgroundColor: t.cardBg, border: `1px solid ${t.border}` }}>
+              <div className="flex items-center gap-2 mb-1">
+                <Clock className="w-3.5 h-3.5" style={{ color: '#f59e0b' }} />
+                <span className="text-[10px] font-medium" style={{ color: t.textSecondary }}>Date Range</span>
+              </div>
+              <p className="text-[11px] font-semibold leading-tight" style={{ color: t.text }}>
+                {stats.dateRange || 'N/A'}
+              </p>
+            </div>
+            <div className="rounded-xl p-3" style={{ backgroundColor: t.cardBg, border: `1px solid ${t.border}` }}>
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp className="w-3.5 h-3.5" style={{ color: '#3b82f6' }} />
+                <span className="text-[10px] font-medium" style={{ color: t.textSecondary }}>This Week</span>
+              </div>
+              <p className="text-xl font-bold" style={{ color: t.text }}>{stats.thisWeek}</p>
+            </div>
+            <div className="rounded-xl p-3" style={{ backgroundColor: t.cardBg, border: `1px solid ${t.border}` }}>
+              <div className="flex items-center gap-2 mb-1">
+                <BarChart3 className="w-3.5 h-3.5" style={{ color: '#8b5cf6' }} />
+                <span className="text-[10px] font-medium" style={{ color: t.textSecondary }}>This Month</span>
+              </div>
+              <p className="text-xl font-bold" style={{ color: t.text }}>{stats.thisMonth}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Type breakdown */}
+        {stats && stats.byType && Object.keys(stats.byType).length > 0 && (
+          <div className="rounded-xl p-3" style={{ backgroundColor: t.cardBg, border: `1px solid ${t.border}` }}>
+            <p className="text-xs font-semibold mb-2" style={{ color: t.text }}>By Type</p>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(stats.byType).map(([type, count]) => {
+                const info = typeLabels[type] || { emoji: '📄', label: type };
+                const isActive = reportTypeFilter === type;
+                return (
+                  <button
+                    key={type}
+                    onClick={() => {
+                      haptic('light');
+                      setReportTypeFilter(isActive ? 'all' : type);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all active:scale-95 ${
+                      isActive ? 'ring-2 ring-emerald-400' : ''
+                    }`}
+                    style={{
+                      backgroundColor: isActive ? 'rgba(16,185,129,0.15)' : t.bg,
+                      color: isActive ? '#10b981' : t.textSecondary,
+                      border: `1px solid ${isActive ? '#10b981' : t.border}`,
+                    }}
+                  >
+                    {info.emoji} {info.label}: {count}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Period Filter */}
+        <div className="rounded-xl p-3" style={{ backgroundColor: t.cardBg, border: `1px solid ${t.border}` }}>
+          <p className="text-xs font-semibold mb-2" style={{ color: t.text }}>Period</p>
+          <div className="flex flex-wrap gap-1.5">
+            {periods.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => {
+                  haptic('light');
+                  setReportPeriod(p.value);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all active:scale-95 ${
+                  reportPeriod === p.value ? 'bg-emerald-500 text-white' : ''
+                }`}
+                style={reportPeriod === p.value ? {} : { backgroundColor: t.bg, color: t.textSecondary, border: `1px solid ${t.border}` }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: t.textMuted }} />
+          <input
+            type="text"
+            placeholder="Search reports..."
+            value={reportSearch}
+            onChange={(e) => setReportSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2.5 rounded-xl text-xs outline-none"
+            style={{ backgroundColor: t.cardBg, color: t.text, border: `1px solid ${t.border}` }}
+          />
+        </div>
+
+        {/* Reports list */}
+        <div className="flex flex-col gap-2">
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-10">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: t.cardBg }}>
+                <FileText className="w-5 h-5" style={{ color: t.textMuted }} />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium" style={{ color: t.text }}>No reports found</p>
+                <p className="text-xs mt-1" style={{ color: t.textSecondary }}>
+                  {reportPeriod !== 'all' || reportTypeFilter !== 'all'
+                    ? 'Try changing filters'
+                    : 'Send reports via /romel or /report in Telegram'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            filtered.map((report: ReportItem) => {
+              const info = typeLabels[report.type] || { emoji: '📄', label: report.type };
+              const isExpanded = expandedReport === report.id;
+              return (
+                <div
+                  key={report.id}
+                  className="rounded-xl overflow-hidden transition-all"
+                  style={{ backgroundColor: t.cardBg, border: `1px solid ${t.border}` }}
+                >
+                  {/* Report header */}
+                  <button
+                    onClick={() => {
+                      haptic('light');
+                      setExpandedReport(isExpanded ? null : report.id);
+                    }}
+                    className="w-full text-left p-3 active:scale-[0.99] transition-transform"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                        <span className="text-base mt-0.5 shrink-0">{info.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-semibold truncate" style={{ color: t.text }}>
+                              {report.title?.length > 60 ? report.title.slice(0, 60) + '...' : report.title || 'Untitled'}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: t.bg, color: t.textSecondary }}>
+                              {info.label}
+                            </span>
+                            <span className="text-[10px]" style={{ color: t.textMuted }}>{report.date}</span>
+                            {report.company && (
+                              <span className="text-[10px]" style={{ color: t.textMuted }}>• {report.company}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} style={{ color: t.textMuted }} />
+                    </div>
+                  </button>
+
+                  {/* Expanded content */}
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-0.5 border-t" style={{ borderColor: t.border }}>
+                      <pre className="text-[11px] leading-relaxed whitespace-pre-wrap break-words mt-2 max-h-60 overflow-y-auto font-sans" style={{ color: t.textSecondary }}>
+                        {report.content || 'No content'}
+                      </pre>
+                      {report.summary && (
+                        <div className="mt-2 px-2.5 py-2 rounded-lg" style={{ backgroundColor: t.bg }}>
+                          <p className="text-[10px] font-medium mb-0.5" style={{ color: '#10b981' }}>AI Summary</p>
+                          <p className="text-[11px] leading-relaxed" style={{ color: t.textSecondary }}>{report.summary}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Load more indicator */}
+        {filtered.length > 0 && filtered.length < (reportsData?.total || 0) && (
+          <p className="text-center text-[10px] py-2" style={{ color: t.textMuted }}>
+            Showing {filtered.length} of {reportsData?.total || 0} reports
+          </p>
+        )}
+      </div>
+    );
+  };
+
   // ─── Tab Bar ─────────────────────────────────────────────────────────────
 
   const tabs: { id: TabId; label: string; icon: typeof Home }[] = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'categories', label: 'Categories', icon: LayoutGrid },
+    { id: 'reports', label: 'Reports', icon: ClipboardList },
     { id: 'finance', label: 'Finance', icon: Wallet },
     { id: 'calendar', label: 'Calendar', icon: CalendarDays },
     { id: 'ai', label: 'AI', icon: Sparkles },
@@ -2902,6 +3187,8 @@ export default function MiniAppPage() {
             renderHome()
           ) : activeTab === 'categories' ? (
             renderCategories()
+          ) : activeTab === 'reports' ? (
+            renderReports()
           ) : activeTab === 'finance' ? (
             renderFinance()
           ) : activeTab === 'calendar' ? (

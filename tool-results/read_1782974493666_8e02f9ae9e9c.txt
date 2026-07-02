@@ -1,0 +1,502 @@
+  1501→  1501→                </span>
+  1502→  1502→              </button>
+  1503→  1503→            ))}
+  1504→  1504→          </div>
+  1505→  1505→        </div>
+  1506→  1506→
+  1507→  1507→        {/* Recent Activity */}
+  1508→  1508→        <div>
+  1509→  1509→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Recent Activity</h2>
+  1510→  1510→          {botData?.recentActivities && botData.recentActivities.length > 0 ? (
+  1511→  1511→            <div className="flex flex-col gap-2">
+  1512→  1512→              {botData.recentActivities.slice(0, 5).map((act: ActivityItem) => (
+  1513→  1513→                <div
+  1514→  1514→                  key={act.id}
+  1515→  1515→                  className="flex items-start gap-3 p-3 rounded-xl transition-colors"
+  1516→  1516→                  style={{ backgroundColor: t.bgCard }}
+  1517→  1517→                >
+  1518→  1518→                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+  1519→  1519→                    <Activity className="w-4 h-4 text-emerald-400" />
+  1520→  1520→                  </div>
+  1521→  1521→                  <div className="flex-1 min-w-0">
+  1522→  1522→                    <p className="text-sm font-medium leading-snug" style={{ color: t.text }}>
+  1523→  1523→                      {truncate(act.action, 70)}
+  1524→  1524→                    </p>
+  1525→  1525→                    <p className="text-[10px] mt-0.5" style={{ color: t.textMuted }}>
+  1526→  1526→                      {timeAgo(act.timestamp)}
+  1527→  1527→                    </p>
+  1528→  1528→                  </div>
+  1529→  1529→                </div>
+  1530→  1530→              ))}
+  1531→  1531→            </div>
+  1532→  1532→          ) : (
+  1533→  1533→            <div className="p-4 rounded-xl text-center" style={{ backgroundColor: t.bgCard }}>
+  1534→  1534→              <p className="text-xs" style={{ color: t.textSecondary }}>No recent activity</p>
+  1535→  1535→            </div>
+  1536→  1536→          )}
+  1537→  1537→        </div>
+  1538→  1538→      </div>
+  1539→  1539→    );
+  1540→  1540→  };
+  1541→  1541→
+  1542→  1542→  // ─── Categories Tab ──────────────────────────────────────────────────────
+  1543→  1543→
+  1544→  1544→  const renderCategories = () => (
+  1545→  1545→    <div className="flex flex-col gap-4 pb-4">
+  1546→  1546→      <div>
+  1547→  1547→        <h1 className="text-lg font-bold" style={{ color: t.text }}>All Categories</h1>
+  1548→  1548→        <p className="text-xs mt-0.5" style={{ color: t.textSecondary }}>
+  1549→  1549→          17 categories · 60+ commands
+  1550→  1550→        </p>
+  1551→  1551→      </div>
+  1552→  1552→      <div className="grid grid-cols-2 gap-2.5">
+  1553→  1553→        {CATEGORIES.map((cat) => {
+  1554→  1554→          const itemCount = getItemCount(cat);
+  1555→  1555→          return (
+  1556→  1556→            <button
+  1557→  1557→              key={cat.id}
+  1558→  1558→              onClick={() => goToCategory(cat)}
+  1559→  1559→              className={`p-4 rounded-xl text-left transition-all active:scale-[0.97] border ${cat.bgColor} ${cat.borderColor}`}
+  1560→  1560→            >
+  1561→  1561→              <div className="flex items-start justify-between">
+  1562→  1562→                <span className="text-2xl">{cat.emoji}</span>
+  1563→  1563→                {itemCount > 0 && (
+  1564→  1564→                  <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: t.bg, color: t.textSecondary }}>
+  1565→  1565→                    {itemCount}
+  1566→  1566→                  </span>
+  1567→  1567→                )}
+  1568→  1568→              </div>
+  1569→  1569→              <p className={`text-sm font-semibold mt-2 ${cat.textColor}`}>{cat.name}</p>
+  1570→  1570→              <p className="text-[10px] mt-0.5" style={{ color: t.textSecondary }}>
+  1571→  1571→                {cat.commands.length} commands
+  1572→  1572→              </p>
+  1573→  1573→            </button>
+  1574→  1574→          );
+  1575→  1575→        })}
+  1576→  1576→      </div>
+  1577→  1577→    </div>
+  1578→  1578→  );
+  1579→  1579→
+  1580→  1580→  // Count items for a category
+  1581→  1581→  function getItemCount(cat: CategoryDef): number {
+  1582→  1582→    if (!botData) return 0;
+  1583→  1583→    switch (cat.id) {
+  1584→  1584→      case 'romel': return botData.summary.totalRomelReports;
+  1585→  1585→      case 'college': return botData.summary.totalVdReports;
+  1586→  1586→      case 'data': return botData.summary.totalNotes;
+  1587→  1587→      case 'learning': return botData.summary.totalTasks;
+  1588→  1588→      case 'crm': return botData.summary.totalContacts;
+  1589→  1589→      case 'ai': return botData.summary.totalKnowledge;
+  1590→  1590→      case 'reports': return reportsData?.total || 0;
+  1591→  1591→      default: return 0;
+  1592→  1592→    }
+  1593→  1593→  }
+  1594→  1594→
+  1595→  1595→  // ─── Search Tab ──────────────────────────────────────────────────────────
+  1596→  1596→
+  1597→  1597→  const renderSearch = () => {
+  1598→  1598→    const resultGroups = [
+  1599→  1599→      { key: 'reports', label: 'Reports', icon: FileText, color: 'text-teal-400', items: searchResults.reports },
+  1600→  1600→      { key: 'notes', label: 'Notes', icon: StickyNote, color: 'text-slate-400', items: searchResults.notes },
+  1601→  1601→      { key: 'tasks', label: 'Tasks', icon: CheckSquare, color: 'text-amber-400', items: searchResults.tasks },
+  1602→  1602→      { key: 'contacts', label: 'Contacts', icon: Users, color: 'text-rose-400', items: searchResults.contacts },
+  1603→  1603→      { key: 'knowledge', label: 'Knowledge', icon: Brain, color: 'text-violet-400', items: searchResults.knowledge },
+  1604→  1604→    ].filter(g => g.items.length > 0);
+  1605→  1605→
+  1606→  1606→    return (
+  1607→  1607→      <div className="flex flex-col gap-4 pb-4">
+  1608→  1608→        {/* Search Input */}
+  1609→  1609→        <div className="relative">
+  1610→  1610→          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: t.textMuted }} />
+  1611→  1611→          <input
+  1612→  1612→            type="text"
+  1613→  1613→            value={searchQuery}
+  1614→  1614→            onChange={(e) => { haptic('light'); setSearchQuery(e.target.value); setExpandedSearchItem(null); }}
+  1615→  1615→            placeholder="Search reports, notes, tasks..."
+  1616→  1616→            className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-colors"
+  1617→  1617→            style={{
+  1618→  1618→              backgroundColor: t.bgCard,
+  1619→  1619→              color: t.text,
+  1620→  1620→              border: `1px solid ${t.border}`,
+  1621→  1621→            }}
+  1622→  1622→          />
+  1623→  1623→          {searchQuery && (
+  1624→  1624→            <button
+  1625→  1625→              onClick={() => { haptic('light'); setSearchQuery(''); setExpandedSearchItem(null); }}
+  1626→  1626→              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs px-2 py-0.5 rounded-md"
+  1627→  1627→              style={{ backgroundColor: t.bg, color: t.textSecondary }}
+  1628→  1628→            >
+  1629→  1629→              Clear
+  1630→  1630→            </button>
+  1631→  1631→          )}
+  1632→  1632→        </div>
+  1633→  1633→
+  1634→  1634→        {searchQuery.trim() && (
+  1635→  1635→          <p className="text-[11px]" style={{ color: t.textMuted }}>
+  1636→  1636→            {totalSearchResults} result{totalSearchResults !== 1 ? 's' : ''} found
+  1637→  1637→          </p>
+  1638→  1638→        )}
+  1639→  1639→
+  1640→  1640→        {/* Results */}
+  1641→  1641→        {searchQuery.trim() ? (
+  1642→  1642→          resultGroups.length > 0 ? (
+  1643→  1643→            <div className="flex flex-col gap-4">
+  1644→  1644→              {resultGroups.map((group) => (
+  1645→  1645→                <div key={group.key}>
+  1646→  1646→                  <div className="flex items-center gap-2 mb-2">
+  1647→  1647→                    <group.icon className={`w-3.5 h-3.5 ${group.color}`} />
+  1648→  1648→                    <h3 className="text-xs font-semibold" style={{ color: t.textSecondary }}>
+  1649→  1649→                      {group.label}
+  1650→  1650→                    </h3>
+  1651→  1651→                    <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: t.bgCard, color: t.textMuted }}>
+  1652→  1652→                      {group.items.length}
+  1653→  1653→                    </span>
+  1654→  1654→                  </div>
+  1655→  1655→                  <div className="flex flex-col gap-1.5">
+  1656→  1656→                    {group.items.map((item) => {
+  1657→  1657→                      const isExpanded = expandedSearchItem === item.id;
+  1658→  1658→                      return (
+  1659→  1659→                        <button
+  1660→  1660→                          key={item.id}
+  1661→  1661→                          onClick={() => { haptic('light'); setExpandedSearchItem(isExpanded ? null : item.id); }}
+  1662→  1662→                          className="p-3 rounded-xl text-left transition-colors w-full"
+  1663→  1663→                          style={{ backgroundColor: t.bgCard }}
+  1664→  1664→                        >
+  1665→  1665→                          <div className="flex items-start justify-between gap-2">
+  1666→  1666→                            <p className="text-sm font-medium leading-snug" style={{ color: t.text }}>
+  1667→  1667→                              {truncate(item.title, 50)}
+  1668→  1668→                            </p>
+  1669→  1669→                            <div className="flex items-center gap-1.5 shrink-0">
+  1670→  1670→                              <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>
+  1671→  1671→                                {item.sub}
+  1672→  1672→                              </span>
+  1673→  1673→                              {isExpanded ? (
+  1674→  1674→                                <ChevronUp className="w-3.5 h-3.5" style={{ color: t.textMuted }} />
+  1675→  1675→                              ) : (
+  1676→  1676→                                <ChevronDown className="w-3.5 h-3.5" style={{ color: t.textMuted }} />
+  1677→  1677→                              )}
+  1678→  1678→                            </div>
+  1679→  1679→                          </div>
+  1680→  1680→                          {item.date && (
+  1681→  1681→                            <p className="text-[10px] mt-1" style={{ color: t.textMuted }}>{item.date}</p>
+  1682→  1682→                          )}
+  1683→  1683→                          {isExpanded && item.detail && (
+  1684→  1684→                            <p className="text-xs mt-2 leading-relaxed whitespace-pre-wrap" style={{ color: t.textSecondary }}>
+  1685→  1685→                              {truncate(item.detail, 500)}
+  1686→  1686→                            </p>
+  1687→  1687→                          )}
+  1688→  1688→                        </button>
+  1689→  1689→                      );
+  1690→  1690→                    })}
+  1691→  1691→                  </div>
+  1692→  1692→                </div>
+  1693→  1693→              ))}
+  1694→  1694→            </div>
+  1695→  1695→          ) : (
+  1696→  1696→            <div className="flex flex-col items-center gap-3 py-10">
+  1697→  1697→              <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: t.bgCard }}>
+  1698→  1698→                <Search className="w-6 h-6" style={{ color: t.textMuted }} />
+  1699→  1699→              </div>
+  1700→  1700→              <p className="text-sm font-medium" style={{ color: t.text }}>No results found</p>
+  1701→  1701→              <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+  1702→  1702→                Try different keywords or use commands in Telegram to add data
+  1703→  1703→              </p>
+  1704→  1704→            </div>
+  1705→  1705→          )
+  1706→  1706→        ) : (
+  1707→  1707→          <div className="flex flex-col items-center gap-3 py-10">
+  1708→  1708→            <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: t.bgCard }}>
+  1709→  1709→              <Search className="w-6 h-6" style={{ color: t.textMuted }} />
+  1710→  1710→            </div>
+  1711→  1711→            <p className="text-sm font-medium" style={{ color: t.text }}>Search everything</p>
+  1712→  1712→            <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+  1713→  1713→              Find reports, notes, tasks, contacts, and knowledge
+  1714→  1714→            </p>
+  1715→  1715→          </div>
+  1716→  1716→        )}
+  1717→  1717→      </div>
+  1718→  1718→    );
+  1719→  1719→  };
+  1720→  1720→
+  1721→  1721→  // ─── Profile Tab ─────────────────────────────────────────────────────────
+  1722→  1722→
+  1723→  1723→  const renderProfile = () => {
+  1724→  1724→    const s = botData?.summary;
+  1725→  1725→    return (
+  1726→  1726→      <div className="flex flex-col gap-5 pb-4">
+  1727→  1727→        {/* User Card */}
+  1728→  1728→        <div className="p-5 rounded-2xl flex items-center gap-4" style={{ backgroundColor: t.bgCard }}>
+  1729→  1729→          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xl font-bold shrink-0">
+  1730→  1730→            {firstName.charAt(0).toUpperCase()}
+  1731→  1731→          </div>
+  1732→  1732→          <div className="flex-1 min-w-0">
+  1733→  1733→            <p className="text-base font-bold" style={{ color: t.text }}>{firstName}</p>
+  1734→  1734→            {username && (
+  1735→  1735→              <p className="text-xs" style={{ color: t.textSecondary }}>@{username}</p>
+  1736→  1736→            )}
+  1737→  1737→            <div className="flex items-center gap-1.5 mt-1">
+  1738→  1738→              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+  1739→  1739→              <p className="text-[10px]" style={{ color: t.textMuted }}>Online</p>
+  1740→  1740→            </div>
+  1741→  1741→          </div>
+  1742→  1742→        </div>
+  1743→  1743→
+  1744→  1744→        {/* Bot Info */}
+  1745→  1745→        <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1746→  1746→          <div className="flex items-center gap-3">
+  1747→  1747→            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+  1748→  1748→              <Bot className="w-5 h-5 text-emerald-400" />
+  1749→  1749→            </div>
+  1750→  1750→            <div className="flex-1">
+  1751→  1751→              <p className="text-sm font-semibold" style={{ color: t.text }}>@hambi_career_ai_bot</p>
+  1752→  1752→              <p className="text-[11px]" style={{ color: t.textSecondary }}>Career AI Ethiopia</p>
+  1753→  1753→            </div>
+  1754→  1754→          </div>
+  1755→  1755→        </div>
+  1756→  1756→
+  1757→  1757→        {/* Quick Stats */}
+  1758→  1758→        <div>
+  1759→  1759→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Statistics</h2>
+  1760→  1760→          <div className="flex flex-col gap-1.5">
+  1761→  1761→            {[
+  1762→  1762→              { label: 'Total Reports', value: (s?.totalRomelReports || 0) + (s?.totalVdReports || 0), icon: BarChart3 },
+  1763→  1763→              { label: 'Tasks Completed', value: s?.tasksDone || 0, icon: CheckCircle2 },
+  1764→  1764→              { label: 'Completion Rate', value: `${s?.taskCompletionRate || 0}%`, icon: TrendingUp },
+  1765→  1765→              { label: 'Total Notes', value: s?.totalNotes || 0, icon: StickyNote },
+  1766→  1766→              { label: 'Contacts', value: s?.totalContacts || 0, icon: Users },
+  1767→  1767→              { label: 'Knowledge Base', value: s?.totalKnowledge || 0, icon: Brain },
+  1768→  1768→              { label: 'Data Syncs', value: s?.totalSyncs || 0, icon: RefreshCw },
+  1769→  1769→            ].map((stat) => (
+  1770→  1770→              <div
+  1771→  1771→                key={stat.label}
+  1772→  1772→                className="flex items-center justify-between p-3 rounded-xl transition-colors"
+  1773→  1773→                style={{ backgroundColor: t.bgCard }}
+  1774→  1774→              >
+  1775→  1775→                <div className="flex items-center gap-3">
+  1776→  1776→                  <stat.icon className="w-4 h-4" style={{ color: t.textSecondary }} />
+  1777→  1777→                  <span className="text-sm" style={{ color: t.text }}>{stat.label}</span>
+  1778→  1778→                </div>
+  1779→  1779→                <span className="text-sm font-semibold" style={{ color: t.text }}>{stat.value}</span>
+  1780→  1780→              </div>
+  1781→  1781→            ))}
+  1782→  1782→          </div>
+  1783→  1783→        </div>
+  1784→  1784→
+  1785→  1785→        {/* About */}
+  1786→  1786→        <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1787→  1787→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: t.textMuted }}>About</h2>
+  1788→  1788→          <p className="text-xs leading-relaxed" style={{ color: t.textSecondary }}>
+  1789→  1789→            Career AI Ethiopia is your executive assistant bot for managing sales, college operations, 
+  1790→  1790→            job applications, tasks, notes, contacts, and more. Use commands in Telegram to interact 
+  1791→  1791→            with your data, or browse through this dashboard.
+  1792→  1792→          </p>
+  1793→  1793→          <div className="flex flex-wrap gap-1.5 mt-3">
+  1794→  1794→            {['Sales', 'College', 'Jobs', 'Tasks', 'Notes', 'CRM', 'AI'].map((tag) => (
+  1795→  1795→              <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>
+  1796→  1796→                {tag}
+  1797→  1797→              </span>
+  1798→  1798→            ))}
+  1799→  1799→          </div>
+  1800→  1800→        </div>
+  1801→  1801→
+  1802→  1802→        {/* Version & Features */}
+  1803→  1803→        <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1804→  1804→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Available Features</h2>
+  1805→  1805→          <div className="flex flex-col gap-1.5">
+  1806→  1806→            {[
+  1807→  1807→              { label: 'Receipt Scanner', desc: 'AI reads receipts → auto expense', icon: Camera, color: 'text-orange-400' },
+  1808→  1808→              { label: 'Document AI', desc: 'Upload docs → AI summary', icon: FileSearch, color: 'text-violet-400' },
+  1809→  1809→              { label: 'Predictive Analytics', desc: 'AI forecasts cash flow', icon: LineChart, color: 'text-emerald-400' },
+  1810→  1810→              { label: 'Email AI', desc: 'AI-assisted emails', icon: MailOpen, color: 'text-pink-400' },
+  1811→  1811→              { label: 'Export Reports', desc: 'CSV & PDF downloads', icon: DownloadCloud, color: 'text-cyan-400' },
+  1812→  1812→              { label: 'Role Management', desc: 'Multi-user permissions', icon: Shield, color: 'text-amber-400' },
+  1813→  1813→              { label: 'API Access', desc: 'REST API for integrations', icon: KeyRound, color: 'text-teal-400' },
+  1814→  1814→            ].map((feat) => (
+  1815→  1815→              <div key={feat.label} className="flex items-center gap-3 p-2.5 rounded-lg" style={{ backgroundColor: t.bg }}>
+  1816→  1816→                <feat.icon className={`w-4 h-4 ${feat.color} shrink-0`} />
+  1817→  1817→                <div className="flex-1 min-w-0">
+  1818→  1818→                  <p className="text-xs font-medium" style={{ color: t.text }}>{feat.label}</p>
+  1819→  1819→                  <p className="text-[10px]" style={{ color: t.textMuted }}>{feat.desc}</p>
+  1820→  1820→                </div>
+  1821→  1821→                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+  1822→  1822→              </div>
+  1823→  1823→            ))}
+  1824→  1824→          </div>
+  1825→  1825→        </div>
+  1826→  1826→
+  1827→  1827→        {/* Role Management */}
+  1828→  1828→        <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1829→  1829→          <div className="flex items-center gap-3 mb-3">
+  1830→  1830→            <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center">
+  1831→  1831→              <Shield className="w-5 h-5 text-amber-400" />
+  1832→  1832→            </div>
+  1833→  1833→            <div>
+  1834→  1834→              <p className="text-sm font-semibold" style={{ color: t.text }}>Role & Permissions</p>
+  1835→  1835→              <p className="text-[10px]" style={{ color: t.textSecondary }}>Manage access levels</p>
+  1836→  1836→            </div>
+  1837→  1837→          </div>
+  1838→  1838→          <div className="flex flex-col gap-1.5">
+  1839→  1839→            {[
+  1840→  1840→              { role: 'Admin', desc: 'Full access to all features', active: true },
+  1841→  1841→              { role: 'Manager', desc: 'Business & finance access', active: false },
+  1842→  1842→              { role: 'Viewer', desc: 'Read-only access', active: false },
+  1843→  1843→            ].map((r) => (
+  1844→  1844→              <div key={r.role} className="flex items-center justify-between p-2.5 rounded-lg" style={{ backgroundColor: t.bg }}>
+  1845→  1845→                <div>
+  1846→  1846→                  <p className="text-xs font-medium" style={{ color: t.text }}>{r.role}</p>
+  1847→  1847→                  <p className="text-[10px]" style={{ color: t.textMuted }}>{r.desc}</p>
+  1848→  1848→                </div>
+  1849→  1849→                <div className={`w-2 h-2 rounded-full ${r.active ? 'bg-emerald-400' : 'bg-gray-500/30'}`} />
+  1850→  1850→              </div>
+  1851→  1851→            ))}
+  1852→  1852→          </div>
+  1853→  1853→        </div>
+  1854→  1854→
+  1855→  1855→        {/* Version */}
+  1856→  1856→        <div className="text-center py-2">
+  1857→  1857→          <p className="text-[10px]" style={{ color: t.textMuted }}>Mini App v3 · Career AI Ethiopia · 7 AI Features</p>
+  1858→  1858→        </div>
+  1859→  1859→      </div>
+  1860→  1860→    );
+  1861→  1861→  };
+  1862→  1862→
+  1863→  1863→  // ─── Finance Tab ─────────────────────────────────────────────────────────
+  1864→  1864→
+  1865→  1865→  const renderFinance = () => {
+  1866→  1866→    const txns = (financeData?.transactions || []) as Array<{
+  1867→  1867→      id: string; type: string; amount: number; category?: string;
+  1868→  1868→      description?: string; date?: string; currency?: string;
+  1869→  1869→    }>;
+  1870→  1870→    const summary = financeData?.summary || {};
+  1871→  1871→
+  1872→  1872→    const totalIncome = summary.totalIncome ?? txns.filter((t) => t.type === 'income').reduce((s, t) => s + (t.amount || 0), 0);
+  1873→  1873→    const totalExpenses = summary.totalExpenses ?? txns.filter((t) => t.type === 'expense').reduce((s, t) => s + (t.amount || 0), 0);
+  1874→  1874→    const netProfit = totalIncome - totalExpenses;
+  1875→  1875→
+  1876→  1876→    const summaryCards = [
+  1877→  1877→      { label: 'Total Income', value: `${totalIncome.toLocaleString()} ETB`, color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
+  1878→  1878→      { label: 'Total Expenses', value: `${totalExpenses.toLocaleString()} ETB`, color: 'text-red-400', bg: 'bg-red-500/15' },
+  1879→  1879→      { label: 'Net Profit', value: `${netProfit.toLocaleString()} ETB`, color: netProfit >= 0 ? 'text-emerald-400' : 'text-red-400', bg: netProfit >= 0 ? 'bg-emerald-500/15' : 'bg-red-500/15' },
+  1880→  1880→      { label: 'Transactions', value: String(txns.length), color: 'text-cyan-400', bg: 'bg-cyan-500/15' },
+  1881→  1881→    ];
+  1882→  1882→
+  1883→  1883→    return (
+  1884→  1884→      <div className="flex flex-col gap-5 pb-4">
+  1885→  1885→        <div>
+  1886→  1886→          <h1 className="text-lg font-bold" style={{ color: t.text }}>Finance</h1>
+  1887→  1887→          <p className="text-xs mt-0.5" style={{ color: t.textSecondary }}>
+  1888→  1888→            Track your income & expenses
+  1889→  1889→          </p>
+  1890→  1890→        </div>
+  1891→  1891→
+  1892→  1892→        {/* Summary Cards */}
+  1893→  1893→        <div className="grid grid-cols-2 gap-2.5">
+  1894→  1894→          {summaryCards.map((card) => (
+  1895→  1895→            <div key={card.label} className={`p-3.5 rounded-xl ${card.bg}`}>
+  1896→  1896→              <p className="text-[11px]" style={{ color: t.textSecondary }}>{card.label}</p>
+  1897→  1897→              <p className={`text-lg font-bold mt-1 ${card.color}`}>{card.value}</p>
+  1898→  1898→            </div>
+  1899→  1899→          ))}
+  1900→  1900→        </div>
+  1901→  1901→
+  1902→  1902→        {/* Transaction List */}
+  1903→  1903→        <div>
+  1904→  1904→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>
+  1905→  1905→            Recent Transactions
+  1906→  1906→          </h2>
+  1907→  1907→          {txns.length > 0 ? (
+  1908→  1908→            <div className="flex flex-col gap-2 max-h-96 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+  1909→  1909→              {txns.map((txn) => {
+  1910→  1910→                const isIncome = txn.type === 'income';
+  1911→  1911→                return (
+  1912→  1912→                  <div
+  1913→  1913→                    key={txn.id}
+  1914→  1914→                    className="flex items-center gap-3 p-3 rounded-xl"
+  1915→  1915→                    style={{ backgroundColor: t.bgCard }}
+  1916→  1916→                  >
+  1917→  1917→                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-emerald-500/15' : 'bg-red-500/15'}`}>
+  1918→  1918→                      {isIncome
+  1919→  1919→                        ? <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+  1920→  1920→                        : <ArrowDownRight className="w-4 h-4 text-red-400" />
+  1921→  1921→                      }
+  1922→  1922→                    </div>
+  1923→  1923→                    <div className="flex-1 min-w-0">
+  1924→  1924→                      <div className="flex items-center gap-2">
+  1925→  1925→                        <p className="text-sm font-medium" style={{ color: t.text }}>
+  1926→  1926→                          {txn.description || (isIncome ? 'Income' : 'Expense')}
+  1927→  1927→                        </p>
+  1928→  1928→                        {txn.category && (
+  1929→  1929→                          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium bg-slate-500/15 text-slate-400">
+  1930→  1930→                            {txn.category}
+  1931→  1931→                          </span>
+  1932→  1932→                        )}
+  1933→  1933→                      </div>
+  1934→  1934→                      {txn.date && (
+  1935→  1935→                        <p className="text-[10px] mt-0.5" style={{ color: t.textMuted }}>{txn.date}</p>
+  1936→  1936→                      )}
+  1937→  1937→                    </div>
+  1938→  1938→                    <p className={`text-sm font-bold shrink-0 ${isIncome ? 'text-emerald-400' : 'text-red-400'}`}>
+  1939→  1939→                      {isIncome ? '+' : '-'}{txn.amount?.toLocaleString()} {txn.currency || 'ETB'}
+  1940→  1940→                    </p>
+  1941→  1941→                  </div>
+  1942→  1942→                );
+  1943→  1943→              })}
+  1944→  1944→            </div>
+  1945→  1945→          ) : (
+  1946→  1946→            <div className="flex flex-col items-center gap-3 py-10 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1947→  1947→              <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 flex items-center justify-center">
+  1948→  1948→                <Wallet className="w-6 h-6 text-emerald-400" />
+  1949→  1949→              </div>
+  1950→  1950→              <p className="text-sm font-medium" style={{ color: t.text }}>No transactions yet</p>
+  1951→  1951→              <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+  1952→  1952→                Tap the buttons below to add transactions directly
+  1953→  1953→              </p>
+  1954→  1954→              <button
+  1955→  1955→                onClick={() => openForm('income')}
+  1956→  1956→                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-medium active:scale-95 transition-transform"
+  1957→  1957→              >
+  1958→  1958→                <Plus className="w-3.5 h-3.5" />
+  1959→  1959→                <span>Add Income</span>
+  1960→  1960→              </button>
+  1961→  1961→            </div>
+  1962→  1962→          )}
+  1963→  1963→        </div>
+  1964→  1964→
+  1965→  1965→        {/* Action Buttons */}
+  1966→  1966→        <div className="grid grid-cols-3 gap-2.5">
+  1967→  1967→          <button
+  1968→  1968→            onClick={() => openForm('income')}
+  1969→  1969→            className="flex items-center justify-center gap-1.5 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 active:scale-95 transition-transform"
+  1970→  1970→          >
+  1971→  1971→            <Plus className="w-4 h-4" />
+  1972→  1972→            <span className="text-xs font-medium">Income</span>
+  1973→  1973→          </button>
+  1974→  1974→          <button
+  1975→  1975→            onClick={() => openForm('expense')}
+  1976→  1976→            className="flex items-center justify-center gap-1.5 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 active:scale-95 transition-transform"
+  1977→  1977→          >
+  1978→  1978→            <Plus className="w-4 h-4" />
+  1979→  1979→            <span className="text-xs font-medium">Expense</span>
+  1980→  1980→          </button>
+  1981→  1981→          <button
+  1982→  1982→            onClick={() => handleExport('finance', 'csv')}
+  1983→  1983→            disabled={!!exporting}
+  1984→  1984→            className="flex items-center justify-center gap-1.5 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 active:scale-95 transition-transform disabled:opacity-50"
+  1985→  1985→          >
+  1986→  1986→            <DownloadCloud className="w-4 h-4" />
+  1987→  1987→            <span className="text-xs font-medium">{exporting === 'finance-csv' ? '...' : 'Export'}</span>
+  1988→  1988→          </button>
+  1989→  1989→        </div>
+  1990→  1990→      </div>
+  1991→  1991→    );
+  1992→  1992→  };
+  1993→  1993→
+  1994→  1994→  // ─── Calendar Tab ────────────────────────────────────────────────────────
+  1995→  1995→
+  1996→  1996→  const renderCalendar = () => {
+  1997→  1997→    const events = (calendarData?.events || []) as Array<{
+  1998→  1998→      id: string; title: string; date?: string; time?: string;
+  1999→  1999→      type?: string; priority?: string; description?: string;
+  2000→  2000→    }>;
+
+[showing lines 1501-2000 of 2002; use offset=2001 with limit to continue reading]

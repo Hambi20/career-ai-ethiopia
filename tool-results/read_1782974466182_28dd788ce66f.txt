@@ -1,0 +1,2002 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useRef, useCallback } from 'react';
+     4→import {
+     5→  Home, LayoutGrid, Search, User, RefreshCw, Loader2,
+     6→  ChevronLeft, Clock, CalendarDays, FileText, CheckSquare,
+     7→  Building2, GraduationCap, Monitor, Briefcase, Mail,
+     8→  Target, BookOpen, BarChart3, Database, Bot, Users,
+     9→  Settings, Bell, Zap, Lightbulb, TrendingUp, ClipboardList,
+    10→  Upload, Download, Send, Globe, Brain, UserPlus, BarChart2,
+    11→  MessageSquare, FileUp, PenTool, Compass, AlertCircle, Star,
+    12→  ChevronDown, ChevronUp, ArrowLeft, CircleDot, Hash,
+    13→  StickyNote, Bookmark, FolderOpen, Link2, Cpu, Heart,
+    14→  Shield, Info, Activity, PieChart, ListChecks, Award,
+    15→  Wallet, ArrowUpRight, ArrowDownRight, ChevronRight, Plus, CheckCircle2,
+    16→  X, Check, Camera, ScanLine, Sparkles, Eye, FileSearch, DownloadCloud,
+    17→  KeyRound, MailOpen, ArrowDownToLine, LineChart, Predicted
+    18→} from 'lucide-react';
+    19→
+    20→// ─── Telegram WebApp Types ───────────────────────────────────────────────────
+    21→
+    22→interface TelegramWebApp {
+    23→  ready: () => void;
+    24→  expand: () => void;
+    25→  close: () => void;
+    26→  switchToChat?: () => void;
+    27→  onEvent?: (event: string, callback: () => void) => void;
+    28→  MainButton: {
+    29→    text: string;
+    30→    show: () => void;
+    31→    hide: () => void;
+    32→    onClick: (fn: () => void) => void;
+    33→    color: string;
+    34→    textColor: string;
+    35→  };
+    36→  BackButton: {
+    37→    show: () => void;
+    38→    hide: () => void;
+    39→    onClick: (fn: () => void) => void;
+    40→  };
+    41→  colorScheme: 'light' | 'dark';
+    42→  themeParams: Record<string, string>;
+    43→  initDataUnsafe: {
+    44→    user?: {
+    45→      id: number;
+    46→      first_name: string;
+    47→      last_name?: string;
+    48→      username?: string;
+    49→      language_code?: string;
+    50→      photo_url?: string;
+    51→    };
+    52→    chat?: { id: number; type: string; title?: string };
+    53→    start_param?: string;
+    54→  };
+    55→  HapticFeedback: {
+    56→    impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
+    57→    notificationOccurred: (type: 'error' | 'success' | 'warning') => void;
+    58→    selectionChanged: () => void;
+    59→  };
+    60→  showPopup: (params: { title?: string; message: string; buttons?: Array<{ type: string; text: string }> }) => void;
+    61→  isExpanded: boolean;
+    62→  viewportHeight: number;
+    63→  viewportStableHeight: number;
+    64→  safeAreaInset: { top: number; bottom: number; left: number; right: number };
+    65→  headerColor: string;
+    66→  backgroundColor: string;
+    67→}
+    68→
+    69→declare global {
+    70→  interface Window {
+    71→    Telegram?: { WebApp: TelegramWebApp };
+    72→  }
+    73→}
+    74→
+    75→// ─── Data Types ──────────────────────────────────────────────────────────────
+    76→
+    77→interface BotData {
+    78→  success: boolean;
+    79→  hasData: boolean;
+    80→  summary: {
+    81→    totalRomelReports: number;
+    82→    totalVdReports: number;
+    83→    totalTasks: number;
+    84→    tasksDone: number;
+    85→    tasksTodo: number;
+    86→    tasksInProgress: number;
+    87→    taskCompletionRate: number;
+    88→    totalNotes: number;
+    89→    totalContacts: number;
+    90→    totalKnowledge: number;
+    91→    dailyAchievementRate: number;
+    92→    lastSync: string | null;
+    93→    totalSyncs: number;
+    94→  };
+    95→  sales: {
+    96→    summary: Record<string, unknown>;
+    97→    totalDailyTarget: number;
+    98→    totalDailyActual: number;
+    99→    latestReport: Record<string, unknown> | null;
+   100→    reports: Record<string, unknown>[];
+   101→  };
+   102→  tasks: { list: TaskItem[]; byPriority: Record<string, number>; byStatus: Record<string, number> };
+   103→  notes: NoteItem[];
+   104→  contacts: { list: ContactItem[]; breakdown: Record<string, number> };
+   105→  knowledgeBase: KnowledgeItem[];
+   106→  vdReports: Record<string, unknown>[];
+   107→  recentActivities: ActivityItem[];
+   108→  rawSyncData: Record<string, unknown>;
+   109→  syncCount: number;
+   110→  updatedAt: string | null;
+   111→}
+   112→
+   113→interface TaskItem {
+   114→  id: string;
+   115→  title: string;
+   116→  description?: string;
+   117→  priority: string;
+   118→  status: string;
+   119→  dueDate?: string;
+   120→  createdAt?: string;
+   121→  category?: string;
+   122→}
+   123→
+   124→interface NoteItem {
+   125→  id: string;
+   126→  title: string;
+   127→  content: string;
+   128→  createdAt?: string;
+   129→  category?: string;
+   130→}
+   131→
+   132→interface ContactItem {
+   133→  id: string;
+   134→  name: string;
+   135→  phone?: string;
+   136→  email?: string;
+   137→  type?: string;
+   138→  company?: string;
+   139→  notes?: string;
+   140→}
+   141→
+   142→interface KnowledgeItem {
+   143→  id: string;
+   144→  topic: string;
+   145→  content: string;
+   146→  createdAt?: string;
+   147→  source?: string;
+   148→}
+   149→
+   150→interface ActivityItem {
+   151→  id: string;
+   152→  type: string;
+   153→  action: string;
+   154→  timestamp: string;
+   155→  details?: string;
+   156→}
+   157→
+   158→interface ReportsData {
+   159→  success: boolean;
+   160→  total: number;
+   161→  filtered: ReportItem[];
+   162→  filters: { types: string[]; companies: string[] };
+   163→  stats: {
+   164→    total: number;
+   165→    today: number;
+   166→    thisWeek: number;
+   167→    byType: Record<string, number>;
+   168→  };
+   169→}
+   170→
+   171→interface FormField {
+   172→  name: string;
+   173→  label: string;
+   174→  type: 'text' | 'number' | 'textarea' | 'select' | 'date' | 'time';
+   175→  placeholder: string;
+   176→  required?: boolean;
+   177→  options?: string[];
+   178→  defaultValue?: string;
+   179→}
+   180→
+   181→interface ReportItem {
+   182→  id: string;
+   183→  type: string;
+   184→  company: string;
+   185→  category: string;
+   186→  title: string;
+   187→  content: string;
+   188→  summary: string;
+   189→  date: string;
+   190→  timestamp: string;
+   191→}
+   192→
+   193→// ─── Category Definitions ────────────────────────────────────────────────────
+   194→
+   195→type CategoryId = 'daily' | 'romel' | 'college' | 'tech' | 'jobs' | 'communication' | 'strategy' | 'learning' | 'reports' | 'data' | 'ai' | 'crm' | 'core' | 'business' | 'finance' | 'calendar' | 'documents';
+   196→
+   197→interface CommandDef {
+   198→  name: string;
+   199→  cmd: string;
+   200→  description: string;
+   201→}
+   202→
+   203→interface CategoryDef {
+   204→  id: CategoryId;
+   205→  name: string;
+   206→  emoji: string;
+   207→  color: string;
+   208→  bgColor: string;
+   209→  borderColor: string;
+   210→  textColor: string;
+   211→  commands: CommandDef[];
+   212→  dataKeys: string[];
+   213→}
+   214→
+   215→const CATEGORIES: CategoryDef[] = [
+   216→  {
+   217→    id: 'daily', name: 'Daily', emoji: '📋', color: 'emerald',
+   218→    bgColor: 'bg-emerald-500/15', borderColor: 'border-emerald-500/30', textColor: 'text-emerald-400',
+   219→    commands: [
+   220→      { name: 'Briefing', cmd: '/briefing', description: 'Get your daily briefing' },
+   221→      { name: 'Verse', cmd: '/verse', description: 'Daily inspiration verse' },
+   222→      { name: 'Set Reminder', cmd: '/setreminder', description: 'Create a new reminder' },
+   223→      { name: 'Reminders', cmd: '/reminders', description: 'View all reminders' },
+   224→    ],
+   225→    dataKeys: [],
+   226→  },
+   227→  {
+   228→    id: 'romel', name: 'ROMEL', emoji: '🏢', color: 'orange',
+   229→    bgColor: 'bg-orange-500/15', borderColor: 'border-orange-500/30', textColor: 'text-orange-400',
+   230→    commands: [
+   231→      { name: 'Log', cmd: '/log', description: 'Log sales activity' },
+   232→      { name: 'KPI', cmd: '/kpi', description: 'View KPI performance' },
+   233→      { name: 'Romel', cmd: '/romel', description: 'Romel sales report' },
+   234→      { name: 'Romel History', cmd: '/romelhistory', description: 'View sales history' },
+   235→      { name: 'Target', cmd: '/target', description: 'View/set sales targets' },
+   236→    ],
+   237→    dataKeys: ['sales', 'reports'],
+   238→  },
+   239→  {
+   240→    id: 'college', name: 'College', emoji: '🎓', color: 'purple',
+   241→    bgColor: 'bg-purple-500/15', borderColor: 'border-purple-500/30', textColor: 'text-purple-400',
+   242→    commands: [
+   243→      { name: 'College', cmd: '/college', description: 'College overview' },
+   244→      { name: 'Admission', cmd: '/admission', description: 'Admission info' },
+   245→      { name: 'Exam', cmd: '/exam', description: 'Exam schedule & results' },
+   246→      { name: 'Report', cmd: '/reportcollege', description: 'College report' },
+   247→      { name: 'Evaluate', cmd: '/eval', description: 'Evaluate performance' },
+   248→      { name: 'VC Report', cmd: '/vicereport', description: 'Vice Dean single report' },
+   249→      { name: 'VC Reports', cmd: '/vicereports', description: 'All VC reports' },
+   250→      { name: 'Quarterly', cmd: '/quarterly', description: 'Quarterly summary' },
+   251→      { name: 'Employees', cmd: '/employees', description: 'Employee records' },
+   252→      { name: 'Staff', cmd: '/staff', description: 'Staff management' },
+   253→    ],
+   254→    dataKeys: ['vdReports', 'reports'],
+   255→  },
+   256→  {
+   257→    id: 'tech', name: 'Tech', emoji: '💻', color: 'cyan',
+   258→    bgColor: 'bg-cyan-500/15', borderColor: 'border-cyan-500/30', textColor: 'text-cyan-400',
+   259→    commands: [
+   260→      { name: 'Tech', cmd: '/tech', description: 'Tech overview' },
+   261→      { name: 'Students', cmd: '/students', description: 'Student records' },
+   262→    ],
+   263→    dataKeys: [],
+   264→  },
+   265→  {
+   266→    id: 'jobs', name: 'Jobs', emoji: '💼', color: 'blue',
+   267→    bgColor: 'bg-blue-500/15', borderColor: 'border-blue-500/30', textColor: 'text-blue-400',
+   268→    commands: [
+   269→      { name: 'Apply', cmd: '/apply', description: 'Apply for a job' },
+   270→      { name: 'My CV', cmd: '/cv', description: 'View your CV' },
+   271→      { name: 'Courses', cmd: '/courses', description: 'Available courses' },
+   272→      { name: 'Upload CV', cmd: '/uploadcv', description: 'Upload CV file' },
+   273→      { name: 'Paste CV', cmd: '/cvpaste', description: 'Paste CV text' },
+   274→      { name: 'Find Jobs', cmd: '/findjobs', description: 'Search for jobs' },
+   275→      { name: 'My CVs', cmd: '/mycv', description: 'Manage your CVs' },
+   276→    ],
+   277→    dataKeys: ['rawSyncData'],
+   278→  },
+   279→  {
+   280→    id: 'communication', name: 'Communication', emoji: '📧', color: 'pink',
+   281→    bgColor: 'bg-pink-500/15', borderColor: 'border-pink-500/30', textColor: 'text-pink-400',
+   282→    commands: [
+   283→      { name: 'Email', cmd: '/email', description: 'Compose email' },
+   284→      { name: 'Meeting', cmd: '/meeting', description: 'Schedule meeting' },
+   285→      { name: 'Draft', cmd: '/draft', description: 'View/edit drafts' },
+   286→    ],
+   287→    dataKeys: [],
+   288→  },
+   289→  {
+   290→    id: 'strategy', name: 'Strategy', emoji: '🎯', color: 'amber',
+   291→    bgColor: 'bg-amber-500/15', borderColor: 'border-amber-500/30', textColor: 'text-amber-400',
+   292→    commands: [
+   293→      { name: 'Goals', cmd: '/goals', description: 'View/set goals' },
+   294→      { name: 'SWOT', cmd: '/swot', description: 'SWOT analysis' },
+   295→      { name: 'Plan', cmd: '/plan', description: 'Strategic plan' },
+   296→    ],
+   297→    dataKeys: [],
+   298→  },
+   299→  {
+   300→    id: 'learning', name: 'Learning', emoji: '📚', color: 'indigo',
+   301→    bgColor: 'bg-indigo-500/15', borderColor: 'border-indigo-500/30', textColor: 'text-indigo-400',
+   302→    commands: [
+   303→      { name: 'Books', cmd: '/books', description: 'Book recommendations' },
+   304→      { name: 'Podcast', cmd: '/podcast', description: 'Podcast suggestions' },
+   305→      { name: 'Tasks', cmd: '/tasks', description: 'View learning tasks' },
+   306→      { name: 'Ask', cmd: '/ask', description: 'Ask a question' },
+   307→    ],
+   308→    dataKeys: ['tasks'],
+   309→  },
+   310→  {
+   311→    id: 'reports', name: 'Reports', emoji: '📊', color: 'teal',
+   312→    bgColor: 'bg-teal-500/15', borderColor: 'border-teal-500/30', textColor: 'text-teal-400',
+   313→    commands: [
+   314→      { name: 'Week Report', cmd: '/weekreport', description: 'Weekly summary report' },
+   315→      { name: 'Raw Report', cmd: '/rawreport', description: 'Raw data report' },
+   316→    ],
+   317→    dataKeys: ['reports'],
+   318→  },
+   319→  {
+   320→    id: 'data', name: 'Data', emoji: '💾', color: 'slate',
+   321→    bgColor: 'bg-slate-500/15', borderColor: 'border-slate-500/30', textColor: 'text-slate-400',
+   322→    commands: [
+   323→      { name: 'Note', cmd: '/note', description: 'Create a note' },
+   324→      { name: 'Notes', cmd: '/notes', description: 'View all notes' },
+   325→      { name: 'Search', cmd: '/search', description: 'Search data' },
+   326→      { name: 'Save Data', cmd: '/savedata', description: 'Save data to memory' },
+   327→      { name: 'Load Data', cmd: '/loaddata', description: 'Load saved data' },
+   328→      { name: 'Export JSON', cmd: '/exportjson', description: 'Export as JSON' },
+   329→      { name: 'Send Data', cmd: '/senddata', description: 'Send data to chat' },
+   330→      { name: 'Sync Web', cmd: '/syncweb', description: 'Sync with web' },
+   331→    ],
+   332→    dataKeys: ['notes'],
+   333→  },
+   334→  {
+   335→    id: 'ai', name: 'AI', emoji: '🤖', color: 'violet',
+   336→    bgColor: 'bg-violet-500/15', borderColor: 'border-violet-500/30', textColor: 'text-violet-400',
+   337→    commands: [
+   338→      { name: 'Auto Learn', cmd: '/autolearn', description: 'AI auto-learning mode' },
+   339→      { name: 'Teach', cmd: '/teach', description: 'Teach the AI' },
+   340→      { name: 'Knowledge', cmd: '/knowledge', description: 'View knowledge base' },
+   341→    ],
+   342→    dataKeys: ['knowledgeBase'],
+   343→  },
+   344→  {
+   345→    id: 'crm', name: 'CRM', emoji: '📇', color: 'rose',
+   346→    bgColor: 'bg-rose-500/15', borderColor: 'border-rose-500/30', textColor: 'text-rose-400',
+   347→    commands: [
+   348→      { name: 'Scrape', cmd: '/scrape', description: 'Scrape contacts' },
+   349→      { name: 'Contacts', cmd: '/contacts', description: 'View contacts' },
+   350→      { name: 'Analytics', cmd: '/analytics', description: 'CRM analytics' },
+   351→    ],
+   352→    dataKeys: ['contacts'],
+   353→  },
+   354→  {
+   355→    id: 'core', name: 'Core', emoji: '⚙️', color: 'gray',
+   356→    bgColor: 'bg-gray-500/15', borderColor: 'border-gray-500/30', textColor: 'text-gray-400',
+   357→    commands: [
+   358→      { name: 'Help', cmd: '/help', description: 'Show help & commands' },
+   359→      { name: 'Dashboard', cmd: '/dashboard', description: 'Open dashboard' },
+   360→      { name: 'Sync', cmd: '/sync', description: 'Sync all data' },
+   361→      { name: 'Profile', cmd: '/profile', description: 'View profile' },
+   362→    ],
+   363→    dataKeys: [],
+   364→  },
+   365→  {
+   366→    id: 'business', name: 'Business', emoji: '🏢', color: 'emerald',
+   367→    bgColor: 'bg-emerald-500/15', borderColor: 'border-emerald-500/30', textColor: 'text-emerald-400',
+   368→    commands: [
+   369→      { name: 'Business', cmd: '/business', description: 'Business overview' },
+   370→      { name: 'Businesses', cmd: '/businesses', description: 'View all businesses' },
+   371→      { name: 'Biz', cmd: '/biz', description: 'Quick business info' },
+   372→    ],
+   373→    dataKeys: [],
+   374→  },
+   375→  {
+   376→    id: 'finance', name: 'Finance', emoji: '💰', color: 'orange',
+   377→    bgColor: 'bg-orange-500/15', borderColor: 'border-orange-500/30', textColor: 'text-orange-400',
+   378→    commands: [
+   379→      { name: 'Income', cmd: '/income', description: 'Log income' },
+   380→      { name: 'Expense', cmd: '/expense', description: 'Log expense' },
+   381→      { name: 'Budget', cmd: '/budget', description: 'View/set budget' },
+   382→      { name: 'Finance', cmd: '/finance', description: 'Finance overview' },
+   383→      { name: 'Transfer', cmd: '/transfer', description: 'Transfer funds' },
+   384→    ],
+   385→    dataKeys: [],
+   386→  },
+   387→  {
+   388→    id: 'calendar', name: 'Calendar', emoji: '📅', color: 'cyan',
+   389→    bgColor: 'bg-cyan-500/15', borderColor: 'border-cyan-500/30', textColor: 'text-cyan-400',
+   390→    commands: [
+   391→      { name: 'Event', cmd: '/event', description: 'Create an event' },
+   392→      { name: 'Events', cmd: '/events', description: 'View all events' },
+   393→      { name: 'Remind', cmd: '/remind', description: 'Set a reminder' },
+   394→      { name: 'Schedule', cmd: '/schedule', description: 'View schedule' },
+   395→    ],
+   396→    dataKeys: [],
+   397→  },
+   398→  {
+   399→    id: 'documents', name: 'Documents', emoji: '📄', color: 'slate',
+   400→    bgColor: 'bg-slate-500/15', borderColor: 'border-slate-500/30', textColor: 'text-slate-400',
+   401→    commands: [
+   402→      { name: 'Save File', cmd: '/savefile', description: 'Save a file' },
+   403→      { name: 'Files', cmd: '/files', description: 'View all files' },
+   404→      { name: 'Documents', cmd: '/documents', description: 'View documents' },
+   405→    ],
+   406→    dataKeys: [],
+   407→  },
+   408→];
+   409→
+   410→// Quick actions for Home tab (most-used commands)
+   411→const QUICK_ACTIONS: CommandDef[] = [
+   412→  { name: 'Briefing', cmd: '/briefing', description: 'Daily briefing' },
+   413→  { name: 'KPI', cmd: '/kpi', description: 'KPI performance' },
+   414→  { name: 'Tasks', cmd: '/tasks', description: 'View tasks' },
+   415→  { name: 'Notes', cmd: '/notes', description: 'All notes' },
+   416→  { name: 'Contacts', cmd: '/contacts', description: 'CRM contacts' },
+   417→  { name: 'Knowledge', cmd: '/knowledge', description: 'AI knowledge' },
+   418→  { name: 'Week Report', cmd: '/weekreport', description: 'Weekly report' },
+   419→  { name: 'Find Jobs', cmd: '/findjobs', description: 'Job search' },
+   420→  { name: 'Business', cmd: '/business', description: 'Business overview' },
+   421→  { name: 'Income', cmd: '/income', description: 'Log income' },
+   422→  { name: 'Event', cmd: '/event', description: 'Create event' },
+   423→  { name: 'Files', cmd: '/files', description: 'View files' },
+   424→];
+   425→
+   426→// ─── Theme Helper ────────────────────────────────────────────────────────────
+   427→
+   428→interface ThemeColors {
+   429→  bg: string;
+   430→  bgCard: string;
+   431→  bgCardHover: string;
+   432→  text: string;
+   433→  textSecondary: string;
+   434→  textMuted: string;
+   435→  border: string;
+   436→  isDark: boolean;
+   437→  safeTop: number;
+   438→  safeBottom: number;
+   439→}
+   440→
+   441→function getTelegramTheme(): ThemeColors {
+   442→  if (typeof window === 'undefined') {
+   443→    return {
+   444→      bg: '#1a1a2e', bgCard: '#16213e', bgCardHover: '#1a2744',
+   445→      text: '#e4e4e7', textSecondary: '#a1a1aa', textMuted: '#71717a',
+   446→      border: '#27272a', isDark: true, safeTop: 0, safeBottom: 0,
+   447→    };
+   448→  }
+   449→
+   450→  const tg = window.Telegram?.WebApp;
+   451→  const tp = tg?.themeParams || {};
+   452→  const isDark = tg?.colorScheme === 'dark';
+   453→
+   454→  return {
+   455→    bg: tp.bg_color || (isDark ? '#1a1a2e' : '#ffffff'),
+   456→    bgCard: tp.secondary_bg_color || (isDark ? '#16213e' : '#f4f4f5'),
+   457→    bgCardHover: isDark ? '#1a2744' : '#e4e4e7',
+   458→    text: tp.text_color || (isDark ? '#e4e4e7' : '#18181b'),
+   459→    textSecondary: tp.hint_color || (isDark ? '#a1a1aa' : '#71717a'),
+   460→    textMuted: isDark ? '#52525b' : '#a1a1aa',
+   461→    border: isDark ? '#27272a' : '#e4e4e7',
+   462→    isDark,
+   463→    safeTop: tg?.safeAreaInset?.top || 0,
+   464→    safeBottom: tg?.safeAreaInset?.bottom || 0,
+   465→  };
+   466→}
+   467→
+   468→// ─── Telegram Helpers ────────────────────────────────────────────────────────
+   469→
+   470→function haptic(style: 'light' | 'medium' | 'heavy' = 'light') {
+   471→  if (typeof window !== 'undefined') {
+   472→    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred(style);
+   473→  }
+   474→}
+   475→
+   476→function closeMiniApp(cmd?: string) {
+   477→  haptic('light');
+   478→  if (typeof window !== 'undefined') {
+   479→    const tg = window.Telegram?.WebApp;
+   480→    if (tg) {
+   481→      if (tg.switchToChat) {
+   482→        // Close web app and switch back to chat
+   483→        tg.switchToChat();
+   484→      } else {
+   485→        tg.close();
+   486→      }
+   487→    }
+   488→  }
+   489→}
+   490→
+   491→function showCommandPopup(cmd: string) {
+   492→  // Close the Mini App so user can type the command in chat
+   493→  // (Telegram blocks typing while Mini App is open)
+   494→  closeMiniApp();
+   495→}
+   496→
+   497→// ─── Utility ─────────────────────────────────────────────────────────────────
+   498→
+   499→function timeAgo(ts: string): string {
+   500→  try {
+   501→    const diff = Date.now() - new Date(ts).getTime();
+   502→    const mins = Math.floor(diff / 60000);
+   503→    if (mins < 1) return 'just now';
+   504→    if (mins < 60) return `${mins}m ago`;
+   505→    const hrs = Math.floor(mins / 60);
+   506→    if (hrs < 24) return `${hrs}h ago`;
+   507→    const days = Math.floor(hrs / 24);
+   508→    if (days < 7) return `${days}d ago`;
+   509→    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+   510→  } catch {
+   511→    return '';
+   512→  }
+   513→}
+   514→
+   515→function truncate(str: string, len: number): string {
+   516→  if (!str) return '';
+   517→  return str.length > len ? str.slice(0, len) + '...' : str;
+   518→}
+   519→
+   520→// ─── Skeleton Loader ─────────────────────────────────────────────────────────
+   521→
+   522→function Skeleton({ className }: { className?: string }) {
+   523→  return (
+   524→    <div className={`animate-pulse rounded-lg bg-white/10 ${className || ''}`} />
+   525→  );
+   526→}
+   527→
+   528→// ─── Main Component ──────────────────────────────────────────────────────────
+   529→
+   530→type TabId = 'home' | 'categories' | 'finance' | 'calendar' | 'ai' | 'search' | 'profile';
+   531→
+   532→export default function MiniAppPage() {
+   533→  const [activeTab, setActiveTab] = useState<TabId>('home');
+   534→  const [selectedCategory, setSelectedCategory] = useState<CategoryDef | null>(null);
+   535→  const [searchQuery, setSearchQuery] = useState('');
+   536→  const [botData, setBotData] = useState<BotData | null>(null);
+   537→  const [reportsData, setReportsData] = useState<ReportsData | null>(null);
+   538→  const [loading, setLoading] = useState(true);
+   539→  const [error, setError] = useState<string | null>(null);
+   540→  const [theme, setTheme] = useState<ThemeColors>(getTelegramTheme);
+   541→  const [expandedSearchItem, setExpandedSearchItem] = useState<string | null>(null);
+   542→  const [pullRefreshing, setPullRefreshing] = useState(false);
+   543→  const [financeData, setFinanceData] = useState<any>(null);
+   544→  const [calendarData, setCalendarData] = useState<any>(null);
+   545→
+   546→  // AI Features state
+   547→  const [receiptImage, setReceiptImage] = useState<string | null>(null);
+   548→  const [receiptAnalysis, setReceiptAnalysis] = useState<any>(null);
+   549→  const [receiptLoading, setReceiptLoading] = useState(false);
+   550→  const [docFile, setDocFile] = useState<string | null>(null);
+   551→  const [docAnalysis, setDocAnalysis] = useState<any>(null);
+   552→  const [docLoading, setDocLoading] = useState(false);
+   553→  const [forecastData, setForecastData] = useState<any>(null);
+   554→  const [forecastLoading, setForecastLoading] = useState(false);
+   555→  const [aiView, setAiView] = useState<'menu' | 'receipt' | 'document' | 'analytics' | 'email' | 'api'>('menu');
+   556→  const [emailForm, setEmailForm] = useState({ to: '', subject: '', body: '' });
+   557→  const [emailSending, setEmailSending] = useState(false);
+   558→  const [emailSent, setEmailSent] = useState(false);
+   559→  const [exporting, setExporting] = useState<string | null>(null);
+   560→  const [selectedDate, setSelectedDate] = useState<string>(() => {
+   561→    if (typeof window === 'undefined') return new Date().toISOString().split('T')[0];
+   562→    return new Date().toISOString().split('T')[0];
+   563→  });
+   564→
+   565→  // Form modal state
+   566→  const [formModal, setFormModal] = useState<{
+   567→    open: boolean;
+   568→    type: string;
+   569→    title: string;
+   570→    fields: FormField[];
+   571→  }>({ open: false, type: '', title: '', fields: [] });
+   572→  const [formLoading, setFormLoading] = useState(false);
+   573→  const [formSuccess, setFormSuccess] = useState(false);
+   574→  const [formError, setFormError] = useState('');
+   575→  const [formValues, setFormValues] = useState<Record<string, string>>({});
+   576→
+   577→  const scrollRef = useRef<HTMLDivElement>(null);
+   578→  const pullStartY = useRef(0);
+   579→  const pullDistance = useRef(0);
+   580→
+   581→  // Initialize Telegram
+   582→  useEffect(() => {
+   583→    if (typeof window === 'undefined') return;
+   584→    const tg = window.Telegram?.WebApp;
+   585→    if (tg) {
+   586→      tg.ready();
+   587→      tg.expand();
+   588→      setTheme(getTelegramTheme());
+   589→      // Listen for theme changes
+   590→      tg.onEvent?.('themeChanged', () => {
+   591→        setTheme(getTelegramTheme());
+   592→      });
+   593→    }
+   594→  }, []);
+   595→
+   596→  // Back button handling for category drill-down
+   597→  useEffect(() => {
+   598→    if (typeof window === 'undefined') return;
+   599→    const tg = window.Telegram?.WebApp;
+   600→    if (!tg) return;
+   601→    if (selectedCategory) {
+   602→      tg.BackButton.show();
+   603→      tg.BackButton.onClick(() => {
+   604→        haptic('light');
+   605→        setSelectedCategory(null);
+   606→      });
+   607→    } else {
+   608→      tg.BackButton.hide();
+   609→    }
+   610→    return () => {
+   611→      tg.BackButton.hide();
+   612→    };
+   613→  }, [selectedCategory]);
+   614→
+   615→  // Fetch data
+   616→  const fetchData = useCallback(async (showLoader = true) => {
+   617→    if (showLoader) setLoading(true);
+   618→    setError(null);
+   619→    try {
+   620→      const [dataRes, reportsRes] = await Promise.all([
+   621→        fetch('/api/bot/data'),
+   622→        fetch('/api/bot/reports'),
+   623→      ]);
+   624→      if (!dataRes.ok || !reportsRes.ok) throw new Error('Failed to fetch data');
+   625→      const [dataJson, reportsJson] = await Promise.all([dataRes.json(), reportsRes.json()]);
+   626→      setBotData(dataJson);
+   627→      setReportsData(reportsJson);
+   628→
+   629→      // Finance
+   630→      try {
+   631→        const r = await fetch('/api/finance?limit=50');
+   632→        const d = await r.json();
+   633→        if (d.success) setFinanceData(d);
+   634→      } catch { /* silent */ }
+   635→
+   636→      // Calendar
+   637→      try {
+   638→        const r = await fetch('/api/calendar?limit=50');
+   639→        const d = await r.json();
+   640→        if (d.success) setCalendarData(d);
+   641→      } catch { /* silent */ }
+   642→    } catch (err: unknown) {
+   643→      setError(err instanceof Error ? err.message : 'Unknown error');
+   644→    } finally {
+   645→      setLoading(false);
+   646→      setPullRefreshing(false);
+   647→    }
+   648→  }, []);
+   649→
+   650→  useEffect(() => {
+   651→    fetchData();
+   652→  }, [fetchData]);
+   653→
+   654→  // Pull-to-refresh
+   655→  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+   656→    if (scrollRef.current && scrollRef.current.scrollTop <= 0) {
+   657→      pullStartY.current = e.touches[0].clientY;
+   658→    }
+   659→  }, []);
+   660→
+   661→  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+   662→    if (pullStartY.current === 0) return;
+   663→    if (scrollRef.current && scrollRef.current.scrollTop > 0) {
+   664→      pullStartY.current = 0;
+   665→      pullDistance.current = 0;
+   666→      return;
+   667→    }
+   668→    const dist = e.touches[0].clientY - pullStartY.current;
+   669→    if (dist > 0) {
+   670→      pullDistance.current = Math.min(dist * 0.5, 80);
+   671→    }
+   672→  }, []);
+   673→
+   674→  const handleTouchEnd = useCallback(() => {
+   675→    if (pullDistance.current > 50) {
+   676→      setPullRefreshing(true);
+   677→      fetchData(false);
+   678→    }
+   679→    pullStartY.current = 0;
+   680→    pullDistance.current = 0;
+   681→  }, [fetchData]);
+   682→
+   683→  // Navigation
+   684→  const goToCategory = (cat: CategoryDef) => {
+   685→    haptic('medium');
+   686→    setSelectedCategory(cat);
+   687→  };
+   688→
+   689→  const goBack = () => {
+   690→    haptic('light');
+   691→    setSelectedCategory(null);
+   692→  };
+   693→
+   694→  // ─── Form System ─────────────────────────────────────────────────────────
+   695→
+   696→  const FORM_CONFIGS: Record<string, { title: string; fields: FormField[] }> = {
+   697→    income: {
+   698→      title: 'Add Income',
+   699→      fields: [
+   700→        { name: 'amount', label: 'Amount (ETB)', type: 'number', placeholder: '0', required: true },
+   701→        { name: 'category', label: 'Category', type: 'select', placeholder: 'Select category', options: ['Salary', 'Sales', 'Service', 'Freelance', 'Investment', 'Other'] },
+   702→        { name: 'description', label: 'Description', type: 'text', placeholder: 'What is this income for?' },
+   703→      ],
+   704→    },
+   705→    expense: {
+   706→      title: 'Add Expense',
+   707→      fields: [
+   708→        { name: 'amount', label: 'Amount (ETB)', type: 'number', placeholder: '0', required: true },
+   709→        { name: 'category', label: 'Category', type: 'select', placeholder: 'Select category', options: ['Food', 'Transport', 'Rent', 'Supplies', 'Utility', 'Internet', 'Phone', 'Other'] },
+   710→        { name: 'description', label: 'Description', type: 'text', placeholder: 'What is this expense for?' },
+   711→      ],
+   712→    },
+   713→    event: {
+   714→      title: 'Add Event',
+   715→      fields: [
+   716→        { name: 'title', label: 'Event title', type: 'text', placeholder: 'Meeting with team', required: true },
+   717→        { name: 'date', label: 'Date', type: 'date', placeholder: '', required: true },
+   718→        { name: 'time', label: 'Time', type: 'time', placeholder: '' },
+   719→        { name: 'location', label: 'Location', type: 'text', placeholder: 'Office, Zoom, etc.' },
+   720→        { name: 'type', label: 'Type', type: 'select', placeholder: 'Select type', options: ['Event', 'Meeting', 'Reminder', 'Deadline'], defaultValue: 'Event' },
+   721→        { name: 'priority', label: 'Priority', type: 'select', placeholder: 'Select priority', options: ['Low', 'Medium', 'High', 'Urgent'], defaultValue: 'Medium' },
+   722→        { name: 'description', label: 'Description', type: 'textarea', placeholder: 'Event details...' },
+   723→      ],
+   724→    },
+   725→    reminder: {
+   726→      title: 'Add Reminder',
+   727→      fields: [
+   728→        { name: 'title', label: 'Reminder title', type: 'text', placeholder: 'Call the client', required: true },
+   729→        { name: 'date', label: 'Date', type: 'date', placeholder: '', required: true },
+   730→        { name: 'time', label: 'Time', type: 'time', placeholder: '' },
+   731→        { name: 'priority', label: 'Priority', type: 'select', placeholder: 'Select priority', options: ['Low', 'Medium', 'High', 'Urgent'], defaultValue: 'High' },
+   732→        { name: 'description', label: 'Description', type: 'textarea', placeholder: 'Reminder details...' },
+   733→      ],
+   734→    },
+   735→    business: {
+   736→      title: 'Add Business',
+   737→      fields: [
+   738→        { name: 'name', label: 'Business name', type: 'text', placeholder: 'My Company', required: true },
+   739→        { name: 'type', label: 'Type', type: 'select', placeholder: 'Select type', options: ['Tech', 'College', 'Consulting', 'EV Charging', 'Training', 'Other'] },
+   740→        { name: 'industry', label: 'Industry', type: 'text', placeholder: 'Technology, Education, etc.' },
+   741→        { name: 'description', label: 'Description', type: 'textarea', placeholder: 'Business description...' },
+   742→      ],
+   743→    },
+   744→    note: {
+   745→      title: 'Add Note',
+   746→      fields: [
+   747→        { name: 'title', label: 'Note title', type: 'text', placeholder: 'Meeting notes', required: true },
+   748→        { name: 'content', label: 'Note content', type: 'textarea', placeholder: 'Write your note here...', required: true },
+   749→      ],
+   750→    },
+   751→    document: {
+   752→      title: 'Add Document',
+   753→      fields: [
+   754→        { name: 'title', label: 'Document title', type: 'text', placeholder: 'Monthly Report', required: true },
+   755→        { name: 'category', label: 'Category', type: 'select', placeholder: 'Select category', options: ['Report', 'Invoice', 'Contract', 'CV', 'Letter', 'Memo', 'Receipt', 'Certificate', 'Other'] },
+   756→        { name: 'description', label: 'Description', type: 'text', placeholder: 'Brief description' },
+   757→        { name: 'tags', label: 'Tags (comma separated)', type: 'text', placeholder: 'finance, monthly, 2024' },
+   758→      ],
+   759→    },
+   760→  };
+   761→
+   762→  const openForm = (type: string) => {
+   763→    const config = FORM_CONFIGS[type];
+   764→    if (!config) return false;
+   765→    haptic('medium');
+   766→    const initialValues: Record<string, string> = {};
+   767→    config.fields.forEach((f) => {
+   768→      initialValues[f.name] = f.defaultValue || '';
+   769→    });
+   770→    setFormValues(initialValues);
+   771→    setFormError('');
+   772→    setFormModal({ open: true, type, title: config.title, fields: config.fields });
+   773→    return true;
+   774→  };
+   775→
+   776→  const openFormForCommand = (cmd: string) => {
+   777→    const cmdMap: Record<string, string> = {
+   778→      '/income': 'income',
+   779→      '/expense': 'expense',
+   780→      '/event': 'event',
+   781→      '/remind': 'reminder',
+   782→      '/setreminder': 'reminder',
+   783→      '/business': 'business',
+   784→      '/note': 'note',
+   785→      '/files': 'document',
+   786→      '/documents': 'document',
+   787→      '/savefile': 'document',
+   788→      '/budget': 'expense',
+   789→      '/transfer': 'expense',
+   790→      '/schedule': 'event',
+   791→      '/email': 'email',
+   792→      '/meeting': 'event',
+   793→      '/draft': 'note',
+   794→      '/goals': 'note',
+   795→      '/swot': 'note',
+   796→      '/plan': 'note',
+   797→      '/books': 'note',
+   798→      '/podcast': 'note',
+   799→      '/ask': 'note',
+   800→      '/teach': 'note',
+   801→      '/scrape': 'business',
+   802→      '/log': 'income',
+   803→      '/apply': 'note',
+   804→      '/uploadcv': 'document',
+   805→      '/cvpaste': 'note',
+   806→      '/savedata': 'note',
+   807→      '/exportjson': 'document',
+   808→    };
+   809→    const formType = cmdMap[cmd];
+   810→    if (formType && openForm(formType)) return;
+   811→    // No inline form — close the Mini App so user can type in chat
+   812→    closeMiniApp(cmd);
+   813→  };
+   814→
+   815→  const closeForm = () => {
+   816→    haptic('light');
+   817→    setFormModal({ open: false, type: '', title: '', fields: [] });
+   818→    setFormValues({});
+   819→    setFormError('');
+   820→  };
+   821→
+   822→  const updateFormValue = (name: string, value: string) => {
+   823→    setFormValues((prev) => ({ ...prev, [name]: value }));
+   824→  };
+   825→
+   826→  const submitForm = async () => {
+   827→    // Validate required fields
+   828→    const missingField = formModal.fields.find((f) => f.required && !formValues[f.name]?.trim());
+   829→    if (missingField) {
+   830→      haptic('error' as any);
+   831→      setFormError(`${missingField.label} is required`);
+   832→      return;
+   833→    }
+   834→
+   835→    setFormLoading(true);
+   836→    setFormError('');
+   837→    try {
+   838→      let url = '';
+   839→      let body: Record<string, unknown> = {};
+   840→
+   841→      switch (formModal.type) {
+   842→        case 'income':
+   843→        case 'expense':
+   844→          url = '/api/finance';
+   845→          body = {
+   846→            type: formModal.type,
+   847→            amount: parseFloat(formValues.amount),
+   848→            category: formValues.category || 'Other',
+   849→            description: formValues.description || '',
+   850→            date: new Date().toISOString().split('T')[0],
+   851→            chatId: 0,
+   852→          };
+   853→          break;
+   854→        case 'event':
+   855→          url = '/api/calendar';
+   856→          body = {
+   857→            title: formValues.title,
+   858→            date: formValues.date,
+   859→            time: formValues.time || null,
+   860→            location: formValues.location || '',
+   861→            type: (formValues.type || 'event').toLowerCase(),
+   862→            priority: (formValues.priority || 'medium').toLowerCase(),
+   863→            chatId: 0,
+   864→          };
+   865→          break;
+   866→        case 'reminder':
+   867→          url = '/api/calendar';
+   868→          body = {
+   869→            title: formValues.title,
+   870→            date: formValues.date,
+   871→            time: formValues.time || null,
+   872→            type: 'reminder',
+   873→            priority: 'high',
+   874→            chatId: 0,
+   875→          };
+   876→          break;
+   877→        case 'business':
+   878→          url = '/api/businesses';
+   879→          body = {
+   880→            name: formValues.name,
+   881→            type: formValues.type || 'Other',
+   882→            industry: formValues.industry || '',
+   883→            description: formValues.description || '',
+   884→          };
+   885→          break;
+   886→        case 'note':
+   887→          url = '/api/bot/reports';
+   888→          body = {
+   889→            type: 'note',
+   890→            title: formValues.title,
+   891→            content: formValues.content,
+   892→            category: 'note',
+   893→            chatId: 0,
+   894→          };
+   895→          break;
+   896→        case 'document':
+   897→          url = '/api/documents';
+   898→          body = {
+   899→            title: formValues.title,
+   900→            category: formValues.category || 'Other',
+   901→            description: formValues.description || '',
+   902→            tags: JSON.stringify(
+   903→              (formValues.tags || '')
+   904→                .split(',')
+   905→                .map((t) => t.trim())
+   906→                .filter(Boolean) || []
+   907→            ),
+   908→          };
+   909→          break;
+   910→      }
+   911→
+   912→      const res = await fetch(url, {
+   913→        method: 'POST',
+   914→        headers: { 'Content-Type': 'application/json' },
+   915→        body: JSON.stringify(body),
+   916→      });
+   917→      const data = await res.json();
+   918→
+   919→      if (data.success) {
+   920→        if (typeof window !== 'undefined') {
+   921→          window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success');
+   922→        }
+   923→        setFormModal({ open: false, type: '', title: '', fields: [] });
+   924→        setFormValues({});
+   925→        setFormSuccess(true);
+   926→        setTimeout(() => setFormSuccess(false), 2000);
+   927→        fetchData(false);
+   928→      } else {
+   929→        if (typeof window !== 'undefined') {
+   930→          window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('error');
+   931→        }
+   932→        setFormError(data.error || 'Failed to save');
+   933→      }
+   934→    } catch (err: unknown) {
+   935→      setFormError(err instanceof Error ? err.message : 'Network error');
+   936→    } finally {
+   937→      setFormLoading(false);
+   938→    }
+   939→  };
+   940→
+   941→  // ─── AI Feature Functions ────────────────────────────────────────────────
+   942→
+   943→  const handleReceiptScan = async (file: File) => {
+   944→    haptic('medium');
+   945→    setReceiptLoading(true);
+   946→    setReceiptAnalysis(null);
+   947→    try {
+   948→      const reader = new FileReader();
+   949→      reader.onloadend = async () => {
+   950→        const base64 = (reader.result as string).split(',')[1];
+   951→        setReceiptImage(reader.result as string);
+   952→        const res = await fetch('/api/ai/analyze-receipt', {
+   953→          method: 'POST',
+   954→          headers: { 'Content-Type': 'application/json' },
+   955→          body: JSON.stringify({ image: base64 }),
+   956→        });
+   957→        const data = await res.json();
+   958→        if (data.success) {
+   959→          setReceiptAnalysis(data.data);
+   960→          haptic('success' as any);
+   961→        } else {
+   962→          setReceiptAnalysis({ error: data.error || 'Failed to analyze receipt' });
+   963→        }
+   964→        setReceiptLoading(false);
+   965→      };
+   966→      reader.readAsDataURL(file);
+   967→    } catch (err) {
+   968→      setReceiptAnalysis({ error: 'Failed to read file' });
+   969→      setReceiptLoading(false);
+   970→    }
+   971→  };
+   972→
+   973→  const handleReceiptConfirm = async () => {
+   974→    if (!receiptAnalysis || receiptAnalysis.error) return;
+   975→    setReceiptLoading(true);
+   976→    try {
+   977→      const res = await fetch('/api/finance', {
+   978→        method: 'POST',
+   979→        headers: { 'Content-Type': 'application/json' },
+   980→        body: JSON.stringify({
+   981→          type: 'expense',
+   982→          amount: parseFloat(receiptAnalysis.amount) || 0,
+   983→          category: receiptAnalysis.category || 'Other',
+   984→          description: receiptAnalysis.merchantName || receiptAnalysis.description || 'Receipt',
+   985→          date: receiptAnalysis.date || new Date().toISOString().split('T')[0],
+   986→          chatId: 0,
+   987→        }),
+   988→      });
+   989→      const data = await res.json();
+   990→      if (data.success) {
+   991→        if (typeof window !== 'undefined') {
+   992→          window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success');
+   993→        }
+   994→        setReceiptImage(null);
+   995→        setReceiptAnalysis(null);
+   996→        setAiView('menu');
+   997→        setFormSuccess(true);
+   998→        setTimeout(() => setFormSuccess(false), 2000);
+   999→        fetchData(false);
+  1000→      }
+  1001→    } catch { /* silent */ }
+  1002→    setReceiptLoading(false);
+  1003→  };
+  1004→
+  1005→  const handleDocumentUpload = async (file: File) => {
+  1006→    haptic('medium');
+  1007→    setDocLoading(true);
+  1008→    setDocAnalysis(null);
+  1009→    try {
+  1010→      const reader = new FileReader();
+  1011→      reader.onloadend = async () => {
+  1012→        const base64 = (reader.result as string).split(',')[1];
+  1013→        setDocFile(reader.result as string);
+  1014→        const res = await fetch('/api/ai/analyze-document', {
+  1015→          method: 'POST',
+  1016→          headers: { 'Content-Type': 'application/json' },
+  1017→          body: JSON.stringify({ file: base64, fileName: file.name, mimeType: file.type }),
+  1018→        });
+  1019→        const data = await res.json();
+  1020→        if (data.success) {
+  1021→          setDocAnalysis(data.data);
+  1022→          haptic('success' as any);
+  1023→        } else {
+  1024→          setDocAnalysis({ error: data.error || 'Failed to analyze document' });
+  1025→        }
+  1026→        setDocLoading(false);
+  1027→      };
+  1028→      reader.readAsDataURL(file);
+  1029→    } catch {
+  1030→      setDocAnalysis({ error: 'Failed to read file' });
+  1031→      setDocLoading(false);
+  1032→    }
+  1033→  };
+  1034→
+  1035→  const handleLoadForecast = async () => {
+  1036→    haptic('medium');
+  1037→    setForecastLoading(true);
+  1038→    try {
+  1039→      const res = await fetch('/api/analytics/forecast?period=monthly&limit=100');
+  1040→      const data = await res.json();
+  1041→      if (data.success) {
+  1042→        setForecastData(data);
+  1043→        haptic('success' as any);
+  1044→      }
+  1045→    } catch { /* silent */ }
+  1046→    setForecastLoading(false);
+  1047→  };
+  1048→
+  1049→  const handleExport = async (type: string, format: string) => {
+  1050→    haptic('medium');
+  1051→    setExporting(`${type}-${format}`);
+  1052→    try {
+  1053→      const params = new URLSearchParams({ type, period: 'all' });
+  1054→      if (format === 'csv') {
+  1055→        const res = await fetch(`/api/export/excel?${params}`);
+  1056→        const blob = await res.blob();
+  1057→        const url = URL.createObjectURL(blob);
+  1058→        const a = document.createElement('a');
+  1059→        a.href = url;
+  1060→        a.download = `${type}-report.csv`;
+  1061→        a.click();
+  1062→        URL.revokeObjectURL(url);
+  1063→      } else {
+  1064→        window.open(`/api/export/pdf?${params}`, '_blank');
+  1065→      }
+  1066→      haptic('success' as any);
+  1067→    } catch { /* silent */ }
+  1068→    setExporting(null);
+  1069→  };
+  1070→
+  1071→  const handleSendEmail = async () => {
+  1072→    if (!emailForm.to || !emailForm.subject) return;
+  1073→    haptic('medium');
+  1074→    setEmailSending(true);
+  1075→    setEmailSent(false);
+  1076→    try {
+  1077→      const res = await fetch('/api/ai/chat', {
+  1078→        method: 'POST',
+  1079→        headers: { 'Content-Type': 'application/json' },
+  1080→        body: JSON.stringify({
+  1081→          message: `Compose a professional email:\nTo: ${emailForm.to}\nSubject: ${emailForm.subject}\nBody: ${emailForm.body}\n\nPlease draft a polished version of this email.`,
+  1082→          chatId: 0,
+  1083→        }),
+  1084→      });
+  1085→      const data = await res.json();
+  1086→      if (data.success) {
+  1087→        setEmailSent(true);
+  1088→        setTimeout(() => setEmailSent(false), 3000);
+  1089→        haptic('success' as any);
+  1090→      }
+  1091→    } catch { /* silent */ }
+  1092→    setEmailSending(false);
+  1093→  };
+  1094→
+  1095→  // ─── Search logic ─────────────────────────────────────────────────────────
+  1096→  const searchResults = (() => {
+  1097→    if (!searchQuery.trim() || !botData) return { reports: [], notes: [], tasks: [], contacts: [], knowledge: [] };
+  1098→    const q = searchQuery.toLowerCase();
+  1099→
+  1100→    const reports = (reportsData?.filtered || [])
+  1101→      .filter((r: ReportItem) =>
+  1102→        r.title.toLowerCase().includes(q) || r.content.toLowerCase().includes(q) || r.type.toLowerCase().includes(q)
+  1103→      )
+  1104→      .slice(0, 10)
+  1105→      .map((r: ReportItem) => ({ id: r.id, type: 'report' as const, title: r.title, detail: r.content, date: r.date, sub: r.type }));
+  1106→
+  1107→    const notes = (botData.notes || [])
+  1108→      .filter((n: NoteItem) => n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q))
+  1109→      .slice(0, 10)
+  1110→      .map((n: NoteItem) => ({ id: n.id, type: 'note' as const, title: n.title, detail: n.content, date: n.createdAt || '', sub: n.category || 'Note' }));
+  1111→
+  1112→    const tasks = (botData.tasks?.list || [])
+  1113→      .filter((t: TaskItem) => t.title.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q))
+  1114→      .slice(0, 10)
+  1115→      .map((t: TaskItem) => ({ id: t.id, type: 'task' as const, title: t.title, detail: t.description || '', date: t.dueDate || t.createdAt || '', sub: t.status }));
+  1116→
+  1117→    const contacts = (botData.contacts?.list || [])
+  1118→      .filter((c: ContactItem) => c.name.toLowerCase().includes(q) || (c.company || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q))
+  1119→      .slice(0, 10)
+  1120→      .map((c: ContactItem) => ({ id: c.id, type: 'contact' as const, title: c.name, detail: `${c.company || ''} ${c.email || ''} ${c.phone || ''}`.trim(), date: '', sub: c.type || 'Contact' }));
+  1121→
+  1122→    const knowledge = (botData.knowledgeBase || [])
+  1123→      .filter((k: KnowledgeItem) => k.topic.toLowerCase().includes(q) || k.content.toLowerCase().includes(q))
+  1124→      .slice(0, 10)
+  1125→      .map((k: KnowledgeItem) => ({ id: k.id, type: 'knowledge' as const, title: k.topic, detail: k.content, date: k.createdAt || '', sub: k.source || 'Knowledge' }));
+  1126→
+  1127→    return { reports, notes, tasks, contacts, knowledge };
+  1128→  })();
+  1129→
+  1130→  const totalSearchResults = searchResults.reports.length + searchResults.notes.length + searchResults.tasks.length + searchResults.contacts.length + searchResults.knowledge.length;
+  1131→
+  1132→  // Category data extraction
+  1133→  const getCategoryData = (cat: CategoryDef) => {
+  1134→    if (!botData) return null;
+  1135→    switch (cat.id) {
+  1136→      case 'romel':
+  1137→        return {
+  1138→          items: (botData.sales?.reports || []).slice(0, 20),
+  1139→          totalCount: botData.summary.totalRomelReports,
+  1140→          label: 'Sales Reports',
+  1141→          emptyCmd: '/log',
+  1142→          emptyText: 'Log a sales activity to see reports here',
+  1143→        };
+  1144→      case 'college':
+  1145→        return {
+  1146→          items: (botData.vdReports || []).slice(0, 20),
+  1147→          totalCount: botData.summary.totalVdReports,
+  1148→          label: 'Vice Dean Reports',
+  1149→          emptyCmd: '/vicereport',
+  1150→          emptyText: 'Create a VC report to see data here',
+  1151→        };
+  1152→      case 'jobs':
+  1153→        return {
+  1154→          items: ((botData.rawSyncData?.applications as unknown[]) || []).slice(0, 20),
+  1155→          totalCount: ((botData.rawSyncData?.applications as unknown[]) || []).length,
+  1156→          label: 'Applications',
+  1157→          emptyCmd: '/apply',
+  1158→          emptyText: 'Apply for a job to see applications here',
+  1159→        };
+  1160→      case 'data':
+  1161→        return {
+  1162→          items: (botData.notes || []).slice(0, 20),
+  1163→          totalCount: botData.summary.totalNotes,
+  1164→          label: 'Notes',
+  1165→          emptyCmd: '/note',
+  1166→          emptyText: 'Create a note to see data here',
+  1167→        };
+  1168→      case 'learning':
+  1169→        return {
+  1170→          items: (botData.tasks?.list || []).slice(0, 20),
+  1171→          totalCount: botData.summary.totalTasks,
+  1172→          label: 'Learning Tasks',
+  1173→          emptyCmd: '/tasks',
+  1174→          emptyText: 'Add tasks to see them here',
+  1175→        };
+  1176→      case 'crm':
+  1177→        return {
+  1178→          items: (botData.contacts?.list || []).slice(0, 20),
+  1179→          totalCount: botData.summary.totalContacts,
+  1180→          label: 'Contacts',
+  1181→          emptyCmd: '/contacts',
+  1182→          emptyText: 'Add contacts to see them here',
+  1183→        };
+  1184→      case 'ai':
+  1185→        return {
+  1186→          items: (botData.knowledgeBase || []).slice(0, 20),
+  1187→          totalCount: botData.summary.totalKnowledge,
+  1188→          label: 'Knowledge Base',
+  1189→          emptyCmd: '/teach',
+  1190→          emptyText: 'Teach the AI to build your knowledge base',
+  1191→        };
+  1192→      case 'reports':
+  1193→        return {
+  1194→          items: (reportsData?.filtered || []).slice(0, 20),
+  1195→          totalCount: reportsData?.total || 0,
+  1196→          label: 'All Reports',
+  1197→          emptyCmd: '/weekreport',
+  1198→          emptyText: 'Generate a report to see data here',
+  1199→        };
+  1200→      default:
+  1201→        return null;
+  1202→    }
+  1203→  };
+  1204→
+  1205→  // ─── Render Helpers ──────────────────────────────────────────────────────
+  1206→
+  1207→  const t = theme;
+  1208→  const user = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initDataUnsafe?.user : null;
+  1209→  const firstName = user?.first_name || 'Hambisa';
+  1210→  const username = user?.username || '';
+  1211→
+  1212→  // ─── Loading State ───────────────────────────────────────────────────────
+  1213→
+  1214→  if (loading && !botData) {
+  1215→    return (
+  1216→      <div className="flex flex-col items-center justify-center min-h-screen" style={{ backgroundColor: t.bg, paddingTop: t.safeTop }}>
+  1217→        <div className="flex flex-col items-center gap-4">
+  1218→          <div className="relative">
+  1219→            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+  1220→              <Bot className="w-8 h-8 text-white" />
+  1221→            </div>
+  1222→            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center">
+  1223→              <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+  1224→            </div>
+  1225→          </div>
+  1226→          <div className="flex flex-col items-center gap-2">
+  1227→            <p className="text-sm font-medium" style={{ color: t.text }}>Career AI Ethiopia</p>
+  1228→            <div className="flex items-center gap-2">
+  1229→              <Loader2 className="w-4 h-4 animate-spin" style={{ color: t.textSecondary }} />
+  1230→              <p className="text-xs" style={{ color: t.textSecondary }}>Loading your data...</p>
+  1231→            </div>
+  1232→          </div>
+  1233→        </div>
+  1234→      </div>
+  1235→    );
+  1236→  }
+  1237→
+  1238→  // ─── Error State ─────────────────────────────────────────────────────────
+  1239→
+  1240→  if (error && !botData) {
+  1241→    return (
+  1242→      <div className="flex flex-col items-center justify-center min-h-screen p-6" style={{ backgroundColor: t.bg, paddingTop: t.safeTop }}>
+  1243→        <div className="flex flex-col items-center gap-4 text-center max-w-xs">
+  1244→          <div className="w-14 h-14 rounded-full bg-red-500/15 flex items-center justify-center">
+  1245→            <AlertCircle className="w-7 h-7 text-red-400" />
+  1246→          </div>
+  1247→          <p className="text-sm font-medium" style={{ color: t.text }}>Failed to load</p>
+  1248→          <p className="text-xs" style={{ color: t.textSecondary }}>{error}</p>
+  1249→          <button
+  1250→            onClick={() => fetchData()}
+  1251→            className="mt-2 px-5 py-2.5 rounded-xl text-sm font-medium bg-emerald-500 text-white active:scale-95 transition-transform"
+  1252→          >
+  1253→            Try Again
+  1254→          </button>
+  1255→        </div>
+  1256→      </div>
+  1257→    );
+  1258→  }
+  1259→
+  1260→  // ─── Category Detail Page ────────────────────────────────────────────────
+  1261→
+  1262→  const renderCategoryDetail = () => {
+  1263→    if (!selectedCategory) return null;
+  1264→    const cat = selectedCategory;
+  1265→    const catData = getCategoryData(cat);
+  1266→
+  1267→    return (
+  1268→      <div className="flex flex-col gap-4 pb-4">
+  1269→        {/* Header */}
+  1270→        <div className="flex items-center gap-3">
+  1271→          <button
+  1272→            onClick={goBack}
+  1273→            className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors active:scale-95"
+  1274→            style={{ backgroundColor: t.bgCard }}
+  1275→          >
+  1276→            <ChevronLeft className="w-5 h-5" style={{ color: t.text }} />
+  1277→          </button>
+  1278→          <div className="flex items-center gap-2.5">
+  1279→            <span className="text-2xl">{cat.emoji}</span>
+  1280→            <div>
+  1281→              <h1 className="text-lg font-bold" style={{ color: t.text }}>{cat.name}</h1>
+  1282→              <p className="text-xs" style={{ color: t.textSecondary }}>{cat.commands.length} commands</p>
+  1283→            </div>
+  1284→          </div>
+  1285→        </div>
+  1286→
+  1287→        {/* Quick Actions Grid */}
+  1288→        <div>
+  1289→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>
+  1290→            Commands
+  1291→          </h2>
+  1292→          <div className="grid grid-cols-2 gap-2.5">
+  1293→            {cat.commands.map((cmd) => (
+  1294→              <button
+  1295→                key={cmd.cmd}
+  1296→                onClick={() => openFormForCommand(cmd.cmd)}
+  1297→                className={`p-3.5 rounded-xl text-left transition-all active:scale-[0.97] border ${cat.bgColor} ${cat.borderColor}`}
+  1298→              >
+  1299→                <p className={`text-sm font-semibold ${cat.textColor}`}>{cmd.name}</p>
+  1300→                <p className="text-[11px] mt-0.5" style={{ color: t.textSecondary }}>
+  1301→                  {cmd.cmd}
+  1302→                </p>
+  1303→                <p className="text-[10px] mt-1 leading-tight" style={{ color: t.textMuted }}>
+  1304→                  {cmd.description}
+  1305→                </p>
+  1306→              </button>
+  1307→            ))}
+  1308→          </div>
+  1309→        </div>
+  1310→
+  1311→        {/* Data View */}
+  1312→        {catData && (
+  1313→          <div>
+  1314→            <div className="flex items-center justify-between mb-3">
+  1315→              <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: t.textMuted }}>
+  1316→                {catData.label}
+  1317→              </h2>
+  1318→              {catData.totalCount > 0 && (
+  1319→                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: t.bgCard, color: t.textSecondary }}>
+  1320→                  {catData.totalCount}
+  1321→                </span>
+  1322→              )}
+  1323→            </div>
+  1324→
+  1325→            {catData.items.length > 0 ? (
+  1326→              <div className="flex flex-col gap-2 max-h-80 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+  1327→                {catData.items.map((item: Record<string, unknown>, idx: number) => {
+  1328→                  const title = (item.title as string) || (item.topic as string) || (item.name as string) || `Item ${idx + 1}`;
+  1329→                  const detail = (item.content as string) || (item.report as string) || (item.details as string) || (item.description as string) || '';
+  1330→                  const date = (item.date as string) || (item.createdAt as string) || '';
+  1331→                  const status = (item.status as string) || (item.priority as string) || '';
+  1332→                  const type = (item.type as string) || '';
+  1333→
+  1334→                  return (
+  1335→                    <div
+  1336→                      key={(item.id as string) || idx}
+  1337→                      className="p-3 rounded-xl transition-colors"
+  1338→                      style={{ backgroundColor: t.bgCard }}
+  1339→                    >
+  1340→                      <div className="flex items-start justify-between gap-2">
+  1341→                        <p className="text-sm font-medium leading-snug" style={{ color: t.text }}>
+  1342→                          {truncate(title, 60)}
+  1343→                        </p>
+  1344→                        {status && (
+  1345→                          <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-full font-medium bg-emerald-500/15 text-emerald-400">
+  1346→                            {status}
+  1347→                          </span>
+  1348→                        )}
+  1349→                      </div>
+  1350→                      {detail && (
+  1351→                        <p className="text-[11px] mt-1 leading-relaxed" style={{ color: t.textSecondary }}>
+  1352→                          {truncate(detail, 120)}
+  1353→                        </p>
+  1354→                      )}
+  1355→                      {(date || type) && (
+  1356→                        <div className="flex items-center gap-2 mt-1.5">
+  1357→                          {type && (
+  1358→                            <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>
+  1359→                              {type}
+  1360→                            </span>
+  1361→                          )}
+  1362→                          {date && (
+  1363→                            <span className="text-[10px]" style={{ color: t.textMuted }}>
+  1364→                              {date}
+  1365→                            </span>
+  1366→                          )}
+  1367→                        </div>
+  1368→                      )}
+  1369→                    </div>
+  1370→                  );
+  1371→                })}
+  1372→              </div>
+  1373→            ) : (
+  1374→              <div className="flex flex-col items-center gap-3 py-8 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1375→                <div className={`w-12 h-12 rounded-xl ${cat.bgColor} flex items-center justify-center`}>
+  1376→                  <Database className={`w-6 h-6 ${cat.textColor}`} />
+  1377→                </div>
+  1378→                <div className="text-center">
+  1379→                  <p className="text-sm font-medium" style={{ color: t.text }}>No data yet</p>
+  1380→                  <p className="text-xs mt-1" style={{ color: t.textSecondary }}>
+  1381→                    Tap below to add data, or close app to type in chat
+  1382→                  </p>
+  1383→                </div>
+  1384→                <div className="flex items-center gap-2">
+  1385→                  <button
+  1386→                    onClick={() => openFormForCommand(catData.emptyCmd)}
+  1387→                    className={`flex items-center gap-1 px-4 py-2 rounded-xl text-xs font-medium ${cat.bgColor} ${cat.textColor} border ${cat.borderColor} active:scale-95 transition-transform`}
+  1388→                  >
+  1389→                    <Plus className="w-3 h-3" />
+  1390→                    {catData.emptyCmd}
+  1391→                  </button>
+  1392→                  <button
+  1393→                    onClick={() => closeMiniApp()}
+  1394→                    className="px-4 py-2 rounded-xl text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 active:scale-95 transition-transform"
+  1395→                  >
+  1396→                    Close & Type
+  1397→                  </button>
+  1398→                </div>
+  1399→              </div>
+  1400→            )}
+  1401→          </div>
+  1402→        )}
+  1403→
+  1404→        {!catData && (
+  1405→          <div className="flex flex-col items-center gap-3 py-8 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1406→            <div className={`w-12 h-12 rounded-xl ${cat.bgColor} flex items-center justify-center`}>
+  1407→              <Zap className={`w-6 h-6 ${cat.textColor}`} />
+  1408→            </div>
+  1409→            <div className="text-center">
+  1410→              <p className="text-sm font-medium" style={{ color: t.text }}>Interactive Commands</p>
+  1411→              <p className="text-xs mt-1" style={{ color: t.textSecondary }}>
+  1412→                Tap any command above — forms open here, others close the app so you can type
+  1413→              </p>
+  1414→            </div>
+  1415→            <button
+  1416→              onClick={() => closeMiniApp()}
+  1417→              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 active:scale-95 transition-transform"
+  1418→            >
+  1419→              <X className="w-3.5 h-3.5" />
+  1420→              <span>Close & Type in Chat</span>
+  1421→            </button>
+  1422→          </div>
+  1423→        )}
+  1424→      </div>
+  1425→    );
+  1426→  };
+  1427→
+  1428→  // ─── Home Tab ────────────────────────────────────────────────────────────
+  1429→
+  1430→  const renderHome = () => {
+  1431→    const s = botData?.summary;
+  1432→    return (
+  1433→      <div className="flex flex-col gap-5 pb-4">
+  1434→        {/* Welcome Card */}
+  1435→        <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-emerald-600 to-teal-700 text-white">
+  1436→          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
+  1437→          <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-6 -translate-x-6" />
+  1438→          <div className="relative">
+  1439→            <div className="flex items-center justify-between mb-1">
+  1440→              <p className="text-base font-bold">Welcome back, {firstName}! 👋</p>
+  1441→              <button
+  1442→                onClick={() => closeMiniApp()}
+  1443→                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 text-white/90 text-[10px] font-medium active:scale-95 transition-transform"
+  1444→              >
+  1445→                <X className="w-3 h-3" />
+  1446→                <span>Close & Type</span>
+  1447→              </button>
+  1448→            </div>
+  1449→            <p className="text-xs text-emerald-100/80">
+  1450→              Career AI Ethiopia — Your executive assistant
+  1451→            </p>
+  1452→            <div className="flex items-center gap-1.5 mt-2.5">
+  1453→              <div className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+  1454→              <p className="text-[10px] text-emerald-200/70">
+  1455→                {s?.lastSync ? `Synced ${timeAgo(s.lastSync)}` : 'Ready'}
+  1456→              </p>
+  1457→            </div>
+  1458→          </div>
+  1459→        </div>
+  1460→
+  1461→        {/* Stats Grid */}
+  1462→        <div>
+  1463→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Overview</h2>
+  1464→          <div className="grid grid-cols-2 gap-2.5">
+  1465→            {[
+  1466→              { label: 'Reports', value: (s?.totalRomelReports || 0) + (s?.totalVdReports || 0), icon: FileText, color: 'text-teal-400', bg: 'bg-teal-500/15' },
+  1467→              { label: 'Tasks', value: s?.totalTasks || 0, icon: CheckSquare, color: 'text-amber-400', bg: 'bg-amber-500/15', sub: s ? `${s.taskCompletionRate}% done` : '' },
+  1468→              { label: 'Contacts', value: s?.totalContacts || 0, icon: Users, color: 'text-rose-400', bg: 'bg-rose-500/15' },
+  1469→              { label: 'Knowledge', value: s?.totalKnowledge || 0, icon: Brain, color: 'text-violet-400', bg: 'bg-violet-500/15' },
+  1470→            ].map((stat) => (
+  1471→              <div key={stat.label} className="p-3.5 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1472→                <div className="flex items-center justify-between">
+  1473→                  <span className="text-2xl font-bold" style={{ color: t.text }}>{stat.value}</span>
+  1474→                  <div className={`w-8 h-8 rounded-lg ${stat.bg} flex items-center justify-center`}>
+  1475→                    <stat.icon className={`w-4 h-4 ${stat.color}`} />
+  1476→                  </div>
+  1477→                </div>
+  1478→                <p className="text-[11px] mt-1" style={{ color: t.textSecondary }}>{stat.label}</p>
+  1479→                {stat.sub && <p className="text-[10px]" style={{ color: t.textMuted }}>{stat.sub}</p>}
+  1480→              </div>
+  1481→            ))}
+  1482→          </div>
+  1483→        </div>
+  1484→
+  1485→        {/* Quick Actions */}
+  1486→        <div>
+  1487→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Quick Actions</h2>
+  1488→          <div className="grid grid-cols-4 gap-2">
+  1489→            {QUICK_ACTIONS.map((action) => (
+  1490→              <button
+  1491→                key={action.cmd}
+  1492→                onClick={() => openFormForCommand(action.cmd)}
+  1493→                className="flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all active:scale-95"
+  1494→                style={{ backgroundColor: t.bgCard }}
+  1495→              >
+  1496→                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+  1497→                  <Zap className="w-4.5 h-4.5 text-emerald-400" />
+  1498→                </div>
+  1499→                <span className="text-[10px] font-medium leading-tight text-center" style={{ color: t.textSecondary }}>
+  1500→                  {action.name}
+  1501→                </span>
+  1502→              </button>
+  1503→            ))}
+  1504→          </div>
+  1505→        </div>
+  1506→
+  1507→        {/* Recent Activity */}
+  1508→        <div>
+  1509→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Recent Activity</h2>
+  1510→          {botData?.recentActivities && botData.recentActivities.length > 0 ? (
+  1511→            <div className="flex flex-col gap-2">
+  1512→              {botData.recentActivities.slice(0, 5).map((act: ActivityItem) => (
+  1513→                <div
+  1514→                  key={act.id}
+  1515→                  className="flex items-start gap-3 p-3 rounded-xl transition-colors"
+  1516→                  style={{ backgroundColor: t.bgCard }}
+  1517→                >
+  1518→                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+  1519→                    <Activity className="w-4 h-4 text-emerald-400" />
+  1520→                  </div>
+  1521→                  <div className="flex-1 min-w-0">
+  1522→                    <p className="text-sm font-medium leading-snug" style={{ color: t.text }}>
+  1523→                      {truncate(act.action, 70)}
+  1524→                    </p>
+  1525→                    <p className="text-[10px] mt-0.5" style={{ color: t.textMuted }}>
+  1526→                      {timeAgo(act.timestamp)}
+  1527→                    </p>
+  1528→                  </div>
+  1529→                </div>
+  1530→              ))}
+  1531→            </div>
+  1532→          ) : (
+  1533→            <div className="p-4 rounded-xl text-center" style={{ backgroundColor: t.bgCard }}>
+  1534→              <p className="text-xs" style={{ color: t.textSecondary }}>No recent activity</p>
+  1535→            </div>
+  1536→          )}
+  1537→        </div>
+  1538→      </div>
+  1539→    );
+  1540→  };
+  1541→
+  1542→  // ─── Categories Tab ──────────────────────────────────────────────────────
+  1543→
+  1544→  const renderCategories = () => (
+  1545→    <div className="flex flex-col gap-4 pb-4">
+  1546→      <div>
+  1547→        <h1 className="text-lg font-bold" style={{ color: t.text }}>All Categories</h1>
+  1548→        <p className="text-xs mt-0.5" style={{ color: t.textSecondary }}>
+  1549→          17 categories · 60+ commands
+  1550→        </p>
+  1551→      </div>
+  1552→      <div className="grid grid-cols-2 gap-2.5">
+  1553→        {CATEGORIES.map((cat) => {
+  1554→          const itemCount = getItemCount(cat);
+  1555→          return (
+  1556→            <button
+  1557→              key={cat.id}
+  1558→              onClick={() => goToCategory(cat)}
+  1559→              className={`p-4 rounded-xl text-left transition-all active:scale-[0.97] border ${cat.bgColor} ${cat.borderColor}`}
+  1560→            >
+  1561→              <div className="flex items-start justify-between">
+  1562→                <span className="text-2xl">{cat.emoji}</span>
+  1563→                {itemCount > 0 && (
+  1564→                  <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: t.bg, color: t.textSecondary }}>
+  1565→                    {itemCount}
+  1566→                  </span>
+  1567→                )}
+  1568→              </div>
+  1569→              <p className={`text-sm font-semibold mt-2 ${cat.textColor}`}>{cat.name}</p>
+  1570→              <p className="text-[10px] mt-0.5" style={{ color: t.textSecondary }}>
+  1571→                {cat.commands.length} commands
+  1572→              </p>
+  1573→            </button>
+  1574→          );
+  1575→        })}
+  1576→      </div>
+  1577→    </div>
+  1578→  );
+  1579→
+  1580→  // Count items for a category
+  1581→  function getItemCount(cat: CategoryDef): number {
+  1582→    if (!botData) return 0;
+  1583→    switch (cat.id) {
+  1584→      case 'romel': return botData.summary.totalRomelReports;
+  1585→      case 'college': return botData.summary.totalVdReports;
+  1586→      case 'data': return botData.summary.totalNotes;
+  1587→      case 'learning': return botData.summary.totalTasks;
+  1588→      case 'crm': return botData.summary.totalContacts;
+  1589→      case 'ai': return botData.summary.totalKnowledge;
+  1590→      case 'reports': return reportsData?.total || 0;
+  1591→      default: return 0;
+  1592→    }
+  1593→  }
+  1594→
+  1595→  // ─── Search Tab ──────────────────────────────────────────────────────────
+  1596→
+  1597→  const renderSearch = () => {
+  1598→    const resultGroups = [
+  1599→      { key: 'reports', label: 'Reports', icon: FileText, color: 'text-teal-400', items: searchResults.reports },
+  1600→      { key: 'notes', label: 'Notes', icon: StickyNote, color: 'text-slate-400', items: searchResults.notes },
+  1601→      { key: 'tasks', label: 'Tasks', icon: CheckSquare, color: 'text-amber-400', items: searchResults.tasks },
+  1602→      { key: 'contacts', label: 'Contacts', icon: Users, color: 'text-rose-400', items: searchResults.contacts },
+  1603→      { key: 'knowledge', label: 'Knowledge', icon: Brain, color: 'text-violet-400', items: searchResults.knowledge },
+  1604→    ].filter(g => g.items.length > 0);
+  1605→
+  1606→    return (
+  1607→      <div className="flex flex-col gap-4 pb-4">
+  1608→        {/* Search Input */}
+  1609→        <div className="relative">
+  1610→          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: t.textMuted }} />
+  1611→          <input
+  1612→            type="text"
+  1613→            value={searchQuery}
+  1614→            onChange={(e) => { haptic('light'); setSearchQuery(e.target.value); setExpandedSearchItem(null); }}
+  1615→            placeholder="Search reports, notes, tasks..."
+  1616→            className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-colors"
+  1617→            style={{
+  1618→              backgroundColor: t.bgCard,
+  1619→              color: t.text,
+  1620→              border: `1px solid ${t.border}`,
+  1621→            }}
+  1622→          />
+  1623→          {searchQuery && (
+  1624→            <button
+  1625→              onClick={() => { haptic('light'); setSearchQuery(''); setExpandedSearchItem(null); }}
+  1626→              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs px-2 py-0.5 rounded-md"
+  1627→              style={{ backgroundColor: t.bg, color: t.textSecondary }}
+  1628→            >
+  1629→              Clear
+  1630→            </button>
+  1631→          )}
+  1632→        </div>
+  1633→
+  1634→        {searchQuery.trim() && (
+  1635→          <p className="text-[11px]" style={{ color: t.textMuted }}>
+  1636→            {totalSearchResults} result{totalSearchResults !== 1 ? 's' : ''} found
+  1637→          </p>
+  1638→        )}
+  1639→
+  1640→        {/* Results */}
+  1641→        {searchQuery.trim() ? (
+  1642→          resultGroups.length > 0 ? (
+  1643→            <div className="flex flex-col gap-4">
+  1644→              {resultGroups.map((group) => (
+  1645→                <div key={group.key}>
+  1646→                  <div className="flex items-center gap-2 mb-2">
+  1647→                    <group.icon className={`w-3.5 h-3.5 ${group.color}`} />
+  1648→                    <h3 className="text-xs font-semibold" style={{ color: t.textSecondary }}>
+  1649→                      {group.label}
+  1650→                    </h3>
+  1651→                    <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: t.bgCard, color: t.textMuted }}>
+  1652→                      {group.items.length}
+  1653→                    </span>
+  1654→                  </div>
+  1655→                  <div className="flex flex-col gap-1.5">
+  1656→                    {group.items.map((item) => {
+  1657→                      const isExpanded = expandedSearchItem === item.id;
+  1658→                      return (
+  1659→                        <button
+  1660→                          key={item.id}
+  1661→                          onClick={() => { haptic('light'); setExpandedSearchItem(isExpanded ? null : item.id); }}
+  1662→                          className="p-3 rounded-xl text-left transition-colors w-full"
+  1663→                          style={{ backgroundColor: t.bgCard }}
+  1664→                        >
+  1665→                          <div className="flex items-start justify-between gap-2">
+  1666→                            <p className="text-sm font-medium leading-snug" style={{ color: t.text }}>
+  1667→                              {truncate(item.title, 50)}
+  1668→                            </p>
+  1669→                            <div className="flex items-center gap-1.5 shrink-0">
+  1670→                              <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>
+  1671→                                {item.sub}
+  1672→                              </span>
+  1673→                              {isExpanded ? (
+  1674→                                <ChevronUp className="w-3.5 h-3.5" style={{ color: t.textMuted }} />
+  1675→                              ) : (
+  1676→                                <ChevronDown className="w-3.5 h-3.5" style={{ color: t.textMuted }} />
+  1677→                              )}
+  1678→                            </div>
+  1679→                          </div>
+  1680→                          {item.date && (
+  1681→                            <p className="text-[10px] mt-1" style={{ color: t.textMuted }}>{item.date}</p>
+  1682→                          )}
+  1683→                          {isExpanded && item.detail && (
+  1684→                            <p className="text-xs mt-2 leading-relaxed whitespace-pre-wrap" style={{ color: t.textSecondary }}>
+  1685→                              {truncate(item.detail, 500)}
+  1686→                            </p>
+  1687→                          )}
+  1688→                        </button>
+  1689→                      );
+  1690→                    })}
+  1691→                  </div>
+  1692→                </div>
+  1693→              ))}
+  1694→            </div>
+  1695→          ) : (
+  1696→            <div className="flex flex-col items-center gap-3 py-10">
+  1697→              <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: t.bgCard }}>
+  1698→                <Search className="w-6 h-6" style={{ color: t.textMuted }} />
+  1699→              </div>
+  1700→              <p className="text-sm font-medium" style={{ color: t.text }}>No results found</p>
+  1701→              <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+  1702→                Try different keywords or use commands in Telegram to add data
+  1703→              </p>
+  1704→            </div>
+  1705→          )
+  1706→        ) : (
+  1707→          <div className="flex flex-col items-center gap-3 py-10">
+  1708→            <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: t.bgCard }}>
+  1709→              <Search className="w-6 h-6" style={{ color: t.textMuted }} />
+  1710→            </div>
+  1711→            <p className="text-sm font-medium" style={{ color: t.text }}>Search everything</p>
+  1712→            <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+  1713→              Find reports, notes, tasks, contacts, and knowledge
+  1714→            </p>
+  1715→          </div>
+  1716→        )}
+  1717→      </div>
+  1718→    );
+  1719→  };
+  1720→
+  1721→  // ─── Profile Tab ─────────────────────────────────────────────────────────
+  1722→
+  1723→  const renderProfile = () => {
+  1724→    const s = botData?.summary;
+  1725→    return (
+  1726→      <div className="flex flex-col gap-5 pb-4">
+  1727→        {/* User Card */}
+  1728→        <div className="p-5 rounded-2xl flex items-center gap-4" style={{ backgroundColor: t.bgCard }}>
+  1729→          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xl font-bold shrink-0">
+  1730→            {firstName.charAt(0).toUpperCase()}
+  1731→          </div>
+  1732→          <div className="flex-1 min-w-0">
+  1733→            <p className="text-base font-bold" style={{ color: t.text }}>{firstName}</p>
+  1734→            {username && (
+  1735→              <p className="text-xs" style={{ color: t.textSecondary }}>@{username}</p>
+  1736→            )}
+  1737→            <div className="flex items-center gap-1.5 mt-1">
+  1738→              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+  1739→              <p className="text-[10px]" style={{ color: t.textMuted }}>Online</p>
+  1740→            </div>
+  1741→          </div>
+  1742→        </div>
+  1743→
+  1744→        {/* Bot Info */}
+  1745→        <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1746→          <div className="flex items-center gap-3">
+  1747→            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+  1748→              <Bot className="w-5 h-5 text-emerald-400" />
+  1749→            </div>
+  1750→            <div className="flex-1">
+  1751→              <p className="text-sm font-semibold" style={{ color: t.text }}>@hambi_career_ai_bot</p>
+  1752→              <p className="text-[11px]" style={{ color: t.textSecondary }}>Career AI Ethiopia</p>
+  1753→            </div>
+  1754→          </div>
+  1755→        </div>
+  1756→
+  1757→        {/* Quick Stats */}
+  1758→        <div>
+  1759→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Statistics</h2>
+  1760→          <div className="flex flex-col gap-1.5">
+  1761→            {[
+  1762→              { label: 'Total Reports', value: (s?.totalRomelReports || 0) + (s?.totalVdReports || 0), icon: BarChart3 },
+  1763→              { label: 'Tasks Completed', value: s?.tasksDone || 0, icon: CheckCircle2 },
+  1764→              { label: 'Completion Rate', value: `${s?.taskCompletionRate || 0}%`, icon: TrendingUp },
+  1765→              { label: 'Total Notes', value: s?.totalNotes || 0, icon: StickyNote },
+  1766→              { label: 'Contacts', value: s?.totalContacts || 0, icon: Users },
+  1767→              { label: 'Knowledge Base', value: s?.totalKnowledge || 0, icon: Brain },
+  1768→              { label: 'Data Syncs', value: s?.totalSyncs || 0, icon: RefreshCw },
+  1769→            ].map((stat) => (
+  1770→              <div
+  1771→                key={stat.label}
+  1772→                className="flex items-center justify-between p-3 rounded-xl transition-colors"
+  1773→                style={{ backgroundColor: t.bgCard }}
+  1774→              >
+  1775→                <div className="flex items-center gap-3">
+  1776→                  <stat.icon className="w-4 h-4" style={{ color: t.textSecondary }} />
+  1777→                  <span className="text-sm" style={{ color: t.text }}>{stat.label}</span>
+  1778→                </div>
+  1779→                <span className="text-sm font-semibold" style={{ color: t.text }}>{stat.value}</span>
+  1780→              </div>
+  1781→            ))}
+  1782→          </div>
+  1783→        </div>
+  1784→
+  1785→        {/* About */}
+  1786→        <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1787→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: t.textMuted }}>About</h2>
+  1788→          <p className="text-xs leading-relaxed" style={{ color: t.textSecondary }}>
+  1789→            Career AI Ethiopia is your executive assistant bot for managing sales, college operations, 
+  1790→            job applications, tasks, notes, contacts, and more. Use commands in Telegram to interact 
+  1791→            with your data, or browse through this dashboard.
+  1792→          </p>
+  1793→          <div className="flex flex-wrap gap-1.5 mt-3">
+  1794→            {['Sales', 'College', 'Jobs', 'Tasks', 'Notes', 'CRM', 'AI'].map((tag) => (
+  1795→              <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>
+  1796→                {tag}
+  1797→              </span>
+  1798→            ))}
+  1799→          </div>
+  1800→        </div>
+  1801→
+  1802→        {/* Version & Features */}
+  1803→        <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1804→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Available Features</h2>
+  1805→          <div className="flex flex-col gap-1.5">
+  1806→            {[
+  1807→              { label: 'Receipt Scanner', desc: 'AI reads receipts → auto expense', icon: Camera, color: 'text-orange-400' },
+  1808→              { label: 'Document AI', desc: 'Upload docs → AI summary', icon: FileSearch, color: 'text-violet-400' },
+  1809→              { label: 'Predictive Analytics', desc: 'AI forecasts cash flow', icon: LineChart, color: 'text-emerald-400' },
+  1810→              { label: 'Email AI', desc: 'AI-assisted emails', icon: MailOpen, color: 'text-pink-400' },
+  1811→              { label: 'Export Reports', desc: 'CSV & PDF downloads', icon: DownloadCloud, color: 'text-cyan-400' },
+  1812→              { label: 'Role Management', desc: 'Multi-user permissions', icon: Shield, color: 'text-amber-400' },
+  1813→              { label: 'API Access', desc: 'REST API for integrations', icon: KeyRound, color: 'text-teal-400' },
+  1814→            ].map((feat) => (
+  1815→              <div key={feat.label} className="flex items-center gap-3 p-2.5 rounded-lg" style={{ backgroundColor: t.bg }}>
+  1816→                <feat.icon className={`w-4 h-4 ${feat.color} shrink-0`} />
+  1817→                <div className="flex-1 min-w-0">
+  1818→                  <p className="text-xs font-medium" style={{ color: t.text }}>{feat.label}</p>
+  1819→                  <p className="text-[10px]" style={{ color: t.textMuted }}>{feat.desc}</p>
+  1820→                </div>
+  1821→                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+  1822→              </div>
+  1823→            ))}
+  1824→          </div>
+  1825→        </div>
+  1826→
+  1827→        {/* Role Management */}
+  1828→        <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1829→          <div className="flex items-center gap-3 mb-3">
+  1830→            <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center">
+  1831→              <Shield className="w-5 h-5 text-amber-400" />
+  1832→            </div>
+  1833→            <div>
+  1834→              <p className="text-sm font-semibold" style={{ color: t.text }}>Role & Permissions</p>
+  1835→              <p className="text-[10px]" style={{ color: t.textSecondary }}>Manage access levels</p>
+  1836→            </div>
+  1837→          </div>
+  1838→          <div className="flex flex-col gap-1.5">
+  1839→            {[
+  1840→              { role: 'Admin', desc: 'Full access to all features', active: true },
+  1841→              { role: 'Manager', desc: 'Business & finance access', active: false },
+  1842→              { role: 'Viewer', desc: 'Read-only access', active: false },
+  1843→            ].map((r) => (
+  1844→              <div key={r.role} className="flex items-center justify-between p-2.5 rounded-lg" style={{ backgroundColor: t.bg }}>
+  1845→                <div>
+  1846→                  <p className="text-xs font-medium" style={{ color: t.text }}>{r.role}</p>
+  1847→                  <p className="text-[10px]" style={{ color: t.textMuted }}>{r.desc}</p>
+  1848→                </div>
+  1849→                <div className={`w-2 h-2 rounded-full ${r.active ? 'bg-emerald-400' : 'bg-gray-500/30'}`} />
+  1850→              </div>
+  1851→            ))}
+  1852→          </div>
+  1853→        </div>
+  1854→
+  1855→        {/* Version */}
+  1856→        <div className="text-center py-2">
+  1857→          <p className="text-[10px]" style={{ color: t.textMuted }}>Mini App v3 · Career AI Ethiopia · 7 AI Features</p>
+  1858→        </div>
+  1859→      </div>
+  1860→    );
+  1861→  };
+  1862→
+  1863→  // ─── Finance Tab ─────────────────────────────────────────────────────────
+  1864→
+  1865→  const renderFinance = () => {
+  1866→    const txns = (financeData?.transactions || []) as Array<{
+  1867→      id: string; type: string; amount: number; category?: string;
+  1868→      description?: string; date?: string; currency?: string;
+  1869→    }>;
+  1870→    const summary = financeData?.summary || {};
+  1871→
+  1872→    const totalIncome = summary.totalIncome ?? txns.filter((t) => t.type === 'income').reduce((s, t) => s + (t.amount || 0), 0);
+  1873→    const totalExpenses = summary.totalExpenses ?? txns.filter((t) => t.type === 'expense').reduce((s, t) => s + (t.amount || 0), 0);
+  1874→    const netProfit = totalIncome - totalExpenses;
+  1875→
+  1876→    const summaryCards = [
+  1877→      { label: 'Total Income', value: `${totalIncome.toLocaleString()} ETB`, color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
+  1878→      { label: 'Total Expenses', value: `${totalExpenses.toLocaleString()} ETB`, color: 'text-red-400', bg: 'bg-red-500/15' },
+  1879→      { label: 'Net Profit', value: `${netProfit.toLocaleString()} ETB`, color: netProfit >= 0 ? 'text-emerald-400' : 'text-red-400', bg: netProfit >= 0 ? 'bg-emerald-500/15' : 'bg-red-500/15' },
+  1880→      { label: 'Transactions', value: String(txns.length), color: 'text-cyan-400', bg: 'bg-cyan-500/15' },
+  1881→    ];
+  1882→
+  1883→    return (
+  1884→      <div className="flex flex-col gap-5 pb-4">
+  1885→        <div>
+  1886→          <h1 className="text-lg font-bold" style={{ color: t.text }}>Finance</h1>
+  1887→          <p className="text-xs mt-0.5" style={{ color: t.textSecondary }}>
+  1888→            Track your income & expenses
+  1889→          </p>
+  1890→        </div>
+  1891→
+  1892→        {/* Summary Cards */}
+  1893→        <div className="grid grid-cols-2 gap-2.5">
+  1894→          {summaryCards.map((card) => (
+  1895→            <div key={card.label} className={`p-3.5 rounded-xl ${card.bg}`}>
+  1896→              <p className="text-[11px]" style={{ color: t.textSecondary }}>{card.label}</p>
+  1897→              <p className={`text-lg font-bold mt-1 ${card.color}`}>{card.value}</p>
+  1898→            </div>
+  1899→          ))}
+  1900→        </div>
+  1901→
+  1902→        {/* Transaction List */}
+  1903→        <div>
+  1904→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>
+  1905→            Recent Transactions
+  1906→          </h2>
+  1907→          {txns.length > 0 ? (
+  1908→            <div className="flex flex-col gap-2 max-h-96 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+  1909→              {txns.map((txn) => {
+  1910→                const isIncome = txn.type === 'income';
+  1911→                return (
+  1912→                  <div
+  1913→                    key={txn.id}
+  1914→                    className="flex items-center gap-3 p-3 rounded-xl"
+  1915→                    style={{ backgroundColor: t.bgCard }}
+  1916→                  >
+  1917→                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-emerald-500/15' : 'bg-red-500/15'}`}>
+  1918→                      {isIncome
+  1919→                        ? <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+  1920→                        : <ArrowDownRight className="w-4 h-4 text-red-400" />
+  1921→                      }
+  1922→                    </div>
+  1923→                    <div className="flex-1 min-w-0">
+  1924→                      <div className="flex items-center gap-2">
+  1925→                        <p className="text-sm font-medium" style={{ color: t.text }}>
+  1926→                          {txn.description || (isIncome ? 'Income' : 'Expense')}
+  1927→                        </p>
+  1928→                        {txn.category && (
+  1929→                          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium bg-slate-500/15 text-slate-400">
+  1930→                            {txn.category}
+  1931→                          </span>
+  1932→                        )}
+  1933→                      </div>
+  1934→                      {txn.date && (
+  1935→                        <p className="text-[10px] mt-0.5" style={{ color: t.textMuted }}>{txn.date}</p>
+  1936→                      )}
+  1937→                    </div>
+  1938→                    <p className={`text-sm font-bold shrink-0 ${isIncome ? 'text-emerald-400' : 'text-red-400'}`}>
+  1939→                      {isIncome ? '+' : '-'}{txn.amount?.toLocaleString()} {txn.currency || 'ETB'}
+  1940→                    </p>
+  1941→                  </div>
+  1942→                );
+  1943→              })}
+  1944→            </div>
+  1945→          ) : (
+  1946→            <div className="flex flex-col items-center gap-3 py-10 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1947→              <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 flex items-center justify-center">
+  1948→                <Wallet className="w-6 h-6 text-emerald-400" />
+  1949→              </div>
+  1950→              <p className="text-sm font-medium" style={{ color: t.text }}>No transactions yet</p>
+  1951→              <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+  1952→                Tap the buttons below to add transactions directly
+  1953→              </p>
+  1954→              <button
+  1955→                onClick={() => openForm('income')}
+  1956→                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-medium active:scale-95 transition-transform"
+  1957→              >
+  1958→                <Plus className="w-3.5 h-3.5" />
+  1959→                <span>Add Income</span>
+  1960→              </button>
+  1961→            </div>
+  1962→          )}
+  1963→        </div>
+  1964→
+  1965→        {/* Action Buttons */}
+  1966→        <div className="grid grid-cols-3 gap-2.5">
+  1967→          <button
+  1968→            onClick={() => openForm('income')}
+  1969→            className="flex items-center justify-center gap-1.5 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 active:scale-95 transition-transform"
+  1970→          >
+  1971→            <Plus className="w-4 h-4" />
+  1972→            <span className="text-xs font-medium">Income</span>
+  1973→          </button>
+  1974→          <button
+  1975→            onClick={() => openForm('expense')}
+  1976→            className="flex items-center justify-center gap-1.5 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 active:scale-95 transition-transform"
+  1977→          >
+  1978→            <Plus className="w-4 h-4" />
+  1979→            <span className="text-xs font-medium">Expense</span>
+  1980→          </button>
+  1981→          <button
+  1982→            onClick={() => handleExport('finance', 'csv')}
+  1983→            disabled={!!exporting}
+  1984→            className="flex items-center justify-center gap-1.5 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 active:scale-95 transition-transform disabled:opacity-50"
+  1985→          >
+  1986→            <DownloadCloud className="w-4 h-4" />
+  1987→            <span className="text-xs font-medium">{exporting === 'finance-csv' ? '...' : 'Export'}</span>
+  1988→          </button>
+  1989→        </div>
+  1990→      </div>
+  1991→    );
+  1992→  };
+  1993→
+  1994→  // ─── Calendar Tab ────────────────────────────────────────────────────────
+  1995→
+  1996→  const renderCalendar = () => {
+  1997→    const events = (calendarData?.events || []) as Array<{
+  1998→      id: string; title: string; date?: string; time?: string;
+  1999→      type?: string; priority?: string; description?: string;
+  2000→    }>;
+
+[showing lines 1-2000 of 2962; use offset=2001 with limit to continue reading]
