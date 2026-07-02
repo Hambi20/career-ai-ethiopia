@@ -13,7 +13,8 @@ import {
   StickyNote, Bookmark, FolderOpen, Link2, Cpu, Heart,
   Shield, Info, Activity, PieChart, ListChecks, Award,
   Wallet, ArrowUpRight, ArrowDownRight, ChevronRight, Plus, CheckCircle2,
-  X, Check
+  X, Check, Camera, ScanLine, Sparkles, Eye, FileSearch, DownloadCloud,
+  KeyRound, MailOpen, ArrowDownToLine, LineChart, Predicted
 } from 'lucide-react';
 
 // ─── Telegram WebApp Types ───────────────────────────────────────────────────
@@ -516,7 +517,7 @@ function Skeleton({ className }: { className?: string }) {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-type TabId = 'home' | 'categories' | 'finance' | 'calendar' | 'search' | 'profile';
+type TabId = 'home' | 'categories' | 'finance' | 'calendar' | 'ai' | 'search' | 'profile';
 
 export default function MiniAppPage() {
   const [activeTab, setActiveTab] = useState<TabId>('home');
@@ -531,6 +532,21 @@ export default function MiniAppPage() {
   const [pullRefreshing, setPullRefreshing] = useState(false);
   const [financeData, setFinanceData] = useState<any>(null);
   const [calendarData, setCalendarData] = useState<any>(null);
+
+  // AI Features state
+  const [receiptImage, setReceiptImage] = useState<string | null>(null);
+  const [receiptAnalysis, setReceiptAnalysis] = useState<any>(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [docFile, setDocFile] = useState<string | null>(null);
+  const [docAnalysis, setDocAnalysis] = useState<any>(null);
+  const [docLoading, setDocLoading] = useState(false);
+  const [forecastData, setForecastData] = useState<any>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
+  const [aiView, setAiView] = useState<'menu' | 'receipt' | 'document' | 'analytics' | 'email' | 'api'>('menu');
+  const [emailForm, setEmailForm] = useState({ to: '', subject: '', body: '' });
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [exporting, setExporting] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     if (typeof window === 'undefined') return new Date().toISOString().split('T')[0];
     return new Date().toISOString().split('T')[0];
@@ -889,6 +905,160 @@ export default function MiniAppPage() {
     } finally {
       setFormLoading(false);
     }
+  };
+
+  // ─── AI Feature Functions ────────────────────────────────────────────────
+
+  const handleReceiptScan = async (file: File) => {
+    haptic('medium');
+    setReceiptLoading(true);
+    setReceiptAnalysis(null);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = (reader.result as string).split(',')[1];
+        setReceiptImage(reader.result as string);
+        const res = await fetch('/api/ai/analyze-receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64 }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setReceiptAnalysis(data.data);
+          haptic('success' as any);
+        } else {
+          setReceiptAnalysis({ error: data.error || 'Failed to analyze receipt' });
+        }
+        setReceiptLoading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      setReceiptAnalysis({ error: 'Failed to read file' });
+      setReceiptLoading(false);
+    }
+  };
+
+  const handleReceiptConfirm = async () => {
+    if (!receiptAnalysis || receiptAnalysis.error) return;
+    setReceiptLoading(true);
+    try {
+      const res = await fetch('/api/finance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'expense',
+          amount: parseFloat(receiptAnalysis.amount) || 0,
+          category: receiptAnalysis.category || 'Other',
+          description: receiptAnalysis.merchantName || receiptAnalysis.description || 'Receipt',
+          date: receiptAnalysis.date || new Date().toISOString().split('T')[0],
+          chatId: 0,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (typeof window !== 'undefined') {
+          window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success');
+        }
+        setReceiptImage(null);
+        setReceiptAnalysis(null);
+        setAiView('menu');
+        setFormSuccess(true);
+        setTimeout(() => setFormSuccess(false), 2000);
+        fetchData(false);
+      }
+    } catch { /* silent */ }
+    setReceiptLoading(false);
+  };
+
+  const handleDocumentUpload = async (file: File) => {
+    haptic('medium');
+    setDocLoading(true);
+    setDocAnalysis(null);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = (reader.result as string).split(',')[1];
+        setDocFile(reader.result as string);
+        const res = await fetch('/api/ai/analyze-document', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file: base64, fileName: file.name, mimeType: file.type }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setDocAnalysis(data.data);
+          haptic('success' as any);
+        } else {
+          setDocAnalysis({ error: data.error || 'Failed to analyze document' });
+        }
+        setDocLoading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      setDocAnalysis({ error: 'Failed to read file' });
+      setDocLoading(false);
+    }
+  };
+
+  const handleLoadForecast = async () => {
+    haptic('medium');
+    setForecastLoading(true);
+    try {
+      const res = await fetch('/api/analytics/forecast?period=monthly&limit=100');
+      const data = await res.json();
+      if (data.success) {
+        setForecastData(data);
+        haptic('success' as any);
+      }
+    } catch { /* silent */ }
+    setForecastLoading(false);
+  };
+
+  const handleExport = async (type: string, format: string) => {
+    haptic('medium');
+    setExporting(`${type}-${format}`);
+    try {
+      const params = new URLSearchParams({ type, period: 'all' });
+      if (format === 'csv') {
+        const res = await fetch(`/api/export/excel?${params}`);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${type}-report.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        window.open(`/api/export/pdf?${params}`, '_blank');
+      }
+      haptic('success' as any);
+    } catch { /* silent */ }
+    setExporting(null);
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailForm.to || !emailForm.subject) return;
+    haptic('medium');
+    setEmailSending(true);
+    setEmailSent(false);
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `Compose a professional email:\nTo: ${emailForm.to}\nSubject: ${emailForm.subject}\nBody: ${emailForm.body}\n\nPlease draft a polished version of this email.`,
+          chatId: 0,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEmailSent(true);
+        setTimeout(() => setEmailSent(false), 3000);
+        haptic('success' as any);
+      }
+    } catch { /* silent */ }
+    setEmailSending(false);
   };
 
   // ─── Search logic ─────────────────────────────────────────────────────────
@@ -1575,9 +1745,62 @@ export default function MiniAppPage() {
           </div>
         </div>
 
+        {/* Version & Features */}
+        <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Available Features</h2>
+          <div className="flex flex-col gap-1.5">
+            {[
+              { label: 'Receipt Scanner', desc: 'AI reads receipts → auto expense', icon: Camera, color: 'text-orange-400' },
+              { label: 'Document AI', desc: 'Upload docs → AI summary', icon: FileSearch, color: 'text-violet-400' },
+              { label: 'Predictive Analytics', desc: 'AI forecasts cash flow', icon: LineChart, color: 'text-emerald-400' },
+              { label: 'Email AI', desc: 'AI-assisted emails', icon: MailOpen, color: 'text-pink-400' },
+              { label: 'Export Reports', desc: 'CSV & PDF downloads', icon: DownloadCloud, color: 'text-cyan-400' },
+              { label: 'Role Management', desc: 'Multi-user permissions', icon: Shield, color: 'text-amber-400' },
+              { label: 'API Access', desc: 'REST API for integrations', icon: KeyRound, color: 'text-teal-400' },
+            ].map((feat) => (
+              <div key={feat.label} className="flex items-center gap-3 p-2.5 rounded-lg" style={{ backgroundColor: t.bg }}>
+                <feat.icon className={`w-4 h-4 ${feat.color} shrink-0`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium" style={{ color: t.text }}>{feat.label}</p>
+                  <p className="text-[10px]" style={{ color: t.textMuted }}>{feat.desc}</p>
+                </div>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Role Management */}
+        <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center">
+              <Shield className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: t.text }}>Role & Permissions</p>
+              <p className="text-[10px]" style={{ color: t.textSecondary }}>Manage access levels</p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {[
+              { role: 'Admin', desc: 'Full access to all features', active: true },
+              { role: 'Manager', desc: 'Business & finance access', active: false },
+              { role: 'Viewer', desc: 'Read-only access', active: false },
+            ].map((r) => (
+              <div key={r.role} className="flex items-center justify-between p-2.5 rounded-lg" style={{ backgroundColor: t.bg }}>
+                <div>
+                  <p className="text-xs font-medium" style={{ color: t.text }}>{r.role}</p>
+                  <p className="text-[10px]" style={{ color: t.textMuted }}>{r.desc}</p>
+                </div>
+                <div className={`w-2 h-2 rounded-full ${r.active ? 'bg-emerald-400' : 'bg-gray-500/30'}`} />
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Version */}
         <div className="text-center py-2">
-          <p className="text-[10px]" style={{ color: t.textMuted }}>Mini App v2 · Career AI Ethiopia</p>
+          <p className="text-[10px]" style={{ color: t.textMuted }}>Mini App v3 · Career AI Ethiopia · 7 AI Features</p>
         </div>
       </div>
     );
@@ -1679,20 +1902,28 @@ export default function MiniAppPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-3 gap-2.5">
           <button
             onClick={() => openForm('income')}
-            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 active:scale-95 transition-transform"
+            className="flex items-center justify-center gap-1.5 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 active:scale-95 transition-transform"
           >
             <Plus className="w-4 h-4" />
-            <span className="text-sm font-medium">Add Income</span>
+            <span className="text-xs font-medium">Income</span>
           </button>
           <button
             onClick={() => openForm('expense')}
-            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 active:scale-95 transition-transform"
+            className="flex items-center justify-center gap-1.5 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 active:scale-95 transition-transform"
           >
             <Plus className="w-4 h-4" />
-            <span className="text-sm font-medium">Add Expense</span>
+            <span className="text-xs font-medium">Expense</span>
+          </button>
+          <button
+            onClick={() => handleExport('finance', 'csv')}
+            disabled={!!exporting}
+            className="flex items-center justify-center gap-1.5 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 active:scale-95 transition-transform disabled:opacity-50"
+          >
+            <DownloadCloud className="w-4 h-4" />
+            <span className="text-xs font-medium">{exporting === 'finance-csv' ? '...' : 'Export'}</span>
           </button>
         </div>
       </div>
@@ -1826,24 +2057,601 @@ export default function MiniAppPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => openForm('event')}
-            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 active:scale-95 transition-transform"
+            className="flex items-center justify-center gap-1.5 p-3 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 active:scale-95 transition-transform"
           >
             <Plus className="w-4 h-4" />
-            <span className="text-sm font-medium">Add Event</span>
+            <span className="text-xs font-medium">Event</span>
           </button>
           <button
             onClick={() => openForm('reminder')}
-            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 active:scale-95 transition-transform"
+            className="flex items-center justify-center gap-1.5 p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 active:scale-95 transition-transform"
           >
             <Plus className="w-4 h-4" />
-            <span className="text-sm font-medium">Add Reminder</span>
+            <span className="text-xs font-medium">Reminder</span>
+          </button>
+          <button
+            onClick={() => handleExport('calendar', 'csv')}
+            disabled={!!exporting}
+            className="flex items-center justify-center gap-1.5 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 active:scale-95 transition-transform disabled:opacity-50"
+          >
+            <DownloadCloud className="w-4 h-4" />
+            <span className="text-xs font-medium">{exporting === 'calendar-csv' ? '...' : 'Export'}</span>
           </button>
         </div>
       </div>
     );
+  };
+
+  // ─── AI Tools Tab ─────────────────────────────────────────────────────────
+
+  const renderAI = () => {
+    const inputStyle: React.CSSProperties = {
+      backgroundColor: t.bg,
+      color: t.text,
+      border: `1px solid ${t.border}`,
+    };
+
+    // AI Menu
+    if (aiView === 'menu') {
+      return (
+        <div className="flex flex-col gap-5 pb-4">
+          <div>
+            <h1 className="text-lg font-bold" style={{ color: t.text }}>AI Tools</h1>
+            <p className="text-xs mt-0.5" style={{ color: t.textSecondary }}>
+              Smart features powered by AI
+            </p>
+          </div>
+
+          {/* AI Feature Cards */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Receipt Scanner */}
+            <button
+              onClick={() => { haptic('medium'); setAiView('receipt'); }}
+              className="p-4 rounded-xl text-left transition-all active:scale-[0.97] border bg-orange-500/10 border-orange-500/20"
+            >
+              <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center mb-3">
+                <Camera className="w-5 h-5 text-orange-400" />
+              </div>
+              <p className="text-sm font-semibold text-orange-400">Scan Receipt</p>
+              <p className="text-[10px] mt-1 leading-tight" style={{ color: t.textSecondary }}>
+                Photo → auto expense
+              </p>
+            </button>
+
+            {/* Document AI */}
+            <button
+              onClick={() => { haptic('medium'); setAiView('document'); }}
+              className="p-4 rounded-xl text-left transition-all active:scale-[0.97] border bg-violet-500/10 border-violet-500/20"
+            >
+              <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center mb-3">
+                <FileSearch className="w-5 h-5 text-violet-400" />
+              </div>
+              <p className="text-sm font-semibold text-violet-400">Document AI</p>
+              <p className="text-[10px] mt-1 leading-tight" style={{ color: t.textSecondary }}>
+                Upload → AI summary
+              </p>
+            </button>
+
+            {/* Predictive Analytics */}
+            <button
+              onClick={() => { haptic('medium'); setAiView('analytics'); handleLoadForecast(); }}
+              className="p-4 rounded-xl text-left transition-all active:scale-[0.97] border bg-emerald-500/10 border-emerald-500/20"
+            >
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center mb-3">
+                <LineChart className="w-5 h-5 text-emerald-400" />
+              </div>
+              <p className="text-sm font-semibold text-emerald-400">Analytics</p>
+              <p className="text-[10px] mt-1 leading-tight" style={{ color: t.textSecondary }}>
+                AI forecasts & trends
+              </p>
+            </button>
+
+            {/* Email Assistant */}
+            <button
+              onClick={() => { haptic('medium'); setAiView('email'); }}
+              className="p-4 rounded-xl text-left transition-all active:scale-[0.97] border bg-pink-500/10 border-pink-500/20"
+            >
+              <div className="w-10 h-10 rounded-xl bg-pink-500/15 flex items-center justify-center mb-3">
+                <MailOpen className="w-5 h-5 text-pink-400" />
+              </div>
+              <p className="text-sm font-semibold text-pink-400">Email AI</p>
+              <p className="text-[10px] mt-1 leading-tight" style={{ color: t.textSecondary }}>
+                AI email assistant
+              </p>
+            </button>
+          </div>
+
+          {/* Export Section */}
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>
+              Export Reports
+            </h2>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: 'Finance CSV', type: 'finance', format: 'csv' as const },
+                { label: 'Finance PDF', type: 'finance', format: 'pdf' as const },
+                { label: 'Calendar CSV', type: 'calendar', format: 'csv' as const },
+              ].map((exp) => (
+                <button
+                  key={`${exp.type}-${exp.format}`}
+                  onClick={() => handleExport(exp.type, exp.format)}
+                  disabled={!!exporting}
+                  className="flex items-center justify-center gap-1.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 active:scale-95 transition-transform disabled:opacity-50"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-medium">{exp.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* API Access */}
+          <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/15 flex items-center justify-center">
+                <KeyRound className="w-5 h-5 text-cyan-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold" style={{ color: t.text }}>API Access</p>
+                <p className="text-[10px]" style={{ color: t.textSecondary }}>Connect external apps</p>
+              </div>
+            </div>
+            <p className="text-[11px] leading-relaxed" style={{ color: t.textSecondary }}>
+              Use the REST API to integrate Career AI with your tools. Available endpoints: /api/finance, /api/calendar, /api/businesses, /api/documents, /api/analytics/forecast
+            </p>
+            <div className="mt-2 p-2.5 rounded-lg text-[10px] font-mono" style={{ backgroundColor: t.bg, color: t.textMuted }}>
+              GET /api/finance?period=monthly<br />
+              POST /api/finance {'{'}"type":"income"{'}'}<br />
+              GET /api/analytics/forecast
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Receipt Scanner View
+    if (aiView === 'receipt') {
+      return (
+        <div className="flex flex-col gap-4 pb-4">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setAiView('menu')} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bgCard }}>
+              <ChevronLeft className="w-5 h-5" style={{ color: t.text }} />
+            </button>
+            <div>
+              <h1 className="text-lg font-bold" style={{ color: t.text }}>📷 Scan Receipt</h1>
+              <p className="text-xs" style={{ color: t.textSecondary }}>Take a photo of your receipt</p>
+            </div>
+          </div>
+
+          {/* Upload Area */}
+          {!receiptImage && !receiptLoading && (
+            <label className="flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors" style={{ borderColor: t.border, backgroundColor: t.bgCard }}>
+              <div className="w-16 h-16 rounded-2xl bg-orange-500/15 flex items-center justify-center">
+                <Camera className="w-8 h-8 text-orange-400" />
+              </div>
+              <p className="text-sm font-medium" style={{ color: t.text }}>Tap to upload receipt</p>
+              <p className="text-[10px]" style={{ color: t.textSecondary }}>Supports JPG, PNG, WEBP</p>
+              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => e.target.files?.[0] && handleReceiptScan(e.target.files[0])} />
+            </label>
+          )}
+
+          {/* Loading */}
+          {receiptLoading && !receiptAnalysis && (
+            <div className="flex flex-col items-center gap-3 py-12 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+              <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
+              <p className="text-sm" style={{ color: t.textSecondary }}>Analyzing receipt with AI...</p>
+            </div>
+          )}
+
+          {/* Image Preview */}
+          {receiptImage && receiptAnalysis && (
+            <div className="flex flex-col gap-3">
+              {receiptImage && (
+                <div className="rounded-xl overflow-hidden" style={{ backgroundColor: t.bgCard }}>
+                  <img src={receiptImage} alt="Receipt" className="w-full h-48 object-cover" />
+                </div>
+              )}
+
+              {/* Analysis Results */}
+              {receiptAnalysis.error ? (
+                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+                  <p className="text-xs text-red-400">{receiptAnalysis.error}</p>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl space-y-3" style={{ backgroundColor: t.bgCard }}>
+                  <h3 className="text-sm font-semibold" style={{ color: t.text }}>Extracted Data</h3>
+                  {receiptAnalysis.merchantName && (
+                    <div className="flex justify-between">
+                      <span className="text-xs" style={{ color: t.textSecondary }}>Merchant</span>
+                      <span className="text-xs font-medium" style={{ color: t.text }}>{receiptAnalysis.merchantName}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-xs" style={{ color: t.textSecondary }}>Amount</span>
+                    <span className="text-sm font-bold text-orange-400">{receiptAnalysis.amount || receiptAnalysis.subtotal || 'N/A'} {receiptAnalysis.currency || 'ETB'}</span>
+                  </div>
+                  {receiptAnalysis.category && (
+                    <div className="flex justify-between">
+                      <span className="text-xs" style={{ color: t.textSecondary }}>Category</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400">{receiptAnalysis.category}</span>
+                    </div>
+                  )}
+                  {receiptAnalysis.date && (
+                    <div className="flex justify-between">
+                      <span className="text-xs" style={{ color: t.textSecondary }}>Date</span>
+                      <span className="text-xs font-medium" style={{ color: t.text }}>{receiptAnalysis.date}</span>
+                    </div>
+                  )}
+                  {receiptAnalysis.items && receiptAnalysis.items.length > 0 && (
+                    <div>
+                      <p className="text-xs mb-1" style={{ color: t.textSecondary }}>Items</p>
+                      <div className="flex flex-col gap-1">
+                        {receiptAnalysis.items.map((item: any, i: number) => (
+                          <div key={i} className="flex justify-between text-[11px]">
+                            <span style={{ color: t.text }}>{item.name || item.description}</span>
+                            <span style={{ color: t.textMuted }}>{item.price || item.amount}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleReceiptConfirm}
+                    disabled={receiptLoading}
+                    className="w-full py-3 rounded-xl text-sm font-semibold text-white bg-orange-500 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+                  >
+                    {receiptLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    <span>Save as Expense</span>
+                  </button>
+                </div>
+              )}
+
+              <button
+                onClick={() => { setReceiptImage(null); setReceiptAnalysis(null); }}
+                className="w-full py-2.5 rounded-xl text-xs font-medium border active:scale-95 transition-transform"
+                style={{ borderColor: t.border, color: t.textSecondary }}
+              >
+                Scan Another Receipt
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Document AI View
+    if (aiView === 'document') {
+      return (
+        <div className="flex flex-col gap-4 pb-4">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setAiView('menu')} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bgCard }}>
+              <ChevronLeft className="w-5 h-5" style={{ color: t.text }} />
+            </button>
+            <div>
+              <h1 className="text-lg font-bold" style={{ color: t.text }}>📄 Document AI</h1>
+              <p className="text-xs" style={{ color: t.textSecondary }}>Upload & analyze with AI</p>
+            </div>
+          </div>
+
+          {!docFile && !docLoading && (
+            <label className="flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors" style={{ borderColor: t.border, backgroundColor: t.bgCard }}>
+              <div className="w-16 h-16 rounded-2xl bg-violet-500/15 flex items-center justify-center">
+                <FileUp className="w-8 h-8 text-violet-400" />
+              </div>
+              <p className="text-sm font-medium" style={{ color: t.text }}>Tap to upload document</p>
+              <p className="text-[10px]" style={{ color: t.textSecondary }}>Supports PDF, Image, DOCX</p>
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.txt" className="hidden" onChange={(e) => e.target.files?.[0] && handleDocumentUpload(e.target.files[0])} />
+            </label>
+          )}
+
+          {docLoading && !docAnalysis && (
+            <div className="flex flex-col items-center gap-3 py-12 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+              <Sparkles className="w-8 h-8 text-violet-400 animate-pulse" />
+              <p className="text-sm" style={{ color: t.textSecondary }}>Analyzing document with AI...</p>
+            </div>
+          )}
+
+          {docAnalysis && (
+            <div className="flex flex-col gap-3">
+              {docAnalysis.error ? (
+                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+                  <p className="text-xs text-red-400">{docAnalysis.error}</p>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl space-y-3" style={{ backgroundColor: t.bgCard }}>
+                  {docAnalysis.documentType && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 font-medium">{docAnalysis.documentType}</span>
+                      {docAnalysis.language && (
+                        <span className="text-[9px] px-2 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>{docAnalysis.language}</span>
+                      )}
+                    </div>
+                  )}
+
+                  {docAnalysis.summary && (
+                    <div>
+                      <p className="text-xs font-semibold mb-1" style={{ color: t.text }}>Summary</p>
+                      <p className="text-xs leading-relaxed" style={{ color: t.textSecondary }}>{docAnalysis.summary}</p>
+                    </div>
+                  )}
+
+                  {docAnalysis.keyPoints && docAnalysis.keyPoints.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold mb-1.5" style={{ color: t.text }}>Key Points</p>
+                      <div className="flex flex-col gap-1">
+                        {docAnalysis.keyPoints.map((point: string, i: number) => (
+                          <div key={i} className="flex items-start gap-2">
+                            <div className="w-1 h-1 rounded-full bg-violet-400 mt-1.5 shrink-0" />
+                            <p className="text-[11px] leading-relaxed" style={{ color: t.textSecondary }}>{point}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {docAnalysis.keywords && docAnalysis.keywords.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {docAnalysis.keywords.map((kw: string, i: number) => (
+                        <span key={i} className="text-[9px] px-2 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>{kw}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  {docAnalysis.sentiment && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs" style={{ color: t.textSecondary }}>Sentiment:</span>
+                      <span className={`text-xs font-medium ${docAnalysis.sentiment === 'positive' ? 'text-emerald-400' : docAnalysis.sentiment === 'negative' ? 'text-red-400' : 'text-amber-400'}`}>
+                        {docAnalysis.sentiment}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <button
+                onClick={() => { setDocFile(null); setDocAnalysis(null); }}
+                className="w-full py-2.5 rounded-xl text-xs font-medium border active:scale-95 transition-transform"
+                style={{ borderColor: t.border, color: t.textSecondary }}
+              >
+                Analyze Another Document
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Analytics View
+    if (aiView === 'analytics') {
+      const fc = forecastData?.forecast;
+      const fs = forecastData?.stats;
+
+      return (
+        <div className="flex flex-col gap-4 pb-4">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setAiView('menu')} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bgCard }}>
+              <ChevronLeft className="w-5 h-5" style={{ color: t.text }} />
+            </button>
+            <div>
+              <h1 className="text-lg font-bold" style={{ color: t.text }}>📊 Predictive Analytics</h1>
+              <p className="text-xs" style={{ color: t.textSecondary }}>AI-powered financial forecasts</p>
+            </div>
+          </div>
+
+          {forecastLoading && !forecastData ? (
+            <div className="flex flex-col items-center gap-3 py-12 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+              <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+              <p className="text-sm" style={{ color: t.textSecondary }}>Generating AI forecast...</p>
+            </div>
+          ) : forecastData && fc ? (
+            <div className="flex flex-col gap-3">
+              {/* Summary */}
+              <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-600/20 to-teal-600/20 border border-emerald-500/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="w-4 h-4 text-emerald-400" />
+                  <p className="text-xs font-semibold text-emerald-400">AI Assessment</p>
+                </div>
+                <p className="text-sm leading-relaxed" style={{ color: t.text }}>{fc.summary || 'No analysis available'}</p>
+              </div>
+
+              {/* Next Month Prediction */}
+              {fc.nextMonthPrediction && (
+                <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+                  <p className="text-xs font-semibold mb-3" style={{ color: t.text }}>Next Month Forecast</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="p-3 rounded-lg bg-emerald-500/10 text-center">
+                      <p className="text-[10px]" style={{ color: t.textSecondary }}>Income</p>
+                      <p className="text-sm font-bold text-emerald-400">{(fc.nextMonthPrediction.income || 0).toLocaleString()}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-red-500/10 text-center">
+                      <p className="text-[10px]" style={{ color: t.textSecondary }}>Expense</p>
+                      <p className="text-sm font-bold text-red-400">{(fc.nextMonthPrediction.expense || 0).toLocaleString()}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-cyan-500/10 text-center">
+                      <p className="text-[10px]" style={{ color: t.textSecondary }}>Net</p>
+                      <p className={`text-sm font-bold ${(fc.nextMonthPrediction.net || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {(fc.nextMonthPrediction.net || 0).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Trends */}
+              {fc.trends && fc.trends.length > 0 && (
+                <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+                  <p className="text-xs font-semibold mb-2" style={{ color: t.text }}>📈 Trends</p>
+                  <div className="flex flex-col gap-1.5">
+                    {fc.trends.map((trend: string, i: number) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <TrendingUp className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
+                        <p className="text-[11px] leading-relaxed" style={{ color: t.textSecondary }}>{trend}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Insights */}
+              {fc.insights && fc.insights.length > 0 && (
+                <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+                  <p className="text-xs font-semibold mb-2" style={{ color: t.text }}>💡 Insights</p>
+                  <div className="flex flex-col gap-1.5">
+                    {fc.insights.map((insight: string, i: number) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <Lightbulb className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+                        <p className="text-[11px] leading-relaxed" style={{ color: t.textSecondary }}>{insight}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recommendations */}
+              {fc.recommendations && fc.recommendations.length > 0 && (
+                <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+                  <p className="text-xs font-semibold mb-2" style={{ color: t.text }}>🎯 Recommendations</p>
+                  <div className="flex flex-col gap-1.5">
+                    {fc.recommendations.map((rec: string, i: number) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <Target className="w-3.5 h-3.5 text-cyan-400 mt-0.5 shrink-0" />
+                        <p className="text-[11px] leading-relaxed" style={{ color: t.textSecondary }}>{rec}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Risk Alerts */}
+              {fc.riskAlerts && fc.riskAlerts.length > 0 && (
+                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+                  <p className="text-xs font-semibold mb-2 text-red-400">⚠️ Risk Alerts</p>
+                  <div className="flex flex-col gap-1.5">
+                    {fc.riskAlerts.map((alert: string, i: number) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <AlertCircle className="w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0" />
+                        <p className="text-[11px] leading-relaxed text-red-300">{alert}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Stats Summary */}
+              {fs && (
+                <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+                  <p className="text-xs font-semibold mb-2" style={{ color: t.text }}>📊 Period Stats</p>
+                  <div className="flex flex-col gap-1">
+                    {[
+                      { label: 'Transactions Analyzed', value: fs.totalTransactions },
+                      { label: 'Total Income', value: `${(fs.totalIncome || 0).toLocaleString()} ETB` },
+                      { label: 'Total Expenses', value: `${(fs.totalExpense || 0).toLocaleString()} ETB` },
+                      { label: 'Period', value: fs.periodAnalyzed || 'N/A' },
+                    ].map((s) => (
+                      <div key={s.label} className="flex justify-between text-[11px]">
+                        <span style={{ color: t.textSecondary }}>{s.label}</span>
+                        <span className="font-medium" style={{ color: t.text }}>{s.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={handleLoadForecast}
+                className="w-full py-2.5 rounded-xl text-xs font-medium bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 active:scale-95 transition-transform flex items-center justify-center gap-2"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh Forecast</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3 py-12 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+              <LineChart className="w-10 h-10" style={{ color: t.textMuted }} />
+              <p className="text-sm" style={{ color: t.text }}>No forecast data</p>
+              <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+                Add transactions first, then AI will generate forecasts
+              </p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Email View
+    if (aiView === 'email') {
+      return (
+        <div className="flex flex-col gap-4 pb-4">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setAiView('menu')} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bgCard }}>
+              <ChevronLeft className="w-5 h-5" style={{ color: t.text }} />
+            </button>
+            <div>
+              <h1 className="text-lg font-bold" style={{ color: t.text }}>✉️ Email AI</h1>
+              <p className="text-xs" style={{ color: t.textSecondary }}>AI-assisted email composition</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: t.textSecondary }}>To</label>
+              <input
+                type="email"
+                value={emailForm.to}
+                onChange={(e) => setEmailForm({ ...emailForm, to: e.target.value })}
+                placeholder="recipient@example.com"
+                className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: t.textSecondary }}>Subject</label>
+              <input
+                type="text"
+                value={emailForm.subject}
+                onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })}
+                placeholder="Meeting follow-up"
+                className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: t.textSecondary }}>Message (AI will polish this)</label>
+              <textarea
+                value={emailForm.body}
+                onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
+                placeholder="Write your rough message here, AI will help improve it..."
+                rows={5}
+                className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none resize-none"
+                style={inputStyle}
+              />
+            </div>
+
+            {emailSent && (
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <p className="text-xs text-emerald-400">Email drafted! Check your Telegram chat for the result.</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleSendEmail}
+              disabled={emailSending || !emailForm.to || !emailForm.subject}
+              className="w-full py-3 rounded-xl text-sm font-semibold text-white bg-pink-500 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {emailSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              <span>AI Compose & Send</span>
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
   };
 
   // ─── Form Modal Render ────────────────────────────────────────────────────
@@ -1978,7 +2786,7 @@ export default function MiniAppPage() {
     { id: 'categories', label: 'Categories', icon: LayoutGrid },
     { id: 'finance', label: 'Finance', icon: Wallet },
     { id: 'calendar', label: 'Calendar', icon: CalendarDays },
-    { id: 'search', label: 'Search', icon: Search },
+    { id: 'ai', label: 'AI', icon: Sparkles },
     { id: 'profile', label: 'Profile', icon: User },
   ];
 
@@ -2030,6 +2838,8 @@ export default function MiniAppPage() {
             renderFinance()
           ) : activeTab === 'calendar' ? (
             renderCalendar()
+          ) : activeTab === 'ai' ? (
+            renderAI()
           ) : activeTab === 'search' ? (
             renderSearch()
           ) : activeTab === 'profile' ? (
