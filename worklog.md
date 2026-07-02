@@ -383,3 +383,36 @@ Stage Summary:
 - Fixed: handleRomel now correctly extracts actual sales (0) vs targets/visits
 - Fixed: /report auto-detect for sales reports uses same smart parsing
 - Expected output for user's test case: Actual Sales: 0.00 ETB, Target: 138,872.79 ETB, Achievement: 0.0%
+
+---
+Task ID: reports-tab
+Agent: Main Agent
+Task: Add Reports tab to Mini App with period/type/date filters for viewing saved reports
+
+Work Log:
+- Enhanced /api/bot/reports/route.ts with:
+  - Database integration (fetches from BotReport table for persistence)
+  - Period filtering: today, yesterday, thisweek, lastweek, thismonth, lastmonth, thisquarter, lastquarter
+  - Explicit date range filtering (from/to params)
+  - Deduplication across memory, unified-store, and DB sources
+  - Enhanced stats: total, today, thisWeek, thisMonth, byType, dateRange, dateLabel
+- Added Reports tab to Mini App (src/app/mini-app/page.tsx):
+  - Added 'reports' to TabId type
+  - Added 5 new state variables: reportPeriod, reportTypeFilter, reportSearch, expandedReport, reportsLoading
+  - Added fetchFilteredReports useCallback (properly placed before conditional renders)
+  - Added renderReports() with:
+    - Stats cards (Total Reports, Date Range, This Week, This Month)
+    - Type breakdown with clickable filter badges
+    - Period filter buttons (9 options)
+    - Search input
+    - Expandable report cards with content preview
+  - Added Reports tab to bottom tab bar (ClipboardList icon)
+  - Added to tab content routing
+- Verified in browser: tab renders with all filters, no errors
+- Deployed to Vercel
+
+Stage Summary:
+- Reports tab is fully functional in Mini App
+- All reports sent via Telegram are auto-saved and appear in the Reports tab
+- Users can filter by period (week/month/quarter), type, and search text
+- Report cards are expandable to show full content
