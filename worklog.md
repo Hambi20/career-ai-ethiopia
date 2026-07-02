@@ -358,3 +358,28 @@ Stage Summary:
 - User can: send any report text, get summaries by type/date/period, AI analysis
 - Auto-detection of report type from content keywords
 - All data persisted to BotReport table
+
+---
+Task ID: fix-romel-parsing
+Agent: Main Agent
+Task: Fix wrong Romel sales report analysis - AI extracts wrong numbers (date, visits, targets treated as sales)
+
+Work Log:
+- Read handleRomel function in webhook/route.ts (line 307-329)
+- Identified root cause: naive regex `args.match(/[\$]?[\d,]+\.?\d*/g)` extracts ALL numbers
+  - Extracted: 26 (from date 1/07/26), 13 (visit count), 138,872.79 (target x3), 138,872.79 (variance x3)
+  - Filtered out 0 (actual sales) because `0 > 10` is false
+  - Total wrong sum: 555,530.16
+- Replaced with dual-approach parsing:
+  1. AI-powered parsing via Groq (parseSalesReportWithAI) - uses structured system prompt
+  2. Regex fallback (parseSalesReportWithRegex) - label-value pattern matching
+- Added SalesReportData interface with 14 fields (date, name, route, visit calls, effective calls, daily target, actual sales, variance, MTD fields, notes)
+- Added formatSalesReportSummary() for clean structured display with achievement %
+- Updated /report auto-detect to use same smart parsing for sales reports
+- Improved detection keywords: 'actual sales', 'daily target', 'visit call', 'effective call', 'variance', 'mtd'
+- Pushed to Vercel via git push career main
+
+Stage Summary:
+- Fixed: handleRomel now correctly extracts actual sales (0) vs targets/visits
+- Fixed: /report auto-detect for sales reports uses same smart parsing
+- Expected output for user's test case: Actual Sales: 0.00 ETB, Target: 138,872.79 ETB, Achievement: 0.0%
