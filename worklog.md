@@ -280,3 +280,20 @@ Stage Summary:
 - User needs to: close current Mini App → type /removeapp → menu button gone → type freely
 - /app command still available to open Mini App on demand
 - /start auto-removes menu button as safety net
+---
+Task ID: 2f
+Agent: Main Agent
+Task: Deploy fix to Vercel and remove menu button remotely
+
+Work Log:
+- Pushed 3 commits (83c8df5, f4fdabf, 62209e3) to career remote (GitHub → Vercel)
+- Verified Vercel deployment completed (200 on /api/bot/data and /api/telegram/menu-button)
+- Called /api/telegram/menu-button API endpoint directly
+- Response: {"success":true,"message":"Menu button removed. User can now type freely."}
+
+Stage Summary:
+- Menu button successfully removed from @hambi_career_ai_bot
+- User can now type freely in Telegram chat (no more URL blocking typing area)
+- /removeapp and /closeapp commands also available as backup
+- /app command still opens Mini App when user wants it
+- /start auto-removes menu button as safety net
