@@ -23,6 +23,8 @@ interface TelegramWebApp {
   ready: () => void;
   expand: () => void;
   close: () => void;
+  switchToChat?: () => void;
+  onEvent?: (event: string, callback: () => void) => void;
   MainButton: {
     text: string;
     show: () => void;
@@ -471,17 +473,25 @@ function haptic(style: 'light' | 'medium' | 'heavy' = 'light') {
   }
 }
 
-function showCommandPopup(cmd: string) {
+function closeMiniApp(cmd?: string) {
   haptic('light');
-  if (typeof window !== 'undefined' && window.Telegram?.WebApp?.showPopup) {
-    window.Telegram.WebApp.showPopup({
-      title: 'Command',
-      message: `Type ${cmd} in chat to use this feature`,
-    });
-  } else if (typeof window !== 'undefined') {
-    // Fallback for dev mode
-    alert(`Type ${cmd} in chat to use this feature`);
+  if (typeof window !== 'undefined') {
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      if (tg.switchToChat) {
+        // Close web app and switch back to chat
+        tg.switchToChat();
+      } else {
+        tg.close();
+      }
+    }
   }
+}
+
+function showCommandPopup(cmd: string) {
+  // Close the Mini App so user can type the command in chat
+  // (Telegram blocks typing while Mini App is open)
+  closeMiniApp();
 }
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
@@ -775,10 +785,31 @@ export default function MiniAppPage() {
       '/files': 'document',
       '/documents': 'document',
       '/savefile': 'document',
+      '/budget': 'expense',
+      '/transfer': 'expense',
+      '/schedule': 'event',
+      '/email': 'email',
+      '/meeting': 'event',
+      '/draft': 'note',
+      '/goals': 'note',
+      '/swot': 'note',
+      '/plan': 'note',
+      '/books': 'note',
+      '/podcast': 'note',
+      '/ask': 'note',
+      '/teach': 'note',
+      '/scrape': 'business',
+      '/log': 'income',
+      '/apply': 'note',
+      '/uploadcv': 'document',
+      '/cvpaste': 'note',
+      '/savedata': 'note',
+      '/exportjson': 'document',
     };
     const formType = cmdMap[cmd];
     if (formType && openForm(formType)) return;
-    showCommandPopup(cmd);
+    // No inline form — close the Mini App so user can type in chat
+    closeMiniApp(cmd);
   };
 
   const closeForm = () => {
@@ -1347,15 +1378,24 @@ export default function MiniAppPage() {
                 <div className="text-center">
                   <p className="text-sm font-medium" style={{ color: t.text }}>No data yet</p>
                   <p className="text-xs mt-1" style={{ color: t.textSecondary }}>
-                    Use {catData.emptyCmd} in Telegram to {catData.emptyText.toLowerCase()}
+                    Tap below to add data, or close app to type in chat
                   </p>
                 </div>
-                <button
-                  onClick={() => openFormForCommand(catData.emptyCmd)}
-                  className={`px-4 py-2 rounded-xl text-xs font-medium ${cat.bgColor} ${cat.textColor} border ${cat.borderColor} active:scale-95 transition-transform`}
-                >
-                  {catData.emptyCmd}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => openFormForCommand(catData.emptyCmd)}
+                    className={`flex items-center gap-1 px-4 py-2 rounded-xl text-xs font-medium ${cat.bgColor} ${cat.textColor} border ${cat.borderColor} active:scale-95 transition-transform`}
+                  >
+                    <Plus className="w-3 h-3" />
+                    {catData.emptyCmd}
+                  </button>
+                  <button
+                    onClick={() => closeMiniApp()}
+                    className="px-4 py-2 rounded-xl text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 active:scale-95 transition-transform"
+                  >
+                    Close & Type
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1369,9 +1409,16 @@ export default function MiniAppPage() {
             <div className="text-center">
               <p className="text-sm font-medium" style={{ color: t.text }}>Interactive Commands</p>
               <p className="text-xs mt-1" style={{ color: t.textSecondary }}>
-                Tap any command above to use it in Telegram
+                Tap any command above — forms open here, others close the app so you can type
               </p>
             </div>
+            <button
+              onClick={() => closeMiniApp()}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 active:scale-95 transition-transform"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Close & Type in Chat</span>
+            </button>
           </div>
         )}
       </div>
@@ -1389,8 +1436,15 @@ export default function MiniAppPage() {
           <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
           <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-6 -translate-x-6" />
           <div className="relative">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center justify-between mb-1">
               <p className="text-base font-bold">Welcome back, {firstName}! 👋</p>
+              <button
+                onClick={() => closeMiniApp()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 text-white/90 text-[10px] font-medium active:scale-95 transition-transform"
+              >
+                <X className="w-3 h-3" />
+                <span>Close & Type</span>
+              </button>
             </div>
             <p className="text-xs text-emerald-100/80">
               Career AI Ethiopia — Your executive assistant
@@ -1895,8 +1949,15 @@ export default function MiniAppPage() {
               </div>
               <p className="text-sm font-medium" style={{ color: t.text }}>No transactions yet</p>
               <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
-                Use /income or /expense in Telegram to track your finances
+                Tap the buttons below to add transactions directly
               </p>
+              <button
+                onClick={() => openForm('income')}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-medium active:scale-95 transition-transform"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Income</span>
+              </button>
             </div>
           )}
         </div>
@@ -2050,8 +2111,15 @@ export default function MiniAppPage() {
               </div>
               <p className="text-sm font-medium" style={{ color: t.text }}>No events</p>
               <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
-                Use /event or /remind in Telegram to add events
+                Tap the buttons below to add events directly
               </p>
+              <button
+                onClick={() => openForm('event')}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 text-xs font-medium active:scale-95 transition-transform"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Event</span>
+              </button>
             </div>
           )}
         </div>

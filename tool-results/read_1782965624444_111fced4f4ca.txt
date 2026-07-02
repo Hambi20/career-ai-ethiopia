@@ -1,0 +1,695 @@
+     1→  2200→              </div>
+     2→  2201→            </div>
+     3→  2202→            <p className="text-[11px] leading-relaxed" style={{ color: t.textSecondary }}>
+     4→  2203→              Use the REST API to integrate Career AI with your tools. Available endpoints: /api/finance, /api/calendar, /api/businesses, /api/documents, /api/analytics/forecast
+     5→  2204→            </p>
+     6→  2205→            <div className="mt-2 p-2.5 rounded-lg text-[10px] font-mono" style={{ backgroundColor: t.bg, color: t.textMuted }}>
+     7→  2206→              GET /api/finance?period=monthly<br />
+     8→  2207→              POST /api/finance {'{'}"type":"income"{'}'}<br />
+     9→  2208→              GET /api/analytics/forecast
+    10→  2209→            </div>
+    11→  2210→          </div>
+    12→  2211→        </div>
+    13→  2212→      );
+    14→  2213→    }
+    15→  2214→
+    16→  2215→    // Receipt Scanner View
+    17→  2216→    if (aiView === 'receipt') {
+    18→  2217→      return (
+    19→  2218→        <div className="flex flex-col gap-4 pb-4">
+    20→  2219→          <div className="flex items-center gap-3">
+    21→  2220→            <button onClick={() => setAiView('menu')} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bgCard }}>
+    22→  2221→              <ChevronLeft className="w-5 h-5" style={{ color: t.text }} />
+    23→  2222→            </button>
+    24→  2223→            <div>
+    25→  2224→              <h1 className="text-lg font-bold" style={{ color: t.text }}>📷 Scan Receipt</h1>
+    26→  2225→              <p className="text-xs" style={{ color: t.textSecondary }}>Take a photo of your receipt</p>
+    27→  2226→            </div>
+    28→  2227→          </div>
+    29→  2228→
+    30→  2229→          {/* Upload Area */}
+    31→  2230→          {!receiptImage && !receiptLoading && (
+    32→  2231→            <label className="flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors" style={{ borderColor: t.border, backgroundColor: t.bgCard }}>
+    33→  2232→              <div className="w-16 h-16 rounded-2xl bg-orange-500/15 flex items-center justify-center">
+    34→  2233→                <Camera className="w-8 h-8 text-orange-400" />
+    35→  2234→              </div>
+    36→  2235→              <p className="text-sm font-medium" style={{ color: t.text }}>Tap to upload receipt</p>
+    37→  2236→              <p className="text-[10px]" style={{ color: t.textSecondary }}>Supports JPG, PNG, WEBP</p>
+    38→  2237→              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => e.target.files?.[0] && handleReceiptScan(e.target.files[0])} />
+    39→  2238→            </label>
+    40→  2239→          )}
+    41→  2240→
+    42→  2241→          {/* Loading */}
+    43→  2242→          {receiptLoading && !receiptAnalysis && (
+    44→  2243→            <div className="flex flex-col items-center gap-3 py-12 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+    45→  2244→              <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
+    46→  2245→              <p className="text-sm" style={{ color: t.textSecondary }}>Analyzing receipt with AI...</p>
+    47→  2246→            </div>
+    48→  2247→          )}
+    49→  2248→
+    50→  2249→          {/* Image Preview */}
+    51→  2250→          {receiptImage && receiptAnalysis && (
+    52→  2251→            <div className="flex flex-col gap-3">
+    53→  2252→              {receiptImage && (
+    54→  2253→                <div className="rounded-xl overflow-hidden" style={{ backgroundColor: t.bgCard }}>
+    55→  2254→                  <img src={receiptImage} alt="Receipt" className="w-full h-48 object-cover" />
+    56→  2255→                </div>
+    57→  2256→              )}
+    58→  2257→
+    59→  2258→              {/* Analysis Results */}
+    60→  2259→              {receiptAnalysis.error ? (
+    61→  2260→                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+    62→  2261→                  <p className="text-xs text-red-400">{receiptAnalysis.error}</p>
+    63→  2262→                </div>
+    64→  2263→              ) : (
+    65→  2264→                <div className="p-4 rounded-xl space-y-3" style={{ backgroundColor: t.bgCard }}>
+    66→  2265→                  <h3 className="text-sm font-semibold" style={{ color: t.text }}>Extracted Data</h3>
+    67→  2266→                  {receiptAnalysis.merchantName && (
+    68→  2267→                    <div className="flex justify-between">
+    69→  2268→                      <span className="text-xs" style={{ color: t.textSecondary }}>Merchant</span>
+    70→  2269→                      <span className="text-xs font-medium" style={{ color: t.text }}>{receiptAnalysis.merchantName}</span>
+    71→  2270→                    </div>
+    72→  2271→                  )}
+    73→  2272→                  <div className="flex justify-between">
+    74→  2273→                    <span className="text-xs" style={{ color: t.textSecondary }}>Amount</span>
+    75→  2274→                    <span className="text-sm font-bold text-orange-400">{receiptAnalysis.amount || receiptAnalysis.subtotal || 'N/A'} {receiptAnalysis.currency || 'ETB'}</span>
+    76→  2275→                  </div>
+    77→  2276→                  {receiptAnalysis.category && (
+    78→  2277→                    <div className="flex justify-between">
+    79→  2278→                      <span className="text-xs" style={{ color: t.textSecondary }}>Category</span>
+    80→  2279→                      <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400">{receiptAnalysis.category}</span>
+    81→  2280→                    </div>
+    82→  2281→                  )}
+    83→  2282→                  {receiptAnalysis.date && (
+    84→  2283→                    <div className="flex justify-between">
+    85→  2284→                      <span className="text-xs" style={{ color: t.textSecondary }}>Date</span>
+    86→  2285→                      <span className="text-xs font-medium" style={{ color: t.text }}>{receiptAnalysis.date}</span>
+    87→  2286→                    </div>
+    88→  2287→                  )}
+    89→  2288→                  {receiptAnalysis.items && receiptAnalysis.items.length > 0 && (
+    90→  2289→                    <div>
+    91→  2290→                      <p className="text-xs mb-1" style={{ color: t.textSecondary }}>Items</p>
+    92→  2291→                      <div className="flex flex-col gap-1">
+    93→  2292→                        {receiptAnalysis.items.map((item: any, i: number) => (
+    94→  2293→                          <div key={i} className="flex justify-between text-[11px]">
+    95→  2294→                            <span style={{ color: t.text }}>{item.name || item.description}</span>
+    96→  2295→                            <span style={{ color: t.textMuted }}>{item.price || item.amount}</span>
+    97→  2296→                          </div>
+    98→  2297→                        ))}
+    99→  2298→                      </div>
+   100→  2299→                    </div>
+   101→  2300→                  )}
+   102→  2301→
+   103→  2302→                  <button
+   104→  2303→                    onClick={handleReceiptConfirm}
+   105→  2304→                    disabled={receiptLoading}
+   106→  2305→                    className="w-full py-3 rounded-xl text-sm font-semibold text-white bg-orange-500 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+   107→  2306→                  >
+   108→  2307→                    {receiptLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+   109→  2308→                    <span>Save as Expense</span>
+   110→  2309→                  </button>
+   111→  2310→                </div>
+   112→  2311→              )}
+   113→  2312→
+   114→  2313→              <button
+   115→  2314→                onClick={() => { setReceiptImage(null); setReceiptAnalysis(null); }}
+   116→  2315→                className="w-full py-2.5 rounded-xl text-xs font-medium border active:scale-95 transition-transform"
+   117→  2316→                style={{ borderColor: t.border, color: t.textSecondary }}
+   118→  2317→              >
+   119→  2318→                Scan Another Receipt
+   120→  2319→              </button>
+   121→  2320→            </div>
+   122→  2321→          )}
+   123→  2322→        </div>
+   124→  2323→      );
+   125→  2324→    }
+   126→  2325→
+   127→  2326→    // Document AI View
+   128→  2327→    if (aiView === 'document') {
+   129→  2328→      return (
+   130→  2329→        <div className="flex flex-col gap-4 pb-4">
+   131→  2330→          <div className="flex items-center gap-3">
+   132→  2331→            <button onClick={() => setAiView('menu')} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bgCard }}>
+   133→  2332→              <ChevronLeft className="w-5 h-5" style={{ color: t.text }} />
+   134→  2333→            </button>
+   135→  2334→            <div>
+   136→  2335→              <h1 className="text-lg font-bold" style={{ color: t.text }}>📄 Document AI</h1>
+   137→  2336→              <p className="text-xs" style={{ color: t.textSecondary }}>Upload & analyze with AI</p>
+   138→  2337→            </div>
+   139→  2338→          </div>
+   140→  2339→
+   141→  2340→          {!docFile && !docLoading && (
+   142→  2341→            <label className="flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors" style={{ borderColor: t.border, backgroundColor: t.bgCard }}>
+   143→  2342→              <div className="w-16 h-16 rounded-2xl bg-violet-500/15 flex items-center justify-center">
+   144→  2343→                <FileUp className="w-8 h-8 text-violet-400" />
+   145→  2344→              </div>
+   146→  2345→              <p className="text-sm font-medium" style={{ color: t.text }}>Tap to upload document</p>
+   147→  2346→              <p className="text-[10px]" style={{ color: t.textSecondary }}>Supports PDF, Image, DOCX</p>
+   148→  2347→              <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.txt" className="hidden" onChange={(e) => e.target.files?.[0] && handleDocumentUpload(e.target.files[0])} />
+   149→  2348→            </label>
+   150→  2349→          )}
+   151→  2350→
+   152→  2351→          {docLoading && !docAnalysis && (
+   153→  2352→            <div className="flex flex-col items-center gap-3 py-12 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+   154→  2353→              <Sparkles className="w-8 h-8 text-violet-400 animate-pulse" />
+   155→  2354→              <p className="text-sm" style={{ color: t.textSecondary }}>Analyzing document with AI...</p>
+   156→  2355→            </div>
+   157→  2356→          )}
+   158→  2357→
+   159→  2358→          {docAnalysis && (
+   160→  2359→            <div className="flex flex-col gap-3">
+   161→  2360→              {docAnalysis.error ? (
+   162→  2361→                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+   163→  2362→                  <p className="text-xs text-red-400">{docAnalysis.error}</p>
+   164→  2363→                </div>
+   165→  2364→              ) : (
+   166→  2365→                <div className="p-4 rounded-xl space-y-3" style={{ backgroundColor: t.bgCard }}>
+   167→  2366→                  {docAnalysis.documentType && (
+   168→  2367→                    <div className="flex items-center gap-2">
+   169→  2368→                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 font-medium">{docAnalysis.documentType}</span>
+   170→  2369→                      {docAnalysis.language && (
+   171→  2370→                        <span className="text-[9px] px-2 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>{docAnalysis.language}</span>
+   172→  2371→                      )}
+   173→  2372→                    </div>
+   174→  2373→                  )}
+   175→  2374→
+   176→  2375→                  {docAnalysis.summary && (
+   177→  2376→                    <div>
+   178→  2377→                      <p className="text-xs font-semibold mb-1" style={{ color: t.text }}>Summary</p>
+   179→  2378→                      <p className="text-xs leading-relaxed" style={{ color: t.textSecondary }}>{docAnalysis.summary}</p>
+   180→  2379→                    </div>
+   181→  2380→                  )}
+   182→  2381→
+   183→  2382→                  {docAnalysis.keyPoints && docAnalysis.keyPoints.length > 0 && (
+   184→  2383→                    <div>
+   185→  2384→                      <p className="text-xs font-semibold mb-1.5" style={{ color: t.text }}>Key Points</p>
+   186→  2385→                      <div className="flex flex-col gap-1">
+   187→  2386→                        {docAnalysis.keyPoints.map((point: string, i: number) => (
+   188→  2387→                          <div key={i} className="flex items-start gap-2">
+   189→  2388→                            <div className="w-1 h-1 rounded-full bg-violet-400 mt-1.5 shrink-0" />
+   190→  2389→                            <p className="text-[11px] leading-relaxed" style={{ color: t.textSecondary }}>{point}</p>
+   191→  2390→                          </div>
+   192→  2391→                        ))}
+   193→  2392→                      </div>
+   194→  2393→                    </div>
+   195→  2394→                  )}
+   196→  2395→
+   197→  2396→                  {docAnalysis.keywords && docAnalysis.keywords.length > 0 && (
+   198→  2397→                    <div className="flex flex-wrap gap-1.5">
+   199→  2398→                      {docAnalysis.keywords.map((kw: string, i: number) => (
+   200→  2399→                        <span key={i} className="text-[9px] px-2 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>{kw}</span>
+   201→  2400→                      ))}
+   202→  2401→                    </div>
+   203→  2402→                  )}
+   204→  2403→
+   205→  2404→                  {docAnalysis.sentiment && (
+   206→  2405→                    <div className="flex items-center gap-2">
+   207→  2406→                      <span className="text-xs" style={{ color: t.textSecondary }}>Sentiment:</span>
+   208→  2407→                      <span className={`text-xs font-medium ${docAnalysis.sentiment === 'positive' ? 'text-emerald-400' : docAnalysis.sentiment === 'negative' ? 'text-red-400' : 'text-amber-400'}`}>
+   209→  2408→                        {docAnalysis.sentiment}
+   210→  2409→                      </span>
+   211→  2410→                    </div>
+   212→  2411→                  )}
+   213→  2412→                </div>
+   214→  2413→              )}
+   215→  2414→
+   216→  2415→              <button
+   217→  2416→                onClick={() => { setDocFile(null); setDocAnalysis(null); }}
+   218→  2417→                className="w-full py-2.5 rounded-xl text-xs font-medium border active:scale-95 transition-transform"
+   219→  2418→                style={{ borderColor: t.border, color: t.textSecondary }}
+   220→  2419→              >
+   221→  2420→                Analyze Another Document
+   222→  2421→              </button>
+   223→  2422→            </div>
+   224→  2423→          )}
+   225→  2424→        </div>
+   226→  2425→      );
+   227→  2426→    }
+   228→  2427→
+   229→  2428→    // Analytics View
+   230→  2429→    if (aiView === 'analytics') {
+   231→  2430→      const fc = forecastData?.forecast;
+   232→  2431→      const fs = forecastData?.stats;
+   233→  2432→
+   234→  2433→      return (
+   235→  2434→        <div className="flex flex-col gap-4 pb-4">
+   236→  2435→          <div className="flex items-center gap-3">
+   237→  2436→            <button onClick={() => setAiView('menu')} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bgCard }}>
+   238→  2437→              <ChevronLeft className="w-5 h-5" style={{ color: t.text }} />
+   239→  2438→            </button>
+   240→  2439→            <div>
+   241→  2440→              <h1 className="text-lg font-bold" style={{ color: t.text }}>📊 Predictive Analytics</h1>
+   242→  2441→              <p className="text-xs" style={{ color: t.textSecondary }}>AI-powered financial forecasts</p>
+   243→  2442→            </div>
+   244→  2443→          </div>
+   245→  2444→
+   246→  2445→          {forecastLoading && !forecastData ? (
+   247→  2446→            <div className="flex flex-col items-center gap-3 py-12 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+   248→  2447→              <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+   249→  2448→              <p className="text-sm" style={{ color: t.textSecondary }}>Generating AI forecast...</p>
+   250→  2449→            </div>
+   251→  2450→          ) : forecastData && fc ? (
+   252→  2451→            <div className="flex flex-col gap-3">
+   253→  2452→              {/* Summary */}
+   254→  2453→              <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-600/20 to-teal-600/20 border border-emerald-500/20">
+   255→  2454→                <div className="flex items-center gap-2 mb-2">
+   256→  2455→                  <Sparkles className="w-4 h-4 text-emerald-400" />
+   257→  2456→                  <p className="text-xs font-semibold text-emerald-400">AI Assessment</p>
+   258→  2457→                </div>
+   259→  2458→                <p className="text-sm leading-relaxed" style={{ color: t.text }}>{fc.summary || 'No analysis available'}</p>
+   260→  2459→              </div>
+   261→  2460→
+   262→  2461→              {/* Next Month Prediction */}
+   263→  2462→              {fc.nextMonthPrediction && (
+   264→  2463→                <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+   265→  2464→                  <p className="text-xs font-semibold mb-3" style={{ color: t.text }}>Next Month Forecast</p>
+   266→  2465→                  <div className="grid grid-cols-3 gap-2">
+   267→  2466→                    <div className="p-3 rounded-lg bg-emerald-500/10 text-center">
+   268→  2467→                      <p className="text-[10px]" style={{ color: t.textSecondary }}>Income</p>
+   269→  2468→                      <p className="text-sm font-bold text-emerald-400">{(fc.nextMonthPrediction.income || 0).toLocaleString()}</p>
+   270→  2469→                    </div>
+   271→  2470→                    <div className="p-3 rounded-lg bg-red-500/10 text-center">
+   272→  2471→                      <p className="text-[10px]" style={{ color: t.textSecondary }}>Expense</p>
+   273→  2472→                      <p className="text-sm font-bold text-red-400">{(fc.nextMonthPrediction.expense || 0).toLocaleString()}</p>
+   274→  2473→                    </div>
+   275→  2474→                    <div className="p-3 rounded-lg bg-cyan-500/10 text-center">
+   276→  2475→                      <p className="text-[10px]" style={{ color: t.textSecondary }}>Net</p>
+   277→  2476→                      <p className={`text-sm font-bold ${(fc.nextMonthPrediction.net || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+   278→  2477→                        {(fc.nextMonthPrediction.net || 0).toLocaleString()}
+   279→  2478→                      </p>
+   280→  2479→                    </div>
+   281→  2480→                  </div>
+   282→  2481→                </div>
+   283→  2482→              )}
+   284→  2483→
+   285→  2484→              {/* Trends */}
+   286→  2485→              {fc.trends && fc.trends.length > 0 && (
+   287→  2486→                <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+   288→  2487→                  <p className="text-xs font-semibold mb-2" style={{ color: t.text }}>📈 Trends</p>
+   289→  2488→                  <div className="flex flex-col gap-1.5">
+   290→  2489→                    {fc.trends.map((trend: string, i: number) => (
+   291→  2490→                      <div key={i} className="flex items-start gap-2">
+   292→  2491→                        <TrendingUp className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
+   293→  2492→                        <p className="text-[11px] leading-relaxed" style={{ color: t.textSecondary }}>{trend}</p>
+   294→  2493→                      </div>
+   295→  2494→                    ))}
+   296→  2495→                  </div>
+   297→  2496→                </div>
+   298→  2497→              )}
+   299→  2498→
+   300→  2499→              {/* Insights */}
+   301→  2500→              {fc.insights && fc.insights.length > 0 && (
+   302→  2501→                <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+   303→  2502→                  <p className="text-xs font-semibold mb-2" style={{ color: t.text }}>💡 Insights</p>
+   304→  2503→                  <div className="flex flex-col gap-1.5">
+   305→  2504→                    {fc.insights.map((insight: string, i: number) => (
+   306→  2505→                      <div key={i} className="flex items-start gap-2">
+   307→  2506→                        <Lightbulb className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+   308→  2507→                        <p className="text-[11px] leading-relaxed" style={{ color: t.textSecondary }}>{insight}</p>
+   309→  2508→                      </div>
+   310→  2509→                    ))}
+   311→  2510→                  </div>
+   312→  2511→                </div>
+   313→  2512→              )}
+   314→  2513→
+   315→  2514→              {/* Recommendations */}
+   316→  2515→              {fc.recommendations && fc.recommendations.length > 0 && (
+   317→  2516→                <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+   318→  2517→                  <p className="text-xs font-semibold mb-2" style={{ color: t.text }}>🎯 Recommendations</p>
+   319→  2518→                  <div className="flex flex-col gap-1.5">
+   320→  2519→                    {fc.recommendations.map((rec: string, i: number) => (
+   321→  2520→                      <div key={i} className="flex items-start gap-2">
+   322→  2521→                        <Target className="w-3.5 h-3.5 text-cyan-400 mt-0.5 shrink-0" />
+   323→  2522→                        <p className="text-[11px] leading-relaxed" style={{ color: t.textSecondary }}>{rec}</p>
+   324→  2523→                      </div>
+   325→  2524→                    ))}
+   326→  2525→                  </div>
+   327→  2526→                </div>
+   328→  2527→              )}
+   329→  2528→
+   330→  2529→              {/* Risk Alerts */}
+   331→  2530→              {fc.riskAlerts && fc.riskAlerts.length > 0 && (
+   332→  2531→                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+   333→  2532→                  <p className="text-xs font-semibold mb-2 text-red-400">⚠️ Risk Alerts</p>
+   334→  2533→                  <div className="flex flex-col gap-1.5">
+   335→  2534→                    {fc.riskAlerts.map((alert: string, i: number) => (
+   336→  2535→                      <div key={i} className="flex items-start gap-2">
+   337→  2536→                        <AlertCircle className="w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0" />
+   338→  2537→                        <p className="text-[11px] leading-relaxed text-red-300">{alert}</p>
+   339→  2538→                      </div>
+   340→  2539→                    ))}
+   341→  2540→                  </div>
+   342→  2541→                </div>
+   343→  2542→              )}
+   344→  2543→
+   345→  2544→              {/* Stats Summary */}
+   346→  2545→              {fs && (
+   347→  2546→                <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+   348→  2547→                  <p className="text-xs font-semibold mb-2" style={{ color: t.text }}>📊 Period Stats</p>
+   349→  2548→                  <div className="flex flex-col gap-1">
+   350→  2549→                    {[
+   351→  2550→                      { label: 'Transactions Analyzed', value: fs.totalTransactions },
+   352→  2551→                      { label: 'Total Income', value: `${(fs.totalIncome || 0).toLocaleString()} ETB` },
+   353→  2552→                      { label: 'Total Expenses', value: `${(fs.totalExpense || 0).toLocaleString()} ETB` },
+   354→  2553→                      { label: 'Period', value: fs.periodAnalyzed || 'N/A' },
+   355→  2554→                    ].map((s) => (
+   356→  2555→                      <div key={s.label} className="flex justify-between text-[11px]">
+   357→  2556→                        <span style={{ color: t.textSecondary }}>{s.label}</span>
+   358→  2557→                        <span className="font-medium" style={{ color: t.text }}>{s.value}</span>
+   359→  2558→                      </div>
+   360→  2559→                    ))}
+   361→  2560→                  </div>
+   362→  2561→                </div>
+   363→  2562→              )}
+   364→  2563→
+   365→  2564→              <button
+   366→  2565→                onClick={handleLoadForecast}
+   367→  2566→                className="w-full py-2.5 rounded-xl text-xs font-medium bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 active:scale-95 transition-transform flex items-center justify-center gap-2"
+   368→  2567→              >
+   369→  2568→                <RefreshCw className="w-3.5 h-3.5" />
+   370→  2569→                <span>Refresh Forecast</span>
+   371→  2570→              </button>
+   372→  2571→            </div>
+   373→  2572→          ) : (
+   374→  2573→            <div className="flex flex-col items-center gap-3 py-12 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+   375→  2574→              <LineChart className="w-10 h-10" style={{ color: t.textMuted }} />
+   376→  2575→              <p className="text-sm" style={{ color: t.text }}>No forecast data</p>
+   377→  2576→              <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+   378→  2577→                Add transactions first, then AI will generate forecasts
+   379→  2578→              </p>
+   380→  2579→            </div>
+   381→  2580→          )}
+   382→  2581→        </div>
+   383→  2582→      );
+   384→  2583→    }
+   385→  2584→
+   386→  2585→    // Email View
+   387→  2586→    if (aiView === 'email') {
+   388→  2587→      return (
+   389→  2588→        <div className="flex flex-col gap-4 pb-4">
+   390→  2589→          <div className="flex items-center gap-3">
+   391→  2590→            <button onClick={() => setAiView('menu')} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bgCard }}>
+   392→  2591→              <ChevronLeft className="w-5 h-5" style={{ color: t.text }} />
+   393→  2592→            </button>
+   394→  2593→            <div>
+   395→  2594→              <h1 className="text-lg font-bold" style={{ color: t.text }}>✉️ Email AI</h1>
+   396→  2595→              <p className="text-xs" style={{ color: t.textSecondary }}>AI-assisted email composition</p>
+   397→  2596→            </div>
+   398→  2597→          </div>
+   399→  2598→
+   400→  2599→          <div className="flex flex-col gap-3">
+   401→  2600→            <div>
+   402→  2601→              <label className="block text-xs font-medium mb-1.5" style={{ color: t.textSecondary }}>To</label>
+   403→  2602→              <input
+   404→  2603→                type="email"
+   405→  2604→                value={emailForm.to}
+   406→  2605→                onChange={(e) => setEmailForm({ ...emailForm, to: e.target.value })}
+   407→  2606→                placeholder="recipient@example.com"
+   408→  2607→                className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
+   409→  2608→                style={inputStyle}
+   410→  2609→              />
+   411→  2610→            </div>
+   412→  2611→            <div>
+   413→  2612→              <label className="block text-xs font-medium mb-1.5" style={{ color: t.textSecondary }}>Subject</label>
+   414→  2613→              <input
+   415→  2614→                type="text"
+   416→  2615→                value={emailForm.subject}
+   417→  2616→                onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })}
+   418→  2617→                placeholder="Meeting follow-up"
+   419→  2618→                className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
+   420→  2619→                style={inputStyle}
+   421→  2620→              />
+   422→  2621→            </div>
+   423→  2622→            <div>
+   424→  2623→              <label className="block text-xs font-medium mb-1.5" style={{ color: t.textSecondary }}>Message (AI will polish this)</label>
+   425→  2624→              <textarea
+   426→  2625→                value={emailForm.body}
+   427→  2626→                onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
+   428→  2627→                placeholder="Write your rough message here, AI will help improve it..."
+   429→  2628→                rows={5}
+   430→  2629→                className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none resize-none"
+   431→  2630→                style={inputStyle}
+   432→  2631→              />
+   433→  2632→            </div>
+   434→  2633→
+   435→  2634→            {emailSent && (
+   436→  2635→              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2">
+   437→  2636→                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+   438→  2637→                <p className="text-xs text-emerald-400">Email drafted! Check your Telegram chat for the result.</p>
+   439→  2638→              </div>
+   440→  2639→            )}
+   441→  2640→
+   442→  2641→            <button
+   443→  2642→              onClick={handleSendEmail}
+   444→  2643→              disabled={emailSending || !emailForm.to || !emailForm.subject}
+   445→  2644→              className="w-full py-3 rounded-xl text-sm font-semibold text-white bg-pink-500 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+   446→  2645→            >
+   447→  2646→              {emailSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+   448→  2647→              <span>AI Compose & Send</span>
+   449→  2648→            </button>
+   450→  2649→          </div>
+   451→  2650→        </div>
+   452→  2651→      );
+   453→  2652→    }
+   454→  2653→
+   455→  2654→    return null;
+   456→  2655→  };
+   457→  2656→
+   458→  2657→  // ─── Form Modal Render ────────────────────────────────────────────────────
+   459→  2658→
+   460→  2659→  const renderFormModal = () => {
+   461→  2660→    if (!formModal.open) return null;
+   462→  2661→
+   463→  2662→    const inputStyle: React.CSSProperties = {
+   464→  2663→      backgroundColor: t.bg,
+   465→  2664→      color: t.text,
+   466→  2665→      border: `1px solid ${t.border}`,
+   467→  2666→    };
+   468→  2667→
+   469→  2668→    return (
+   470→  2669→      <div className="fixed inset-0 z-50 flex items-end justify-center">
+   471→  2670→        {/* Overlay */}
+   472→  2671→        <div
+   473→  2672→          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+   474→  2673→          onClick={closeForm}
+   475→  2674→        />
+   476→  2675→
+   477→  2676→        {/* Bottom Sheet */}
+   478→  2677→        <div
+   479→  2678→          className="relative w-full max-w-lg rounded-t-2xl transition-transform duration-300 ease-out"
+   480→  2679→          style={{
+   481→  2680→            backgroundColor: t.bgCard,
+   482→  2681→            maxHeight: '85vh',
+   483→  2682→            paddingBottom: t.safeBottom + 16,
+   484→  2683→            transform: formModal.open ? 'translateY(0)' : 'translateY(100%)',
+   485→  2684→          }}
+   486→  2685→        >
+   487→  2686→          {/* Drag Handle */}
+   488→  2687→          <div className="flex justify-center pt-3 pb-1">
+   489→  2688→            <div className="w-10 h-1 rounded-full" style={{ backgroundColor: t.border }} />
+   490→  2689→          </div>
+   491→  2690→
+   492→  2691→          {/* Header */}
+   493→  2692→          <div className="flex items-center justify-between px-5 pb-3 pt-1">
+   494→  2693→            <h2 className="text-base font-bold" style={{ color: t.text }}>{formModal.title}</h2>
+   495→  2694→            <button
+   496→  2695→              onClick={closeForm}
+   497→  2696→              className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 transition-transform"
+   498→  2697→              style={{ backgroundColor: t.bg }}
+   499→  2698→            >
+   500→  2699→              <X className="w-4 h-4" style={{ color: t.textSecondary }} />
+   501→  2700→            </button>
+   502→  2701→          </div>
+   503→  2702→
+   504→  2703→          {/* Error */}
+   505→  2704→          {formError && (
+   506→  2705→            <div className="mx-5 mb-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+   507→  2706→              <p className="text-xs text-red-400">{formError}</p>
+   508→  2707→            </div>
+   509→  2708→          )}
+   510→  2709→
+   511→  2710→          {/* Form Fields */}
+   512→  2711→          <div className="overflow-y-auto px-5 pb-4" style={{ maxHeight: 'calc(85vh - 160px)', scrollbarWidth: 'thin' }}>
+   513→  2712→            <div className="flex flex-col gap-3">
+   514→  2713→              {formModal.fields.map((field) => (
+   515→  2714→                <div key={field.name}>
+   516→  2715→                  <label className="block text-xs font-medium mb-1.5" style={{ color: t.textSecondary }}>
+   517→  2716→                    {field.label}
+   518→  2717→                    {field.required && <span className="text-red-400 ml-0.5">*</span>}
+   519→  2718→                  </label>
+   520→  2719→                  {field.type === 'select' ? (
+   521→  2720→                    <select
+   522→  2721→                      value={formValues[field.name] || ''}
+   523→  2722→                      onChange={(e) => { haptic('light'); updateFormValue(field.name, e.target.value); }}
+   524→  2723→                      className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none appearance-none transition-colors"
+   525→  2724→                      style={inputStyle}
+   526→  2725→                    >
+   527→  2726→                      <option value="">{field.placeholder}</option>
+   528→  2727→                      {field.options?.map((opt) => (
+   529→  2728→                        <option key={opt} value={opt} style={{ backgroundColor: t.bgCard, color: t.text }}>
+   530→  2729→                          {opt}
+   531→  2730→                        </option>
+   532→  2731→                      ))}
+   533→  2732→                    </select>
+   534→  2733→                  ) : field.type === 'textarea' ? (
+   535→  2734→                    <textarea
+   536→  2735→                      value={formValues[field.name] || ''}
+   537→  2736→                      onChange={(e) => updateFormValue(field.name, e.target.value)}
+   538→  2737→                      placeholder={field.placeholder}
+   539→  2738→                      rows={3}
+   540→  2739→                      className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none resize-none transition-colors"
+   541→  2740→                      style={inputStyle}
+   542→  2741→                    />
+   543→  2742→                  ) : (
+   544→  2743→                    <input
+   545→  2744→                      type={field.type}
+   546→  2745→                      value={formValues[field.name] || ''}
+   547→  2746→                      onChange={(e) => updateFormValue(field.name, e.target.value)}
+   548→  2747→                      placeholder={field.placeholder}
+   549→  2748→                      className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none transition-colors"
+   550→  2749→                      style={inputStyle}
+   551→  2750→                    />
+   552→  2751→                  )}
+   553→  2752→                </div>
+   554→  2753→              ))}
+   555→  2754→            </div>
+   556→  2755→          </div>
+   557→  2756→
+   558→  2757→          {/* Submit Button */}
+   559→  2758→          <div className="px-5 pt-2 border-t" style={{ borderColor: t.border }}>
+   560→  2759→            <button
+   561→  2760→              onClick={submitForm}
+   562→  2761→              disabled={formLoading}
+   563→  2762→              className="w-full py-3 rounded-xl text-sm font-semibold text-white bg-emerald-500 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+   564→  2763→            >
+   565→  2764→              {formLoading ? (
+   566→  2765→                <>
+   567→  2766→                  <Loader2 className="w-4 h-4 animate-spin" />
+   568→  2767→                  <span>Saving...</span>
+   569→  2768→                </>
+   570→  2769→              ) : (
+   571→  2770→                <>
+   572→  2771→                  <Check className="w-4 h-4" />
+   573→  2772→                  <span>Submit</span>
+   574→  2773→                </>
+   575→  2774→              )}
+   576→  2775→            </button>
+   577→  2776→          </div>
+   578→  2777→        </div>
+   579→  2778→      </div>
+   580→  2779→    );
+   581→  2780→  };
+   582→  2781→
+   583→  2782→  // ─── Tab Bar ─────────────────────────────────────────────────────────────
+   584→  2783→
+   585→  2784→  const tabs: { id: TabId; label: string; icon: typeof Home }[] = [
+   586→  2785→    { id: 'home', label: 'Home', icon: Home },
+   587→  2786→    { id: 'categories', label: 'Categories', icon: LayoutGrid },
+   588→  2787→    { id: 'finance', label: 'Finance', icon: Wallet },
+   589→  2788→    { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+   590→  2789→    { id: 'ai', label: 'AI', icon: Sparkles },
+   591→  2790→    { id: 'profile', label: 'Profile', icon: User },
+   592→  2791→  ];
+   593→  2792→
+   594→  2793→  // ─── Main Render ─────────────────────────────────────────────────────────
+   595→  2794→
+   596→  2795→  return (
+   597→  2796→    <div className="flex flex-col min-h-screen" style={{ backgroundColor: t.bg }}>
+   598→  2797→      {/* Pull-to-refresh indicator */}
+   599→  2798→      {pullRefreshing && (
+   600→  2799→        <div className="flex items-center justify-center py-3" style={{ paddingTop: t.safeTop + 12 }}>
+   601→  2800→          <Loader2 className="w-4 h-4 animate-spin text-emerald-400 mr-2" />
+   602→  2801→          <span className="text-xs text-emerald-400">Refreshing...</span>
+   603→  2802→        </div>
+   604→  2803→      )}
+   605→  2804→
+   606→  2805→      {/* Content Area */}
+   607→  2806→      <div
+   608→  2807→        ref={scrollRef}
+   609→  2808→        className="flex-1 overflow-y-auto px-4"
+   610→  2809→        style={{
+   611→  2810→          paddingTop: t.safeTop + (pullRefreshing ? 0 : 16),
+   612→  2811→          paddingBottom: 80 + t.safeBottom,
+   613→  2812→          scrollbarWidth: 'thin',
+   614→  2813→        }}
+   615→  2814→        onTouchStart={handleTouchStart}
+   616→  2815→        onTouchMove={handleTouchMove}
+   617→  2816→        onTouchEnd={handleTouchEnd}
+   618→  2817→      >
+   619→  2818→        {/* Error banner (non-blocking) */}
+   620→  2819→        {error && botData && (
+   621→  2820→          <div className="flex items-center gap-2 p-3 mb-4 rounded-xl bg-red-500/10 border border-red-500/20">
+   622→  2821→            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+   623→  2822→            <p className="text-xs text-red-400 flex-1">{error}</p>
+   624→  2823→            <button onClick={() => fetchData()} className="text-[10px] font-medium text-red-400 underline shrink-0">
+   625→  2824→              Retry
+   626→  2825→            </button>
+   627→  2826→          </div>
+   628→  2827→        )}
+   629→  2828→
+   630→  2829→        {/* Tab Content */}
+   631→  2830→        <div className="transition-opacity duration-200">
+   632→  2831→          {selectedCategory ? (
+   633→  2832→            renderCategoryDetail()
+   634→  2833→          ) : activeTab === 'home' ? (
+   635→  2834→            renderHome()
+   636→  2835→          ) : activeTab === 'categories' ? (
+   637→  2836→            renderCategories()
+   638→  2837→          ) : activeTab === 'finance' ? (
+   639→  2838→            renderFinance()
+   640→  2839→          ) : activeTab === 'calendar' ? (
+   641→  2840→            renderCalendar()
+   642→  2841→          ) : activeTab === 'ai' ? (
+   643→  2842→            renderAI()
+   644→  2843→          ) : activeTab === 'search' ? (
+   645→  2844→            renderSearch()
+   646→  2845→          ) : activeTab === 'profile' ? (
+   647→  2846→            renderProfile()
+   648→  2847→          ) : null}
+   649→  2848→        </div>
+   650→  2849→      </div>
+   651→  2850→
+   652→  2851→      {/* Bottom Tab Bar */}
+   653→  2852→      <div
+   654→  2853→        className="fixed bottom-0 left-0 right-0 border-t flex items-center justify-around"
+   655→  2854→        style={{
+   656→  2855→          backgroundColor: t.bg,
+   657→  2856→          borderColor: t.border,
+   658→  2857→          paddingBottom: t.safeBottom,
+   659→  2858→          paddingTop: 6,
+   660→  2859→          paddingLeft: t.safeTop > 0 ? 8 : 0,
+   661→  2860→          paddingRight: t.safeTop > 0 ? 8 : 0,
+   662→  2861→        }}
+   663→  2862→      >
+   664→  2863→        {tabs.map((tab) => {
+   665→  2864→          const isActive = activeTab === tab.id && !selectedCategory;
+   666→  2865→          return (
+   667→  2866→            <button
+   668→  2867→              key={tab.id}
+   669→  2868→              onClick={() => { haptic('light'); setActiveTab(tab.id); setSelectedCategory(null); }}
+   670→  2869→              className="flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl transition-all active:scale-95"
+   671→  2870→              style={{ color: isActive ? '#10b981' : t.textMuted }}
+   672→  2871→            >
+   673→  2872→              <tab.icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
+   674→  2873→              <span className="text-[10px] font-medium">{tab.label}</span>
+   675→  2874→              {isActive && (
+   676→  2875→                <div className="w-1 h-1 rounded-full bg-emerald-400 mt-0.5" />
+   677→  2876→              )}
+   678→  2877→            </button>
+   679→  2878→          );
+   680→  2879→        })}
+   681→  2880→      </div>
+   682→  2881→
+   683→  2882→      {/* Form Modal */}
+   684→  2883→      {renderFormModal()}
+   685→  2884→
+   686→  2885→      {/* Success Toast */}
+   687→  2886→      {formSuccess && (
+   688→  2887→        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-xl bg-emerald-500 text-white text-sm font-medium flex items-center gap-2 shadow-lg shadow-emerald-500/30">
+   689→  2888→          <CheckCircle2 className="w-4 h-4" />
+   690→  2889→          <span>Saved successfully!</span>
+   691→  2890→        </div>
+   692→  2891→      )}
+   693→  2892→    </div>
+   694→  2893→  );
+   695→  2894→}

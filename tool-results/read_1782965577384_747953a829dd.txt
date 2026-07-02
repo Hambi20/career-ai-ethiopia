@@ -1,0 +1,2002 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useRef, useCallback } from 'react';
+     4→import {
+     5→  Home, LayoutGrid, Search, User, RefreshCw, Loader2,
+     6→  ChevronLeft, Clock, CalendarDays, FileText, CheckSquare,
+     7→  Building2, GraduationCap, Monitor, Briefcase, Mail,
+     8→  Target, BookOpen, BarChart3, Database, Bot, Users,
+     9→  Settings, Bell, Zap, Lightbulb, TrendingUp, ClipboardList,
+    10→  Upload, Download, Send, Globe, Brain, UserPlus, BarChart2,
+    11→  MessageSquare, FileUp, PenTool, Compass, AlertCircle, Star,
+    12→  ChevronDown, ChevronUp, ArrowLeft, CircleDot, Hash,
+    13→  StickyNote, Bookmark, FolderOpen, Link2, Cpu, Heart,
+    14→  Shield, Info, Activity, PieChart, ListChecks, Award,
+    15→  Wallet, ArrowUpRight, ArrowDownRight, ChevronRight, Plus, CheckCircle2,
+    16→  X, Check, Camera, ScanLine, Sparkles, Eye, FileSearch, DownloadCloud,
+    17→  KeyRound, MailOpen, ArrowDownToLine, LineChart, Predicted
+    18→} from 'lucide-react';
+    19→
+    20→// ─── Telegram WebApp Types ───────────────────────────────────────────────────
+    21→
+    22→interface TelegramWebApp {
+    23→  ready: () => void;
+    24→  expand: () => void;
+    25→  close: () => void;
+    26→  MainButton: {
+    27→    text: string;
+    28→    show: () => void;
+    29→    hide: () => void;
+    30→    onClick: (fn: () => void) => void;
+    31→    color: string;
+    32→    textColor: string;
+    33→  };
+    34→  BackButton: {
+    35→    show: () => void;
+    36→    hide: () => void;
+    37→    onClick: (fn: () => void) => void;
+    38→  };
+    39→  colorScheme: 'light' | 'dark';
+    40→  themeParams: Record<string, string>;
+    41→  initDataUnsafe: {
+    42→    user?: {
+    43→      id: number;
+    44→      first_name: string;
+    45→      last_name?: string;
+    46→      username?: string;
+    47→      language_code?: string;
+    48→      photo_url?: string;
+    49→    };
+    50→    chat?: { id: number; type: string; title?: string };
+    51→    start_param?: string;
+    52→  };
+    53→  HapticFeedback: {
+    54→    impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
+    55→    notificationOccurred: (type: 'error' | 'success' | 'warning') => void;
+    56→    selectionChanged: () => void;
+    57→  };
+    58→  showPopup: (params: { title?: string; message: string; buttons?: Array<{ type: string; text: string }> }) => void;
+    59→  isExpanded: boolean;
+    60→  viewportHeight: number;
+    61→  viewportStableHeight: number;
+    62→  safeAreaInset: { top: number; bottom: number; left: number; right: number };
+    63→  headerColor: string;
+    64→  backgroundColor: string;
+    65→}
+    66→
+    67→declare global {
+    68→  interface Window {
+    69→    Telegram?: { WebApp: TelegramWebApp };
+    70→  }
+    71→}
+    72→
+    73→// ─── Data Types ──────────────────────────────────────────────────────────────
+    74→
+    75→interface BotData {
+    76→  success: boolean;
+    77→  hasData: boolean;
+    78→  summary: {
+    79→    totalRomelReports: number;
+    80→    totalVdReports: number;
+    81→    totalTasks: number;
+    82→    tasksDone: number;
+    83→    tasksTodo: number;
+    84→    tasksInProgress: number;
+    85→    taskCompletionRate: number;
+    86→    totalNotes: number;
+    87→    totalContacts: number;
+    88→    totalKnowledge: number;
+    89→    dailyAchievementRate: number;
+    90→    lastSync: string | null;
+    91→    totalSyncs: number;
+    92→  };
+    93→  sales: {
+    94→    summary: Record<string, unknown>;
+    95→    totalDailyTarget: number;
+    96→    totalDailyActual: number;
+    97→    latestReport: Record<string, unknown> | null;
+    98→    reports: Record<string, unknown>[];
+    99→  };
+   100→  tasks: { list: TaskItem[]; byPriority: Record<string, number>; byStatus: Record<string, number> };
+   101→  notes: NoteItem[];
+   102→  contacts: { list: ContactItem[]; breakdown: Record<string, number> };
+   103→  knowledgeBase: KnowledgeItem[];
+   104→  vdReports: Record<string, unknown>[];
+   105→  recentActivities: ActivityItem[];
+   106→  rawSyncData: Record<string, unknown>;
+   107→  syncCount: number;
+   108→  updatedAt: string | null;
+   109→}
+   110→
+   111→interface TaskItem {
+   112→  id: string;
+   113→  title: string;
+   114→  description?: string;
+   115→  priority: string;
+   116→  status: string;
+   117→  dueDate?: string;
+   118→  createdAt?: string;
+   119→  category?: string;
+   120→}
+   121→
+   122→interface NoteItem {
+   123→  id: string;
+   124→  title: string;
+   125→  content: string;
+   126→  createdAt?: string;
+   127→  category?: string;
+   128→}
+   129→
+   130→interface ContactItem {
+   131→  id: string;
+   132→  name: string;
+   133→  phone?: string;
+   134→  email?: string;
+   135→  type?: string;
+   136→  company?: string;
+   137→  notes?: string;
+   138→}
+   139→
+   140→interface KnowledgeItem {
+   141→  id: string;
+   142→  topic: string;
+   143→  content: string;
+   144→  createdAt?: string;
+   145→  source?: string;
+   146→}
+   147→
+   148→interface ActivityItem {
+   149→  id: string;
+   150→  type: string;
+   151→  action: string;
+   152→  timestamp: string;
+   153→  details?: string;
+   154→}
+   155→
+   156→interface ReportsData {
+   157→  success: boolean;
+   158→  total: number;
+   159→  filtered: ReportItem[];
+   160→  filters: { types: string[]; companies: string[] };
+   161→  stats: {
+   162→    total: number;
+   163→    today: number;
+   164→    thisWeek: number;
+   165→    byType: Record<string, number>;
+   166→  };
+   167→}
+   168→
+   169→interface FormField {
+   170→  name: string;
+   171→  label: string;
+   172→  type: 'text' | 'number' | 'textarea' | 'select' | 'date' | 'time';
+   173→  placeholder: string;
+   174→  required?: boolean;
+   175→  options?: string[];
+   176→  defaultValue?: string;
+   177→}
+   178→
+   179→interface ReportItem {
+   180→  id: string;
+   181→  type: string;
+   182→  company: string;
+   183→  category: string;
+   184→  title: string;
+   185→  content: string;
+   186→  summary: string;
+   187→  date: string;
+   188→  timestamp: string;
+   189→}
+   190→
+   191→// ─── Category Definitions ────────────────────────────────────────────────────
+   192→
+   193→type CategoryId = 'daily' | 'romel' | 'college' | 'tech' | 'jobs' | 'communication' | 'strategy' | 'learning' | 'reports' | 'data' | 'ai' | 'crm' | 'core' | 'business' | 'finance' | 'calendar' | 'documents';
+   194→
+   195→interface CommandDef {
+   196→  name: string;
+   197→  cmd: string;
+   198→  description: string;
+   199→}
+   200→
+   201→interface CategoryDef {
+   202→  id: CategoryId;
+   203→  name: string;
+   204→  emoji: string;
+   205→  color: string;
+   206→  bgColor: string;
+   207→  borderColor: string;
+   208→  textColor: string;
+   209→  commands: CommandDef[];
+   210→  dataKeys: string[];
+   211→}
+   212→
+   213→const CATEGORIES: CategoryDef[] = [
+   214→  {
+   215→    id: 'daily', name: 'Daily', emoji: '📋', color: 'emerald',
+   216→    bgColor: 'bg-emerald-500/15', borderColor: 'border-emerald-500/30', textColor: 'text-emerald-400',
+   217→    commands: [
+   218→      { name: 'Briefing', cmd: '/briefing', description: 'Get your daily briefing' },
+   219→      { name: 'Verse', cmd: '/verse', description: 'Daily inspiration verse' },
+   220→      { name: 'Set Reminder', cmd: '/setreminder', description: 'Create a new reminder' },
+   221→      { name: 'Reminders', cmd: '/reminders', description: 'View all reminders' },
+   222→    ],
+   223→    dataKeys: [],
+   224→  },
+   225→  {
+   226→    id: 'romel', name: 'ROMEL', emoji: '🏢', color: 'orange',
+   227→    bgColor: 'bg-orange-500/15', borderColor: 'border-orange-500/30', textColor: 'text-orange-400',
+   228→    commands: [
+   229→      { name: 'Log', cmd: '/log', description: 'Log sales activity' },
+   230→      { name: 'KPI', cmd: '/kpi', description: 'View KPI performance' },
+   231→      { name: 'Romel', cmd: '/romel', description: 'Romel sales report' },
+   232→      { name: 'Romel History', cmd: '/romelhistory', description: 'View sales history' },
+   233→      { name: 'Target', cmd: '/target', description: 'View/set sales targets' },
+   234→    ],
+   235→    dataKeys: ['sales', 'reports'],
+   236→  },
+   237→  {
+   238→    id: 'college', name: 'College', emoji: '🎓', color: 'purple',
+   239→    bgColor: 'bg-purple-500/15', borderColor: 'border-purple-500/30', textColor: 'text-purple-400',
+   240→    commands: [
+   241→      { name: 'College', cmd: '/college', description: 'College overview' },
+   242→      { name: 'Admission', cmd: '/admission', description: 'Admission info' },
+   243→      { name: 'Exam', cmd: '/exam', description: 'Exam schedule & results' },
+   244→      { name: 'Report', cmd: '/reportcollege', description: 'College report' },
+   245→      { name: 'Evaluate', cmd: '/eval', description: 'Evaluate performance' },
+   246→      { name: 'VC Report', cmd: '/vicereport', description: 'Vice Dean single report' },
+   247→      { name: 'VC Reports', cmd: '/vicereports', description: 'All VC reports' },
+   248→      { name: 'Quarterly', cmd: '/quarterly', description: 'Quarterly summary' },
+   249→      { name: 'Employees', cmd: '/employees', description: 'Employee records' },
+   250→      { name: 'Staff', cmd: '/staff', description: 'Staff management' },
+   251→    ],
+   252→    dataKeys: ['vdReports', 'reports'],
+   253→  },
+   254→  {
+   255→    id: 'tech', name: 'Tech', emoji: '💻', color: 'cyan',
+   256→    bgColor: 'bg-cyan-500/15', borderColor: 'border-cyan-500/30', textColor: 'text-cyan-400',
+   257→    commands: [
+   258→      { name: 'Tech', cmd: '/tech', description: 'Tech overview' },
+   259→      { name: 'Students', cmd: '/students', description: 'Student records' },
+   260→    ],
+   261→    dataKeys: [],
+   262→  },
+   263→  {
+   264→    id: 'jobs', name: 'Jobs', emoji: '💼', color: 'blue',
+   265→    bgColor: 'bg-blue-500/15', borderColor: 'border-blue-500/30', textColor: 'text-blue-400',
+   266→    commands: [
+   267→      { name: 'Apply', cmd: '/apply', description: 'Apply for a job' },
+   268→      { name: 'My CV', cmd: '/cv', description: 'View your CV' },
+   269→      { name: 'Courses', cmd: '/courses', description: 'Available courses' },
+   270→      { name: 'Upload CV', cmd: '/uploadcv', description: 'Upload CV file' },
+   271→      { name: 'Paste CV', cmd: '/cvpaste', description: 'Paste CV text' },
+   272→      { name: 'Find Jobs', cmd: '/findjobs', description: 'Search for jobs' },
+   273→      { name: 'My CVs', cmd: '/mycv', description: 'Manage your CVs' },
+   274→    ],
+   275→    dataKeys: ['rawSyncData'],
+   276→  },
+   277→  {
+   278→    id: 'communication', name: 'Communication', emoji: '📧', color: 'pink',
+   279→    bgColor: 'bg-pink-500/15', borderColor: 'border-pink-500/30', textColor: 'text-pink-400',
+   280→    commands: [
+   281→      { name: 'Email', cmd: '/email', description: 'Compose email' },
+   282→      { name: 'Meeting', cmd: '/meeting', description: 'Schedule meeting' },
+   283→      { name: 'Draft', cmd: '/draft', description: 'View/edit drafts' },
+   284→    ],
+   285→    dataKeys: [],
+   286→  },
+   287→  {
+   288→    id: 'strategy', name: 'Strategy', emoji: '🎯', color: 'amber',
+   289→    bgColor: 'bg-amber-500/15', borderColor: 'border-amber-500/30', textColor: 'text-amber-400',
+   290→    commands: [
+   291→      { name: 'Goals', cmd: '/goals', description: 'View/set goals' },
+   292→      { name: 'SWOT', cmd: '/swot', description: 'SWOT analysis' },
+   293→      { name: 'Plan', cmd: '/plan', description: 'Strategic plan' },
+   294→    ],
+   295→    dataKeys: [],
+   296→  },
+   297→  {
+   298→    id: 'learning', name: 'Learning', emoji: '📚', color: 'indigo',
+   299→    bgColor: 'bg-indigo-500/15', borderColor: 'border-indigo-500/30', textColor: 'text-indigo-400',
+   300→    commands: [
+   301→      { name: 'Books', cmd: '/books', description: 'Book recommendations' },
+   302→      { name: 'Podcast', cmd: '/podcast', description: 'Podcast suggestions' },
+   303→      { name: 'Tasks', cmd: '/tasks', description: 'View learning tasks' },
+   304→      { name: 'Ask', cmd: '/ask', description: 'Ask a question' },
+   305→    ],
+   306→    dataKeys: ['tasks'],
+   307→  },
+   308→  {
+   309→    id: 'reports', name: 'Reports', emoji: '📊', color: 'teal',
+   310→    bgColor: 'bg-teal-500/15', borderColor: 'border-teal-500/30', textColor: 'text-teal-400',
+   311→    commands: [
+   312→      { name: 'Week Report', cmd: '/weekreport', description: 'Weekly summary report' },
+   313→      { name: 'Raw Report', cmd: '/rawreport', description: 'Raw data report' },
+   314→    ],
+   315→    dataKeys: ['reports'],
+   316→  },
+   317→  {
+   318→    id: 'data', name: 'Data', emoji: '💾', color: 'slate',
+   319→    bgColor: 'bg-slate-500/15', borderColor: 'border-slate-500/30', textColor: 'text-slate-400',
+   320→    commands: [
+   321→      { name: 'Note', cmd: '/note', description: 'Create a note' },
+   322→      { name: 'Notes', cmd: '/notes', description: 'View all notes' },
+   323→      { name: 'Search', cmd: '/search', description: 'Search data' },
+   324→      { name: 'Save Data', cmd: '/savedata', description: 'Save data to memory' },
+   325→      { name: 'Load Data', cmd: '/loaddata', description: 'Load saved data' },
+   326→      { name: 'Export JSON', cmd: '/exportjson', description: 'Export as JSON' },
+   327→      { name: 'Send Data', cmd: '/senddata', description: 'Send data to chat' },
+   328→      { name: 'Sync Web', cmd: '/syncweb', description: 'Sync with web' },
+   329→    ],
+   330→    dataKeys: ['notes'],
+   331→  },
+   332→  {
+   333→    id: 'ai', name: 'AI', emoji: '🤖', color: 'violet',
+   334→    bgColor: 'bg-violet-500/15', borderColor: 'border-violet-500/30', textColor: 'text-violet-400',
+   335→    commands: [
+   336→      { name: 'Auto Learn', cmd: '/autolearn', description: 'AI auto-learning mode' },
+   337→      { name: 'Teach', cmd: '/teach', description: 'Teach the AI' },
+   338→      { name: 'Knowledge', cmd: '/knowledge', description: 'View knowledge base' },
+   339→    ],
+   340→    dataKeys: ['knowledgeBase'],
+   341→  },
+   342→  {
+   343→    id: 'crm', name: 'CRM', emoji: '📇', color: 'rose',
+   344→    bgColor: 'bg-rose-500/15', borderColor: 'border-rose-500/30', textColor: 'text-rose-400',
+   345→    commands: [
+   346→      { name: 'Scrape', cmd: '/scrape', description: 'Scrape contacts' },
+   347→      { name: 'Contacts', cmd: '/contacts', description: 'View contacts' },
+   348→      { name: 'Analytics', cmd: '/analytics', description: 'CRM analytics' },
+   349→    ],
+   350→    dataKeys: ['contacts'],
+   351→  },
+   352→  {
+   353→    id: 'core', name: 'Core', emoji: '⚙️', color: 'gray',
+   354→    bgColor: 'bg-gray-500/15', borderColor: 'border-gray-500/30', textColor: 'text-gray-400',
+   355→    commands: [
+   356→      { name: 'Help', cmd: '/help', description: 'Show help & commands' },
+   357→      { name: 'Dashboard', cmd: '/dashboard', description: 'Open dashboard' },
+   358→      { name: 'Sync', cmd: '/sync', description: 'Sync all data' },
+   359→      { name: 'Profile', cmd: '/profile', description: 'View profile' },
+   360→    ],
+   361→    dataKeys: [],
+   362→  },
+   363→  {
+   364→    id: 'business', name: 'Business', emoji: '🏢', color: 'emerald',
+   365→    bgColor: 'bg-emerald-500/15', borderColor: 'border-emerald-500/30', textColor: 'text-emerald-400',
+   366→    commands: [
+   367→      { name: 'Business', cmd: '/business', description: 'Business overview' },
+   368→      { name: 'Businesses', cmd: '/businesses', description: 'View all businesses' },
+   369→      { name: 'Biz', cmd: '/biz', description: 'Quick business info' },
+   370→    ],
+   371→    dataKeys: [],
+   372→  },
+   373→  {
+   374→    id: 'finance', name: 'Finance', emoji: '💰', color: 'orange',
+   375→    bgColor: 'bg-orange-500/15', borderColor: 'border-orange-500/30', textColor: 'text-orange-400',
+   376→    commands: [
+   377→      { name: 'Income', cmd: '/income', description: 'Log income' },
+   378→      { name: 'Expense', cmd: '/expense', description: 'Log expense' },
+   379→      { name: 'Budget', cmd: '/budget', description: 'View/set budget' },
+   380→      { name: 'Finance', cmd: '/finance', description: 'Finance overview' },
+   381→      { name: 'Transfer', cmd: '/transfer', description: 'Transfer funds' },
+   382→    ],
+   383→    dataKeys: [],
+   384→  },
+   385→  {
+   386→    id: 'calendar', name: 'Calendar', emoji: '📅', color: 'cyan',
+   387→    bgColor: 'bg-cyan-500/15', borderColor: 'border-cyan-500/30', textColor: 'text-cyan-400',
+   388→    commands: [
+   389→      { name: 'Event', cmd: '/event', description: 'Create an event' },
+   390→      { name: 'Events', cmd: '/events', description: 'View all events' },
+   391→      { name: 'Remind', cmd: '/remind', description: 'Set a reminder' },
+   392→      { name: 'Schedule', cmd: '/schedule', description: 'View schedule' },
+   393→    ],
+   394→    dataKeys: [],
+   395→  },
+   396→  {
+   397→    id: 'documents', name: 'Documents', emoji: '📄', color: 'slate',
+   398→    bgColor: 'bg-slate-500/15', borderColor: 'border-slate-500/30', textColor: 'text-slate-400',
+   399→    commands: [
+   400→      { name: 'Save File', cmd: '/savefile', description: 'Save a file' },
+   401→      { name: 'Files', cmd: '/files', description: 'View all files' },
+   402→      { name: 'Documents', cmd: '/documents', description: 'View documents' },
+   403→    ],
+   404→    dataKeys: [],
+   405→  },
+   406→];
+   407→
+   408→// Quick actions for Home tab (most-used commands)
+   409→const QUICK_ACTIONS: CommandDef[] = [
+   410→  { name: 'Briefing', cmd: '/briefing', description: 'Daily briefing' },
+   411→  { name: 'KPI', cmd: '/kpi', description: 'KPI performance' },
+   412→  { name: 'Tasks', cmd: '/tasks', description: 'View tasks' },
+   413→  { name: 'Notes', cmd: '/notes', description: 'All notes' },
+   414→  { name: 'Contacts', cmd: '/contacts', description: 'CRM contacts' },
+   415→  { name: 'Knowledge', cmd: '/knowledge', description: 'AI knowledge' },
+   416→  { name: 'Week Report', cmd: '/weekreport', description: 'Weekly report' },
+   417→  { name: 'Find Jobs', cmd: '/findjobs', description: 'Job search' },
+   418→  { name: 'Business', cmd: '/business', description: 'Business overview' },
+   419→  { name: 'Income', cmd: '/income', description: 'Log income' },
+   420→  { name: 'Event', cmd: '/event', description: 'Create event' },
+   421→  { name: 'Files', cmd: '/files', description: 'View files' },
+   422→];
+   423→
+   424→// ─── Theme Helper ────────────────────────────────────────────────────────────
+   425→
+   426→interface ThemeColors {
+   427→  bg: string;
+   428→  bgCard: string;
+   429→  bgCardHover: string;
+   430→  text: string;
+   431→  textSecondary: string;
+   432→  textMuted: string;
+   433→  border: string;
+   434→  isDark: boolean;
+   435→  safeTop: number;
+   436→  safeBottom: number;
+   437→}
+   438→
+   439→function getTelegramTheme(): ThemeColors {
+   440→  if (typeof window === 'undefined') {
+   441→    return {
+   442→      bg: '#1a1a2e', bgCard: '#16213e', bgCardHover: '#1a2744',
+   443→      text: '#e4e4e7', textSecondary: '#a1a1aa', textMuted: '#71717a',
+   444→      border: '#27272a', isDark: true, safeTop: 0, safeBottom: 0,
+   445→    };
+   446→  }
+   447→
+   448→  const tg = window.Telegram?.WebApp;
+   449→  const tp = tg?.themeParams || {};
+   450→  const isDark = tg?.colorScheme === 'dark';
+   451→
+   452→  return {
+   453→    bg: tp.bg_color || (isDark ? '#1a1a2e' : '#ffffff'),
+   454→    bgCard: tp.secondary_bg_color || (isDark ? '#16213e' : '#f4f4f5'),
+   455→    bgCardHover: isDark ? '#1a2744' : '#e4e4e7',
+   456→    text: tp.text_color || (isDark ? '#e4e4e7' : '#18181b'),
+   457→    textSecondary: tp.hint_color || (isDark ? '#a1a1aa' : '#71717a'),
+   458→    textMuted: isDark ? '#52525b' : '#a1a1aa',
+   459→    border: isDark ? '#27272a' : '#e4e4e7',
+   460→    isDark,
+   461→    safeTop: tg?.safeAreaInset?.top || 0,
+   462→    safeBottom: tg?.safeAreaInset?.bottom || 0,
+   463→  };
+   464→}
+   465→
+   466→// ─── Telegram Helpers ────────────────────────────────────────────────────────
+   467→
+   468→function haptic(style: 'light' | 'medium' | 'heavy' = 'light') {
+   469→  if (typeof window !== 'undefined') {
+   470→    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred(style);
+   471→  }
+   472→}
+   473→
+   474→function showCommandPopup(cmd: string) {
+   475→  haptic('light');
+   476→  if (typeof window !== 'undefined' && window.Telegram?.WebApp?.showPopup) {
+   477→    window.Telegram.WebApp.showPopup({
+   478→      title: 'Command',
+   479→      message: `Type ${cmd} in chat to use this feature`,
+   480→    });
+   481→  } else if (typeof window !== 'undefined') {
+   482→    // Fallback for dev mode
+   483→    alert(`Type ${cmd} in chat to use this feature`);
+   484→  }
+   485→}
+   486→
+   487→// ─── Utility ─────────────────────────────────────────────────────────────────
+   488→
+   489→function timeAgo(ts: string): string {
+   490→  try {
+   491→    const diff = Date.now() - new Date(ts).getTime();
+   492→    const mins = Math.floor(diff / 60000);
+   493→    if (mins < 1) return 'just now';
+   494→    if (mins < 60) return `${mins}m ago`;
+   495→    const hrs = Math.floor(mins / 60);
+   496→    if (hrs < 24) return `${hrs}h ago`;
+   497→    const days = Math.floor(hrs / 24);
+   498→    if (days < 7) return `${days}d ago`;
+   499→    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+   500→  } catch {
+   501→    return '';
+   502→  }
+   503→}
+   504→
+   505→function truncate(str: string, len: number): string {
+   506→  if (!str) return '';
+   507→  return str.length > len ? str.slice(0, len) + '...' : str;
+   508→}
+   509→
+   510→// ─── Skeleton Loader ─────────────────────────────────────────────────────────
+   511→
+   512→function Skeleton({ className }: { className?: string }) {
+   513→  return (
+   514→    <div className={`animate-pulse rounded-lg bg-white/10 ${className || ''}`} />
+   515→  );
+   516→}
+   517→
+   518→// ─── Main Component ──────────────────────────────────────────────────────────
+   519→
+   520→type TabId = 'home' | 'categories' | 'finance' | 'calendar' | 'ai' | 'search' | 'profile';
+   521→
+   522→export default function MiniAppPage() {
+   523→  const [activeTab, setActiveTab] = useState<TabId>('home');
+   524→  const [selectedCategory, setSelectedCategory] = useState<CategoryDef | null>(null);
+   525→  const [searchQuery, setSearchQuery] = useState('');
+   526→  const [botData, setBotData] = useState<BotData | null>(null);
+   527→  const [reportsData, setReportsData] = useState<ReportsData | null>(null);
+   528→  const [loading, setLoading] = useState(true);
+   529→  const [error, setError] = useState<string | null>(null);
+   530→  const [theme, setTheme] = useState<ThemeColors>(getTelegramTheme);
+   531→  const [expandedSearchItem, setExpandedSearchItem] = useState<string | null>(null);
+   532→  const [pullRefreshing, setPullRefreshing] = useState(false);
+   533→  const [financeData, setFinanceData] = useState<any>(null);
+   534→  const [calendarData, setCalendarData] = useState<any>(null);
+   535→
+   536→  // AI Features state
+   537→  const [receiptImage, setReceiptImage] = useState<string | null>(null);
+   538→  const [receiptAnalysis, setReceiptAnalysis] = useState<any>(null);
+   539→  const [receiptLoading, setReceiptLoading] = useState(false);
+   540→  const [docFile, setDocFile] = useState<string | null>(null);
+   541→  const [docAnalysis, setDocAnalysis] = useState<any>(null);
+   542→  const [docLoading, setDocLoading] = useState(false);
+   543→  const [forecastData, setForecastData] = useState<any>(null);
+   544→  const [forecastLoading, setForecastLoading] = useState(false);
+   545→  const [aiView, setAiView] = useState<'menu' | 'receipt' | 'document' | 'analytics' | 'email' | 'api'>('menu');
+   546→  const [emailForm, setEmailForm] = useState({ to: '', subject: '', body: '' });
+   547→  const [emailSending, setEmailSending] = useState(false);
+   548→  const [emailSent, setEmailSent] = useState(false);
+   549→  const [exporting, setExporting] = useState<string | null>(null);
+   550→  const [selectedDate, setSelectedDate] = useState<string>(() => {
+   551→    if (typeof window === 'undefined') return new Date().toISOString().split('T')[0];
+   552→    return new Date().toISOString().split('T')[0];
+   553→  });
+   554→
+   555→  // Form modal state
+   556→  const [formModal, setFormModal] = useState<{
+   557→    open: boolean;
+   558→    type: string;
+   559→    title: string;
+   560→    fields: FormField[];
+   561→  }>({ open: false, type: '', title: '', fields: [] });
+   562→  const [formLoading, setFormLoading] = useState(false);
+   563→  const [formSuccess, setFormSuccess] = useState(false);
+   564→  const [formError, setFormError] = useState('');
+   565→  const [formValues, setFormValues] = useState<Record<string, string>>({});
+   566→
+   567→  const scrollRef = useRef<HTMLDivElement>(null);
+   568→  const pullStartY = useRef(0);
+   569→  const pullDistance = useRef(0);
+   570→
+   571→  // Initialize Telegram
+   572→  useEffect(() => {
+   573→    if (typeof window === 'undefined') return;
+   574→    const tg = window.Telegram?.WebApp;
+   575→    if (tg) {
+   576→      tg.ready();
+   577→      tg.expand();
+   578→      setTheme(getTelegramTheme());
+   579→      // Listen for theme changes
+   580→      tg.onEvent?.('themeChanged', () => {
+   581→        setTheme(getTelegramTheme());
+   582→      });
+   583→    }
+   584→  }, []);
+   585→
+   586→  // Back button handling for category drill-down
+   587→  useEffect(() => {
+   588→    if (typeof window === 'undefined') return;
+   589→    const tg = window.Telegram?.WebApp;
+   590→    if (!tg) return;
+   591→    if (selectedCategory) {
+   592→      tg.BackButton.show();
+   593→      tg.BackButton.onClick(() => {
+   594→        haptic('light');
+   595→        setSelectedCategory(null);
+   596→      });
+   597→    } else {
+   598→      tg.BackButton.hide();
+   599→    }
+   600→    return () => {
+   601→      tg.BackButton.hide();
+   602→    };
+   603→  }, [selectedCategory]);
+   604→
+   605→  // Fetch data
+   606→  const fetchData = useCallback(async (showLoader = true) => {
+   607→    if (showLoader) setLoading(true);
+   608→    setError(null);
+   609→    try {
+   610→      const [dataRes, reportsRes] = await Promise.all([
+   611→        fetch('/api/bot/data'),
+   612→        fetch('/api/bot/reports'),
+   613→      ]);
+   614→      if (!dataRes.ok || !reportsRes.ok) throw new Error('Failed to fetch data');
+   615→      const [dataJson, reportsJson] = await Promise.all([dataRes.json(), reportsRes.json()]);
+   616→      setBotData(dataJson);
+   617→      setReportsData(reportsJson);
+   618→
+   619→      // Finance
+   620→      try {
+   621→        const r = await fetch('/api/finance?limit=50');
+   622→        const d = await r.json();
+   623→        if (d.success) setFinanceData(d);
+   624→      } catch { /* silent */ }
+   625→
+   626→      // Calendar
+   627→      try {
+   628→        const r = await fetch('/api/calendar?limit=50');
+   629→        const d = await r.json();
+   630→        if (d.success) setCalendarData(d);
+   631→      } catch { /* silent */ }
+   632→    } catch (err: unknown) {
+   633→      setError(err instanceof Error ? err.message : 'Unknown error');
+   634→    } finally {
+   635→      setLoading(false);
+   636→      setPullRefreshing(false);
+   637→    }
+   638→  }, []);
+   639→
+   640→  useEffect(() => {
+   641→    fetchData();
+   642→  }, [fetchData]);
+   643→
+   644→  // Pull-to-refresh
+   645→  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+   646→    if (scrollRef.current && scrollRef.current.scrollTop <= 0) {
+   647→      pullStartY.current = e.touches[0].clientY;
+   648→    }
+   649→  }, []);
+   650→
+   651→  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+   652→    if (pullStartY.current === 0) return;
+   653→    if (scrollRef.current && scrollRef.current.scrollTop > 0) {
+   654→      pullStartY.current = 0;
+   655→      pullDistance.current = 0;
+   656→      return;
+   657→    }
+   658→    const dist = e.touches[0].clientY - pullStartY.current;
+   659→    if (dist > 0) {
+   660→      pullDistance.current = Math.min(dist * 0.5, 80);
+   661→    }
+   662→  }, []);
+   663→
+   664→  const handleTouchEnd = useCallback(() => {
+   665→    if (pullDistance.current > 50) {
+   666→      setPullRefreshing(true);
+   667→      fetchData(false);
+   668→    }
+   669→    pullStartY.current = 0;
+   670→    pullDistance.current = 0;
+   671→  }, [fetchData]);
+   672→
+   673→  // Navigation
+   674→  const goToCategory = (cat: CategoryDef) => {
+   675→    haptic('medium');
+   676→    setSelectedCategory(cat);
+   677→  };
+   678→
+   679→  const goBack = () => {
+   680→    haptic('light');
+   681→    setSelectedCategory(null);
+   682→  };
+   683→
+   684→  // ─── Form System ─────────────────────────────────────────────────────────
+   685→
+   686→  const FORM_CONFIGS: Record<string, { title: string; fields: FormField[] }> = {
+   687→    income: {
+   688→      title: 'Add Income',
+   689→      fields: [
+   690→        { name: 'amount', label: 'Amount (ETB)', type: 'number', placeholder: '0', required: true },
+   691→        { name: 'category', label: 'Category', type: 'select', placeholder: 'Select category', options: ['Salary', 'Sales', 'Service', 'Freelance', 'Investment', 'Other'] },
+   692→        { name: 'description', label: 'Description', type: 'text', placeholder: 'What is this income for?' },
+   693→      ],
+   694→    },
+   695→    expense: {
+   696→      title: 'Add Expense',
+   697→      fields: [
+   698→        { name: 'amount', label: 'Amount (ETB)', type: 'number', placeholder: '0', required: true },
+   699→        { name: 'category', label: 'Category', type: 'select', placeholder: 'Select category', options: ['Food', 'Transport', 'Rent', 'Supplies', 'Utility', 'Internet', 'Phone', 'Other'] },
+   700→        { name: 'description', label: 'Description', type: 'text', placeholder: 'What is this expense for?' },
+   701→      ],
+   702→    },
+   703→    event: {
+   704→      title: 'Add Event',
+   705→      fields: [
+   706→        { name: 'title', label: 'Event title', type: 'text', placeholder: 'Meeting with team', required: true },
+   707→        { name: 'date', label: 'Date', type: 'date', placeholder: '', required: true },
+   708→        { name: 'time', label: 'Time', type: 'time', placeholder: '' },
+   709→        { name: 'location', label: 'Location', type: 'text', placeholder: 'Office, Zoom, etc.' },
+   710→        { name: 'type', label: 'Type', type: 'select', placeholder: 'Select type', options: ['Event', 'Meeting', 'Reminder', 'Deadline'], defaultValue: 'Event' },
+   711→        { name: 'priority', label: 'Priority', type: 'select', placeholder: 'Select priority', options: ['Low', 'Medium', 'High', 'Urgent'], defaultValue: 'Medium' },
+   712→        { name: 'description', label: 'Description', type: 'textarea', placeholder: 'Event details...' },
+   713→      ],
+   714→    },
+   715→    reminder: {
+   716→      title: 'Add Reminder',
+   717→      fields: [
+   718→        { name: 'title', label: 'Reminder title', type: 'text', placeholder: 'Call the client', required: true },
+   719→        { name: 'date', label: 'Date', type: 'date', placeholder: '', required: true },
+   720→        { name: 'time', label: 'Time', type: 'time', placeholder: '' },
+   721→        { name: 'priority', label: 'Priority', type: 'select', placeholder: 'Select priority', options: ['Low', 'Medium', 'High', 'Urgent'], defaultValue: 'High' },
+   722→        { name: 'description', label: 'Description', type: 'textarea', placeholder: 'Reminder details...' },
+   723→      ],
+   724→    },
+   725→    business: {
+   726→      title: 'Add Business',
+   727→      fields: [
+   728→        { name: 'name', label: 'Business name', type: 'text', placeholder: 'My Company', required: true },
+   729→        { name: 'type', label: 'Type', type: 'select', placeholder: 'Select type', options: ['Tech', 'College', 'Consulting', 'EV Charging', 'Training', 'Other'] },
+   730→        { name: 'industry', label: 'Industry', type: 'text', placeholder: 'Technology, Education, etc.' },
+   731→        { name: 'description', label: 'Description', type: 'textarea', placeholder: 'Business description...' },
+   732→      ],
+   733→    },
+   734→    note: {
+   735→      title: 'Add Note',
+   736→      fields: [
+   737→        { name: 'title', label: 'Note title', type: 'text', placeholder: 'Meeting notes', required: true },
+   738→        { name: 'content', label: 'Note content', type: 'textarea', placeholder: 'Write your note here...', required: true },
+   739→      ],
+   740→    },
+   741→    document: {
+   742→      title: 'Add Document',
+   743→      fields: [
+   744→        { name: 'title', label: 'Document title', type: 'text', placeholder: 'Monthly Report', required: true },
+   745→        { name: 'category', label: 'Category', type: 'select', placeholder: 'Select category', options: ['Report', 'Invoice', 'Contract', 'CV', 'Letter', 'Memo', 'Receipt', 'Certificate', 'Other'] },
+   746→        { name: 'description', label: 'Description', type: 'text', placeholder: 'Brief description' },
+   747→        { name: 'tags', label: 'Tags (comma separated)', type: 'text', placeholder: 'finance, monthly, 2024' },
+   748→      ],
+   749→    },
+   750→  };
+   751→
+   752→  const openForm = (type: string) => {
+   753→    const config = FORM_CONFIGS[type];
+   754→    if (!config) return false;
+   755→    haptic('medium');
+   756→    const initialValues: Record<string, string> = {};
+   757→    config.fields.forEach((f) => {
+   758→      initialValues[f.name] = f.defaultValue || '';
+   759→    });
+   760→    setFormValues(initialValues);
+   761→    setFormError('');
+   762→    setFormModal({ open: true, type, title: config.title, fields: config.fields });
+   763→    return true;
+   764→  };
+   765→
+   766→  const openFormForCommand = (cmd: string) => {
+   767→    const cmdMap: Record<string, string> = {
+   768→      '/income': 'income',
+   769→      '/expense': 'expense',
+   770→      '/event': 'event',
+   771→      '/remind': 'reminder',
+   772→      '/setreminder': 'reminder',
+   773→      '/business': 'business',
+   774→      '/note': 'note',
+   775→      '/files': 'document',
+   776→      '/documents': 'document',
+   777→      '/savefile': 'document',
+   778→    };
+   779→    const formType = cmdMap[cmd];
+   780→    if (formType && openForm(formType)) return;
+   781→    showCommandPopup(cmd);
+   782→  };
+   783→
+   784→  const closeForm = () => {
+   785→    haptic('light');
+   786→    setFormModal({ open: false, type: '', title: '', fields: [] });
+   787→    setFormValues({});
+   788→    setFormError('');
+   789→  };
+   790→
+   791→  const updateFormValue = (name: string, value: string) => {
+   792→    setFormValues((prev) => ({ ...prev, [name]: value }));
+   793→  };
+   794→
+   795→  const submitForm = async () => {
+   796→    // Validate required fields
+   797→    const missingField = formModal.fields.find((f) => f.required && !formValues[f.name]?.trim());
+   798→    if (missingField) {
+   799→      haptic('error' as any);
+   800→      setFormError(`${missingField.label} is required`);
+   801→      return;
+   802→    }
+   803→
+   804→    setFormLoading(true);
+   805→    setFormError('');
+   806→    try {
+   807→      let url = '';
+   808→      let body: Record<string, unknown> = {};
+   809→
+   810→      switch (formModal.type) {
+   811→        case 'income':
+   812→        case 'expense':
+   813→          url = '/api/finance';
+   814→          body = {
+   815→            type: formModal.type,
+   816→            amount: parseFloat(formValues.amount),
+   817→            category: formValues.category || 'Other',
+   818→            description: formValues.description || '',
+   819→            date: new Date().toISOString().split('T')[0],
+   820→            chatId: 0,
+   821→          };
+   822→          break;
+   823→        case 'event':
+   824→          url = '/api/calendar';
+   825→          body = {
+   826→            title: formValues.title,
+   827→            date: formValues.date,
+   828→            time: formValues.time || null,
+   829→            location: formValues.location || '',
+   830→            type: (formValues.type || 'event').toLowerCase(),
+   831→            priority: (formValues.priority || 'medium').toLowerCase(),
+   832→            chatId: 0,
+   833→          };
+   834→          break;
+   835→        case 'reminder':
+   836→          url = '/api/calendar';
+   837→          body = {
+   838→            title: formValues.title,
+   839→            date: formValues.date,
+   840→            time: formValues.time || null,
+   841→            type: 'reminder',
+   842→            priority: 'high',
+   843→            chatId: 0,
+   844→          };
+   845→          break;
+   846→        case 'business':
+   847→          url = '/api/businesses';
+   848→          body = {
+   849→            name: formValues.name,
+   850→            type: formValues.type || 'Other',
+   851→            industry: formValues.industry || '',
+   852→            description: formValues.description || '',
+   853→          };
+   854→          break;
+   855→        case 'note':
+   856→          url = '/api/bot/reports';
+   857→          body = {
+   858→            type: 'note',
+   859→            title: formValues.title,
+   860→            content: formValues.content,
+   861→            category: 'note',
+   862→            chatId: 0,
+   863→          };
+   864→          break;
+   865→        case 'document':
+   866→          url = '/api/documents';
+   867→          body = {
+   868→            title: formValues.title,
+   869→            category: formValues.category || 'Other',
+   870→            description: formValues.description || '',
+   871→            tags: JSON.stringify(
+   872→              (formValues.tags || '')
+   873→                .split(',')
+   874→                .map((t) => t.trim())
+   875→                .filter(Boolean) || []
+   876→            ),
+   877→          };
+   878→          break;
+   879→      }
+   880→
+   881→      const res = await fetch(url, {
+   882→        method: 'POST',
+   883→        headers: { 'Content-Type': 'application/json' },
+   884→        body: JSON.stringify(body),
+   885→      });
+   886→      const data = await res.json();
+   887→
+   888→      if (data.success) {
+   889→        if (typeof window !== 'undefined') {
+   890→          window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success');
+   891→        }
+   892→        setFormModal({ open: false, type: '', title: '', fields: [] });
+   893→        setFormValues({});
+   894→        setFormSuccess(true);
+   895→        setTimeout(() => setFormSuccess(false), 2000);
+   896→        fetchData(false);
+   897→      } else {
+   898→        if (typeof window !== 'undefined') {
+   899→          window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('error');
+   900→        }
+   901→        setFormError(data.error || 'Failed to save');
+   902→      }
+   903→    } catch (err: unknown) {
+   904→      setFormError(err instanceof Error ? err.message : 'Network error');
+   905→    } finally {
+   906→      setFormLoading(false);
+   907→    }
+   908→  };
+   909→
+   910→  // ─── AI Feature Functions ────────────────────────────────────────────────
+   911→
+   912→  const handleReceiptScan = async (file: File) => {
+   913→    haptic('medium');
+   914→    setReceiptLoading(true);
+   915→    setReceiptAnalysis(null);
+   916→    try {
+   917→      const reader = new FileReader();
+   918→      reader.onloadend = async () => {
+   919→        const base64 = (reader.result as string).split(',')[1];
+   920→        setReceiptImage(reader.result as string);
+   921→        const res = await fetch('/api/ai/analyze-receipt', {
+   922→          method: 'POST',
+   923→          headers: { 'Content-Type': 'application/json' },
+   924→          body: JSON.stringify({ image: base64 }),
+   925→        });
+   926→        const data = await res.json();
+   927→        if (data.success) {
+   928→          setReceiptAnalysis(data.data);
+   929→          haptic('success' as any);
+   930→        } else {
+   931→          setReceiptAnalysis({ error: data.error || 'Failed to analyze receipt' });
+   932→        }
+   933→        setReceiptLoading(false);
+   934→      };
+   935→      reader.readAsDataURL(file);
+   936→    } catch (err) {
+   937→      setReceiptAnalysis({ error: 'Failed to read file' });
+   938→      setReceiptLoading(false);
+   939→    }
+   940→  };
+   941→
+   942→  const handleReceiptConfirm = async () => {
+   943→    if (!receiptAnalysis || receiptAnalysis.error) return;
+   944→    setReceiptLoading(true);
+   945→    try {
+   946→      const res = await fetch('/api/finance', {
+   947→        method: 'POST',
+   948→        headers: { 'Content-Type': 'application/json' },
+   949→        body: JSON.stringify({
+   950→          type: 'expense',
+   951→          amount: parseFloat(receiptAnalysis.amount) || 0,
+   952→          category: receiptAnalysis.category || 'Other',
+   953→          description: receiptAnalysis.merchantName || receiptAnalysis.description || 'Receipt',
+   954→          date: receiptAnalysis.date || new Date().toISOString().split('T')[0],
+   955→          chatId: 0,
+   956→        }),
+   957→      });
+   958→      const data = await res.json();
+   959→      if (data.success) {
+   960→        if (typeof window !== 'undefined') {
+   961→          window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success');
+   962→        }
+   963→        setReceiptImage(null);
+   964→        setReceiptAnalysis(null);
+   965→        setAiView('menu');
+   966→        setFormSuccess(true);
+   967→        setTimeout(() => setFormSuccess(false), 2000);
+   968→        fetchData(false);
+   969→      }
+   970→    } catch { /* silent */ }
+   971→    setReceiptLoading(false);
+   972→  };
+   973→
+   974→  const handleDocumentUpload = async (file: File) => {
+   975→    haptic('medium');
+   976→    setDocLoading(true);
+   977→    setDocAnalysis(null);
+   978→    try {
+   979→      const reader = new FileReader();
+   980→      reader.onloadend = async () => {
+   981→        const base64 = (reader.result as string).split(',')[1];
+   982→        setDocFile(reader.result as string);
+   983→        const res = await fetch('/api/ai/analyze-document', {
+   984→          method: 'POST',
+   985→          headers: { 'Content-Type': 'application/json' },
+   986→          body: JSON.stringify({ file: base64, fileName: file.name, mimeType: file.type }),
+   987→        });
+   988→        const data = await res.json();
+   989→        if (data.success) {
+   990→          setDocAnalysis(data.data);
+   991→          haptic('success' as any);
+   992→        } else {
+   993→          setDocAnalysis({ error: data.error || 'Failed to analyze document' });
+   994→        }
+   995→        setDocLoading(false);
+   996→      };
+   997→      reader.readAsDataURL(file);
+   998→    } catch {
+   999→      setDocAnalysis({ error: 'Failed to read file' });
+  1000→      setDocLoading(false);
+  1001→    }
+  1002→  };
+  1003→
+  1004→  const handleLoadForecast = async () => {
+  1005→    haptic('medium');
+  1006→    setForecastLoading(true);
+  1007→    try {
+  1008→      const res = await fetch('/api/analytics/forecast?period=monthly&limit=100');
+  1009→      const data = await res.json();
+  1010→      if (data.success) {
+  1011→        setForecastData(data);
+  1012→        haptic('success' as any);
+  1013→      }
+  1014→    } catch { /* silent */ }
+  1015→    setForecastLoading(false);
+  1016→  };
+  1017→
+  1018→  const handleExport = async (type: string, format: string) => {
+  1019→    haptic('medium');
+  1020→    setExporting(`${type}-${format}`);
+  1021→    try {
+  1022→      const params = new URLSearchParams({ type, period: 'all' });
+  1023→      if (format === 'csv') {
+  1024→        const res = await fetch(`/api/export/excel?${params}`);
+  1025→        const blob = await res.blob();
+  1026→        const url = URL.createObjectURL(blob);
+  1027→        const a = document.createElement('a');
+  1028→        a.href = url;
+  1029→        a.download = `${type}-report.csv`;
+  1030→        a.click();
+  1031→        URL.revokeObjectURL(url);
+  1032→      } else {
+  1033→        window.open(`/api/export/pdf?${params}`, '_blank');
+  1034→      }
+  1035→      haptic('success' as any);
+  1036→    } catch { /* silent */ }
+  1037→    setExporting(null);
+  1038→  };
+  1039→
+  1040→  const handleSendEmail = async () => {
+  1041→    if (!emailForm.to || !emailForm.subject) return;
+  1042→    haptic('medium');
+  1043→    setEmailSending(true);
+  1044→    setEmailSent(false);
+  1045→    try {
+  1046→      const res = await fetch('/api/ai/chat', {
+  1047→        method: 'POST',
+  1048→        headers: { 'Content-Type': 'application/json' },
+  1049→        body: JSON.stringify({
+  1050→          message: `Compose a professional email:\nTo: ${emailForm.to}\nSubject: ${emailForm.subject}\nBody: ${emailForm.body}\n\nPlease draft a polished version of this email.`,
+  1051→          chatId: 0,
+  1052→        }),
+  1053→      });
+  1054→      const data = await res.json();
+  1055→      if (data.success) {
+  1056→        setEmailSent(true);
+  1057→        setTimeout(() => setEmailSent(false), 3000);
+  1058→        haptic('success' as any);
+  1059→      }
+  1060→    } catch { /* silent */ }
+  1061→    setEmailSending(false);
+  1062→  };
+  1063→
+  1064→  // ─── Search logic ─────────────────────────────────────────────────────────
+  1065→  const searchResults = (() => {
+  1066→    if (!searchQuery.trim() || !botData) return { reports: [], notes: [], tasks: [], contacts: [], knowledge: [] };
+  1067→    const q = searchQuery.toLowerCase();
+  1068→
+  1069→    const reports = (reportsData?.filtered || [])
+  1070→      .filter((r: ReportItem) =>
+  1071→        r.title.toLowerCase().includes(q) || r.content.toLowerCase().includes(q) || r.type.toLowerCase().includes(q)
+  1072→      )
+  1073→      .slice(0, 10)
+  1074→      .map((r: ReportItem) => ({ id: r.id, type: 'report' as const, title: r.title, detail: r.content, date: r.date, sub: r.type }));
+  1075→
+  1076→    const notes = (botData.notes || [])
+  1077→      .filter((n: NoteItem) => n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q))
+  1078→      .slice(0, 10)
+  1079→      .map((n: NoteItem) => ({ id: n.id, type: 'note' as const, title: n.title, detail: n.content, date: n.createdAt || '', sub: n.category || 'Note' }));
+  1080→
+  1081→    const tasks = (botData.tasks?.list || [])
+  1082→      .filter((t: TaskItem) => t.title.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q))
+  1083→      .slice(0, 10)
+  1084→      .map((t: TaskItem) => ({ id: t.id, type: 'task' as const, title: t.title, detail: t.description || '', date: t.dueDate || t.createdAt || '', sub: t.status }));
+  1085→
+  1086→    const contacts = (botData.contacts?.list || [])
+  1087→      .filter((c: ContactItem) => c.name.toLowerCase().includes(q) || (c.company || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q))
+  1088→      .slice(0, 10)
+  1089→      .map((c: ContactItem) => ({ id: c.id, type: 'contact' as const, title: c.name, detail: `${c.company || ''} ${c.email || ''} ${c.phone || ''}`.trim(), date: '', sub: c.type || 'Contact' }));
+  1090→
+  1091→    const knowledge = (botData.knowledgeBase || [])
+  1092→      .filter((k: KnowledgeItem) => k.topic.toLowerCase().includes(q) || k.content.toLowerCase().includes(q))
+  1093→      .slice(0, 10)
+  1094→      .map((k: KnowledgeItem) => ({ id: k.id, type: 'knowledge' as const, title: k.topic, detail: k.content, date: k.createdAt || '', sub: k.source || 'Knowledge' }));
+  1095→
+  1096→    return { reports, notes, tasks, contacts, knowledge };
+  1097→  })();
+  1098→
+  1099→  const totalSearchResults = searchResults.reports.length + searchResults.notes.length + searchResults.tasks.length + searchResults.contacts.length + searchResults.knowledge.length;
+  1100→
+  1101→  // Category data extraction
+  1102→  const getCategoryData = (cat: CategoryDef) => {
+  1103→    if (!botData) return null;
+  1104→    switch (cat.id) {
+  1105→      case 'romel':
+  1106→        return {
+  1107→          items: (botData.sales?.reports || []).slice(0, 20),
+  1108→          totalCount: botData.summary.totalRomelReports,
+  1109→          label: 'Sales Reports',
+  1110→          emptyCmd: '/log',
+  1111→          emptyText: 'Log a sales activity to see reports here',
+  1112→        };
+  1113→      case 'college':
+  1114→        return {
+  1115→          items: (botData.vdReports || []).slice(0, 20),
+  1116→          totalCount: botData.summary.totalVdReports,
+  1117→          label: 'Vice Dean Reports',
+  1118→          emptyCmd: '/vicereport',
+  1119→          emptyText: 'Create a VC report to see data here',
+  1120→        };
+  1121→      case 'jobs':
+  1122→        return {
+  1123→          items: ((botData.rawSyncData?.applications as unknown[]) || []).slice(0, 20),
+  1124→          totalCount: ((botData.rawSyncData?.applications as unknown[]) || []).length,
+  1125→          label: 'Applications',
+  1126→          emptyCmd: '/apply',
+  1127→          emptyText: 'Apply for a job to see applications here',
+  1128→        };
+  1129→      case 'data':
+  1130→        return {
+  1131→          items: (botData.notes || []).slice(0, 20),
+  1132→          totalCount: botData.summary.totalNotes,
+  1133→          label: 'Notes',
+  1134→          emptyCmd: '/note',
+  1135→          emptyText: 'Create a note to see data here',
+  1136→        };
+  1137→      case 'learning':
+  1138→        return {
+  1139→          items: (botData.tasks?.list || []).slice(0, 20),
+  1140→          totalCount: botData.summary.totalTasks,
+  1141→          label: 'Learning Tasks',
+  1142→          emptyCmd: '/tasks',
+  1143→          emptyText: 'Add tasks to see them here',
+  1144→        };
+  1145→      case 'crm':
+  1146→        return {
+  1147→          items: (botData.contacts?.list || []).slice(0, 20),
+  1148→          totalCount: botData.summary.totalContacts,
+  1149→          label: 'Contacts',
+  1150→          emptyCmd: '/contacts',
+  1151→          emptyText: 'Add contacts to see them here',
+  1152→        };
+  1153→      case 'ai':
+  1154→        return {
+  1155→          items: (botData.knowledgeBase || []).slice(0, 20),
+  1156→          totalCount: botData.summary.totalKnowledge,
+  1157→          label: 'Knowledge Base',
+  1158→          emptyCmd: '/teach',
+  1159→          emptyText: 'Teach the AI to build your knowledge base',
+  1160→        };
+  1161→      case 'reports':
+  1162→        return {
+  1163→          items: (reportsData?.filtered || []).slice(0, 20),
+  1164→          totalCount: reportsData?.total || 0,
+  1165→          label: 'All Reports',
+  1166→          emptyCmd: '/weekreport',
+  1167→          emptyText: 'Generate a report to see data here',
+  1168→        };
+  1169→      default:
+  1170→        return null;
+  1171→    }
+  1172→  };
+  1173→
+  1174→  // ─── Render Helpers ──────────────────────────────────────────────────────
+  1175→
+  1176→  const t = theme;
+  1177→  const user = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initDataUnsafe?.user : null;
+  1178→  const firstName = user?.first_name || 'Hambisa';
+  1179→  const username = user?.username || '';
+  1180→
+  1181→  // ─── Loading State ───────────────────────────────────────────────────────
+  1182→
+  1183→  if (loading && !botData) {
+  1184→    return (
+  1185→      <div className="flex flex-col items-center justify-center min-h-screen" style={{ backgroundColor: t.bg, paddingTop: t.safeTop }}>
+  1186→        <div className="flex flex-col items-center gap-4">
+  1187→          <div className="relative">
+  1188→            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+  1189→              <Bot className="w-8 h-8 text-white" />
+  1190→            </div>
+  1191→            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center">
+  1192→              <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+  1193→            </div>
+  1194→          </div>
+  1195→          <div className="flex flex-col items-center gap-2">
+  1196→            <p className="text-sm font-medium" style={{ color: t.text }}>Career AI Ethiopia</p>
+  1197→            <div className="flex items-center gap-2">
+  1198→              <Loader2 className="w-4 h-4 animate-spin" style={{ color: t.textSecondary }} />
+  1199→              <p className="text-xs" style={{ color: t.textSecondary }}>Loading your data...</p>
+  1200→            </div>
+  1201→          </div>
+  1202→        </div>
+  1203→      </div>
+  1204→    );
+  1205→  }
+  1206→
+  1207→  // ─── Error State ─────────────────────────────────────────────────────────
+  1208→
+  1209→  if (error && !botData) {
+  1210→    return (
+  1211→      <div className="flex flex-col items-center justify-center min-h-screen p-6" style={{ backgroundColor: t.bg, paddingTop: t.safeTop }}>
+  1212→        <div className="flex flex-col items-center gap-4 text-center max-w-xs">
+  1213→          <div className="w-14 h-14 rounded-full bg-red-500/15 flex items-center justify-center">
+  1214→            <AlertCircle className="w-7 h-7 text-red-400" />
+  1215→          </div>
+  1216→          <p className="text-sm font-medium" style={{ color: t.text }}>Failed to load</p>
+  1217→          <p className="text-xs" style={{ color: t.textSecondary }}>{error}</p>
+  1218→          <button
+  1219→            onClick={() => fetchData()}
+  1220→            className="mt-2 px-5 py-2.5 rounded-xl text-sm font-medium bg-emerald-500 text-white active:scale-95 transition-transform"
+  1221→          >
+  1222→            Try Again
+  1223→          </button>
+  1224→        </div>
+  1225→      </div>
+  1226→    );
+  1227→  }
+  1228→
+  1229→  // ─── Category Detail Page ────────────────────────────────────────────────
+  1230→
+  1231→  const renderCategoryDetail = () => {
+  1232→    if (!selectedCategory) return null;
+  1233→    const cat = selectedCategory;
+  1234→    const catData = getCategoryData(cat);
+  1235→
+  1236→    return (
+  1237→      <div className="flex flex-col gap-4 pb-4">
+  1238→        {/* Header */}
+  1239→        <div className="flex items-center gap-3">
+  1240→          <button
+  1241→            onClick={goBack}
+  1242→            className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors active:scale-95"
+  1243→            style={{ backgroundColor: t.bgCard }}
+  1244→          >
+  1245→            <ChevronLeft className="w-5 h-5" style={{ color: t.text }} />
+  1246→          </button>
+  1247→          <div className="flex items-center gap-2.5">
+  1248→            <span className="text-2xl">{cat.emoji}</span>
+  1249→            <div>
+  1250→              <h1 className="text-lg font-bold" style={{ color: t.text }}>{cat.name}</h1>
+  1251→              <p className="text-xs" style={{ color: t.textSecondary }}>{cat.commands.length} commands</p>
+  1252→            </div>
+  1253→          </div>
+  1254→        </div>
+  1255→
+  1256→        {/* Quick Actions Grid */}
+  1257→        <div>
+  1258→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>
+  1259→            Commands
+  1260→          </h2>
+  1261→          <div className="grid grid-cols-2 gap-2.5">
+  1262→            {cat.commands.map((cmd) => (
+  1263→              <button
+  1264→                key={cmd.cmd}
+  1265→                onClick={() => openFormForCommand(cmd.cmd)}
+  1266→                className={`p-3.5 rounded-xl text-left transition-all active:scale-[0.97] border ${cat.bgColor} ${cat.borderColor}`}
+  1267→              >
+  1268→                <p className={`text-sm font-semibold ${cat.textColor}`}>{cmd.name}</p>
+  1269→                <p className="text-[11px] mt-0.5" style={{ color: t.textSecondary }}>
+  1270→                  {cmd.cmd}
+  1271→                </p>
+  1272→                <p className="text-[10px] mt-1 leading-tight" style={{ color: t.textMuted }}>
+  1273→                  {cmd.description}
+  1274→                </p>
+  1275→              </button>
+  1276→            ))}
+  1277→          </div>
+  1278→        </div>
+  1279→
+  1280→        {/* Data View */}
+  1281→        {catData && (
+  1282→          <div>
+  1283→            <div className="flex items-center justify-between mb-3">
+  1284→              <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: t.textMuted }}>
+  1285→                {catData.label}
+  1286→              </h2>
+  1287→              {catData.totalCount > 0 && (
+  1288→                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: t.bgCard, color: t.textSecondary }}>
+  1289→                  {catData.totalCount}
+  1290→                </span>
+  1291→              )}
+  1292→            </div>
+  1293→
+  1294→            {catData.items.length > 0 ? (
+  1295→              <div className="flex flex-col gap-2 max-h-80 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+  1296→                {catData.items.map((item: Record<string, unknown>, idx: number) => {
+  1297→                  const title = (item.title as string) || (item.topic as string) || (item.name as string) || `Item ${idx + 1}`;
+  1298→                  const detail = (item.content as string) || (item.report as string) || (item.details as string) || (item.description as string) || '';
+  1299→                  const date = (item.date as string) || (item.createdAt as string) || '';
+  1300→                  const status = (item.status as string) || (item.priority as string) || '';
+  1301→                  const type = (item.type as string) || '';
+  1302→
+  1303→                  return (
+  1304→                    <div
+  1305→                      key={(item.id as string) || idx}
+  1306→                      className="p-3 rounded-xl transition-colors"
+  1307→                      style={{ backgroundColor: t.bgCard }}
+  1308→                    >
+  1309→                      <div className="flex items-start justify-between gap-2">
+  1310→                        <p className="text-sm font-medium leading-snug" style={{ color: t.text }}>
+  1311→                          {truncate(title, 60)}
+  1312→                        </p>
+  1313→                        {status && (
+  1314→                          <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-full font-medium bg-emerald-500/15 text-emerald-400">
+  1315→                            {status}
+  1316→                          </span>
+  1317→                        )}
+  1318→                      </div>
+  1319→                      {detail && (
+  1320→                        <p className="text-[11px] mt-1 leading-relaxed" style={{ color: t.textSecondary }}>
+  1321→                          {truncate(detail, 120)}
+  1322→                        </p>
+  1323→                      )}
+  1324→                      {(date || type) && (
+  1325→                        <div className="flex items-center gap-2 mt-1.5">
+  1326→                          {type && (
+  1327→                            <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>
+  1328→                              {type}
+  1329→                            </span>
+  1330→                          )}
+  1331→                          {date && (
+  1332→                            <span className="text-[10px]" style={{ color: t.textMuted }}>
+  1333→                              {date}
+  1334→                            </span>
+  1335→                          )}
+  1336→                        </div>
+  1337→                      )}
+  1338→                    </div>
+  1339→                  );
+  1340→                })}
+  1341→              </div>
+  1342→            ) : (
+  1343→              <div className="flex flex-col items-center gap-3 py-8 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1344→                <div className={`w-12 h-12 rounded-xl ${cat.bgColor} flex items-center justify-center`}>
+  1345→                  <Database className={`w-6 h-6 ${cat.textColor}`} />
+  1346→                </div>
+  1347→                <div className="text-center">
+  1348→                  <p className="text-sm font-medium" style={{ color: t.text }}>No data yet</p>
+  1349→                  <p className="text-xs mt-1" style={{ color: t.textSecondary }}>
+  1350→                    Use {catData.emptyCmd} in Telegram to {catData.emptyText.toLowerCase()}
+  1351→                  </p>
+  1352→                </div>
+  1353→                <button
+  1354→                  onClick={() => openFormForCommand(catData.emptyCmd)}
+  1355→                  className={`px-4 py-2 rounded-xl text-xs font-medium ${cat.bgColor} ${cat.textColor} border ${cat.borderColor} active:scale-95 transition-transform`}
+  1356→                >
+  1357→                  {catData.emptyCmd}
+  1358→                </button>
+  1359→              </div>
+  1360→            )}
+  1361→          </div>
+  1362→        )}
+  1363→
+  1364→        {!catData && (
+  1365→          <div className="flex flex-col items-center gap-3 py-8 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1366→            <div className={`w-12 h-12 rounded-xl ${cat.bgColor} flex items-center justify-center`}>
+  1367→              <Zap className={`w-6 h-6 ${cat.textColor}`} />
+  1368→            </div>
+  1369→            <div className="text-center">
+  1370→              <p className="text-sm font-medium" style={{ color: t.text }}>Interactive Commands</p>
+  1371→              <p className="text-xs mt-1" style={{ color: t.textSecondary }}>
+  1372→                Tap any command above to use it in Telegram
+  1373→              </p>
+  1374→            </div>
+  1375→          </div>
+  1376→        )}
+  1377→      </div>
+  1378→    );
+  1379→  };
+  1380→
+  1381→  // ─── Home Tab ────────────────────────────────────────────────────────────
+  1382→
+  1383→  const renderHome = () => {
+  1384→    const s = botData?.summary;
+  1385→    return (
+  1386→      <div className="flex flex-col gap-5 pb-4">
+  1387→        {/* Welcome Card */}
+  1388→        <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-emerald-600 to-teal-700 text-white">
+  1389→          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
+  1390→          <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-6 -translate-x-6" />
+  1391→          <div className="relative">
+  1392→            <div className="flex items-center gap-2 mb-1">
+  1393→              <p className="text-base font-bold">Welcome back, {firstName}! 👋</p>
+  1394→            </div>
+  1395→            <p className="text-xs text-emerald-100/80">
+  1396→              Career AI Ethiopia — Your executive assistant
+  1397→            </p>
+  1398→            <div className="flex items-center gap-1.5 mt-2.5">
+  1399→              <div className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+  1400→              <p className="text-[10px] text-emerald-200/70">
+  1401→                {s?.lastSync ? `Synced ${timeAgo(s.lastSync)}` : 'Ready'}
+  1402→              </p>
+  1403→            </div>
+  1404→          </div>
+  1405→        </div>
+  1406→
+  1407→        {/* Stats Grid */}
+  1408→        <div>
+  1409→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Overview</h2>
+  1410→          <div className="grid grid-cols-2 gap-2.5">
+  1411→            {[
+  1412→              { label: 'Reports', value: (s?.totalRomelReports || 0) + (s?.totalVdReports || 0), icon: FileText, color: 'text-teal-400', bg: 'bg-teal-500/15' },
+  1413→              { label: 'Tasks', value: s?.totalTasks || 0, icon: CheckSquare, color: 'text-amber-400', bg: 'bg-amber-500/15', sub: s ? `${s.taskCompletionRate}% done` : '' },
+  1414→              { label: 'Contacts', value: s?.totalContacts || 0, icon: Users, color: 'text-rose-400', bg: 'bg-rose-500/15' },
+  1415→              { label: 'Knowledge', value: s?.totalKnowledge || 0, icon: Brain, color: 'text-violet-400', bg: 'bg-violet-500/15' },
+  1416→            ].map((stat) => (
+  1417→              <div key={stat.label} className="p-3.5 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1418→                <div className="flex items-center justify-between">
+  1419→                  <span className="text-2xl font-bold" style={{ color: t.text }}>{stat.value}</span>
+  1420→                  <div className={`w-8 h-8 rounded-lg ${stat.bg} flex items-center justify-center`}>
+  1421→                    <stat.icon className={`w-4 h-4 ${stat.color}`} />
+  1422→                  </div>
+  1423→                </div>
+  1424→                <p className="text-[11px] mt-1" style={{ color: t.textSecondary }}>{stat.label}</p>
+  1425→                {stat.sub && <p className="text-[10px]" style={{ color: t.textMuted }}>{stat.sub}</p>}
+  1426→              </div>
+  1427→            ))}
+  1428→          </div>
+  1429→        </div>
+  1430→
+  1431→        {/* Quick Actions */}
+  1432→        <div>
+  1433→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Quick Actions</h2>
+  1434→          <div className="grid grid-cols-4 gap-2">
+  1435→            {QUICK_ACTIONS.map((action) => (
+  1436→              <button
+  1437→                key={action.cmd}
+  1438→                onClick={() => openFormForCommand(action.cmd)}
+  1439→                className="flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all active:scale-95"
+  1440→                style={{ backgroundColor: t.bgCard }}
+  1441→              >
+  1442→                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+  1443→                  <Zap className="w-4.5 h-4.5 text-emerald-400" />
+  1444→                </div>
+  1445→                <span className="text-[10px] font-medium leading-tight text-center" style={{ color: t.textSecondary }}>
+  1446→                  {action.name}
+  1447→                </span>
+  1448→              </button>
+  1449→            ))}
+  1450→          </div>
+  1451→        </div>
+  1452→
+  1453→        {/* Recent Activity */}
+  1454→        <div>
+  1455→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Recent Activity</h2>
+  1456→          {botData?.recentActivities && botData.recentActivities.length > 0 ? (
+  1457→            <div className="flex flex-col gap-2">
+  1458→              {botData.recentActivities.slice(0, 5).map((act: ActivityItem) => (
+  1459→                <div
+  1460→                  key={act.id}
+  1461→                  className="flex items-start gap-3 p-3 rounded-xl transition-colors"
+  1462→                  style={{ backgroundColor: t.bgCard }}
+  1463→                >
+  1464→                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+  1465→                    <Activity className="w-4 h-4 text-emerald-400" />
+  1466→                  </div>
+  1467→                  <div className="flex-1 min-w-0">
+  1468→                    <p className="text-sm font-medium leading-snug" style={{ color: t.text }}>
+  1469→                      {truncate(act.action, 70)}
+  1470→                    </p>
+  1471→                    <p className="text-[10px] mt-0.5" style={{ color: t.textMuted }}>
+  1472→                      {timeAgo(act.timestamp)}
+  1473→                    </p>
+  1474→                  </div>
+  1475→                </div>
+  1476→              ))}
+  1477→            </div>
+  1478→          ) : (
+  1479→            <div className="p-4 rounded-xl text-center" style={{ backgroundColor: t.bgCard }}>
+  1480→              <p className="text-xs" style={{ color: t.textSecondary }}>No recent activity</p>
+  1481→            </div>
+  1482→          )}
+  1483→        </div>
+  1484→      </div>
+  1485→    );
+  1486→  };
+  1487→
+  1488→  // ─── Categories Tab ──────────────────────────────────────────────────────
+  1489→
+  1490→  const renderCategories = () => (
+  1491→    <div className="flex flex-col gap-4 pb-4">
+  1492→      <div>
+  1493→        <h1 className="text-lg font-bold" style={{ color: t.text }}>All Categories</h1>
+  1494→        <p className="text-xs mt-0.5" style={{ color: t.textSecondary }}>
+  1495→          17 categories · 60+ commands
+  1496→        </p>
+  1497→      </div>
+  1498→      <div className="grid grid-cols-2 gap-2.5">
+  1499→        {CATEGORIES.map((cat) => {
+  1500→          const itemCount = getItemCount(cat);
+  1501→          return (
+  1502→            <button
+  1503→              key={cat.id}
+  1504→              onClick={() => goToCategory(cat)}
+  1505→              className={`p-4 rounded-xl text-left transition-all active:scale-[0.97] border ${cat.bgColor} ${cat.borderColor}`}
+  1506→            >
+  1507→              <div className="flex items-start justify-between">
+  1508→                <span className="text-2xl">{cat.emoji}</span>
+  1509→                {itemCount > 0 && (
+  1510→                  <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: t.bg, color: t.textSecondary }}>
+  1511→                    {itemCount}
+  1512→                  </span>
+  1513→                )}
+  1514→              </div>
+  1515→              <p className={`text-sm font-semibold mt-2 ${cat.textColor}`}>{cat.name}</p>
+  1516→              <p className="text-[10px] mt-0.5" style={{ color: t.textSecondary }}>
+  1517→                {cat.commands.length} commands
+  1518→              </p>
+  1519→            </button>
+  1520→          );
+  1521→        })}
+  1522→      </div>
+  1523→    </div>
+  1524→  );
+  1525→
+  1526→  // Count items for a category
+  1527→  function getItemCount(cat: CategoryDef): number {
+  1528→    if (!botData) return 0;
+  1529→    switch (cat.id) {
+  1530→      case 'romel': return botData.summary.totalRomelReports;
+  1531→      case 'college': return botData.summary.totalVdReports;
+  1532→      case 'data': return botData.summary.totalNotes;
+  1533→      case 'learning': return botData.summary.totalTasks;
+  1534→      case 'crm': return botData.summary.totalContacts;
+  1535→      case 'ai': return botData.summary.totalKnowledge;
+  1536→      case 'reports': return reportsData?.total || 0;
+  1537→      default: return 0;
+  1538→    }
+  1539→  }
+  1540→
+  1541→  // ─── Search Tab ──────────────────────────────────────────────────────────
+  1542→
+  1543→  const renderSearch = () => {
+  1544→    const resultGroups = [
+  1545→      { key: 'reports', label: 'Reports', icon: FileText, color: 'text-teal-400', items: searchResults.reports },
+  1546→      { key: 'notes', label: 'Notes', icon: StickyNote, color: 'text-slate-400', items: searchResults.notes },
+  1547→      { key: 'tasks', label: 'Tasks', icon: CheckSquare, color: 'text-amber-400', items: searchResults.tasks },
+  1548→      { key: 'contacts', label: 'Contacts', icon: Users, color: 'text-rose-400', items: searchResults.contacts },
+  1549→      { key: 'knowledge', label: 'Knowledge', icon: Brain, color: 'text-violet-400', items: searchResults.knowledge },
+  1550→    ].filter(g => g.items.length > 0);
+  1551→
+  1552→    return (
+  1553→      <div className="flex flex-col gap-4 pb-4">
+  1554→        {/* Search Input */}
+  1555→        <div className="relative">
+  1556→          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: t.textMuted }} />
+  1557→          <input
+  1558→            type="text"
+  1559→            value={searchQuery}
+  1560→            onChange={(e) => { haptic('light'); setSearchQuery(e.target.value); setExpandedSearchItem(null); }}
+  1561→            placeholder="Search reports, notes, tasks..."
+  1562→            className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-colors"
+  1563→            style={{
+  1564→              backgroundColor: t.bgCard,
+  1565→              color: t.text,
+  1566→              border: `1px solid ${t.border}`,
+  1567→            }}
+  1568→          />
+  1569→          {searchQuery && (
+  1570→            <button
+  1571→              onClick={() => { haptic('light'); setSearchQuery(''); setExpandedSearchItem(null); }}
+  1572→              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs px-2 py-0.5 rounded-md"
+  1573→              style={{ backgroundColor: t.bg, color: t.textSecondary }}
+  1574→            >
+  1575→              Clear
+  1576→            </button>
+  1577→          )}
+  1578→        </div>
+  1579→
+  1580→        {searchQuery.trim() && (
+  1581→          <p className="text-[11px]" style={{ color: t.textMuted }}>
+  1582→            {totalSearchResults} result{totalSearchResults !== 1 ? 's' : ''} found
+  1583→          </p>
+  1584→        )}
+  1585→
+  1586→        {/* Results */}
+  1587→        {searchQuery.trim() ? (
+  1588→          resultGroups.length > 0 ? (
+  1589→            <div className="flex flex-col gap-4">
+  1590→              {resultGroups.map((group) => (
+  1591→                <div key={group.key}>
+  1592→                  <div className="flex items-center gap-2 mb-2">
+  1593→                    <group.icon className={`w-3.5 h-3.5 ${group.color}`} />
+  1594→                    <h3 className="text-xs font-semibold" style={{ color: t.textSecondary }}>
+  1595→                      {group.label}
+  1596→                    </h3>
+  1597→                    <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: t.bgCard, color: t.textMuted }}>
+  1598→                      {group.items.length}
+  1599→                    </span>
+  1600→                  </div>
+  1601→                  <div className="flex flex-col gap-1.5">
+  1602→                    {group.items.map((item) => {
+  1603→                      const isExpanded = expandedSearchItem === item.id;
+  1604→                      return (
+  1605→                        <button
+  1606→                          key={item.id}
+  1607→                          onClick={() => { haptic('light'); setExpandedSearchItem(isExpanded ? null : item.id); }}
+  1608→                          className="p-3 rounded-xl text-left transition-colors w-full"
+  1609→                          style={{ backgroundColor: t.bgCard }}
+  1610→                        >
+  1611→                          <div className="flex items-start justify-between gap-2">
+  1612→                            <p className="text-sm font-medium leading-snug" style={{ color: t.text }}>
+  1613→                              {truncate(item.title, 50)}
+  1614→                            </p>
+  1615→                            <div className="flex items-center gap-1.5 shrink-0">
+  1616→                              <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>
+  1617→                                {item.sub}
+  1618→                              </span>
+  1619→                              {isExpanded ? (
+  1620→                                <ChevronUp className="w-3.5 h-3.5" style={{ color: t.textMuted }} />
+  1621→                              ) : (
+  1622→                                <ChevronDown className="w-3.5 h-3.5" style={{ color: t.textMuted }} />
+  1623→                              )}
+  1624→                            </div>
+  1625→                          </div>
+  1626→                          {item.date && (
+  1627→                            <p className="text-[10px] mt-1" style={{ color: t.textMuted }}>{item.date}</p>
+  1628→                          )}
+  1629→                          {isExpanded && item.detail && (
+  1630→                            <p className="text-xs mt-2 leading-relaxed whitespace-pre-wrap" style={{ color: t.textSecondary }}>
+  1631→                              {truncate(item.detail, 500)}
+  1632→                            </p>
+  1633→                          )}
+  1634→                        </button>
+  1635→                      );
+  1636→                    })}
+  1637→                  </div>
+  1638→                </div>
+  1639→              ))}
+  1640→            </div>
+  1641→          ) : (
+  1642→            <div className="flex flex-col items-center gap-3 py-10">
+  1643→              <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: t.bgCard }}>
+  1644→                <Search className="w-6 h-6" style={{ color: t.textMuted }} />
+  1645→              </div>
+  1646→              <p className="text-sm font-medium" style={{ color: t.text }}>No results found</p>
+  1647→              <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+  1648→                Try different keywords or use commands in Telegram to add data
+  1649→              </p>
+  1650→            </div>
+  1651→          )
+  1652→        ) : (
+  1653→          <div className="flex flex-col items-center gap-3 py-10">
+  1654→            <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: t.bgCard }}>
+  1655→              <Search className="w-6 h-6" style={{ color: t.textMuted }} />
+  1656→            </div>
+  1657→            <p className="text-sm font-medium" style={{ color: t.text }}>Search everything</p>
+  1658→            <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+  1659→              Find reports, notes, tasks, contacts, and knowledge
+  1660→            </p>
+  1661→          </div>
+  1662→        )}
+  1663→      </div>
+  1664→    );
+  1665→  };
+  1666→
+  1667→  // ─── Profile Tab ─────────────────────────────────────────────────────────
+  1668→
+  1669→  const renderProfile = () => {
+  1670→    const s = botData?.summary;
+  1671→    return (
+  1672→      <div className="flex flex-col gap-5 pb-4">
+  1673→        {/* User Card */}
+  1674→        <div className="p-5 rounded-2xl flex items-center gap-4" style={{ backgroundColor: t.bgCard }}>
+  1675→          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xl font-bold shrink-0">
+  1676→            {firstName.charAt(0).toUpperCase()}
+  1677→          </div>
+  1678→          <div className="flex-1 min-w-0">
+  1679→            <p className="text-base font-bold" style={{ color: t.text }}>{firstName}</p>
+  1680→            {username && (
+  1681→              <p className="text-xs" style={{ color: t.textSecondary }}>@{username}</p>
+  1682→            )}
+  1683→            <div className="flex items-center gap-1.5 mt-1">
+  1684→              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+  1685→              <p className="text-[10px]" style={{ color: t.textMuted }}>Online</p>
+  1686→            </div>
+  1687→          </div>
+  1688→        </div>
+  1689→
+  1690→        {/* Bot Info */}
+  1691→        <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1692→          <div className="flex items-center gap-3">
+  1693→            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+  1694→              <Bot className="w-5 h-5 text-emerald-400" />
+  1695→            </div>
+  1696→            <div className="flex-1">
+  1697→              <p className="text-sm font-semibold" style={{ color: t.text }}>@hambi_career_ai_bot</p>
+  1698→              <p className="text-[11px]" style={{ color: t.textSecondary }}>Career AI Ethiopia</p>
+  1699→            </div>
+  1700→          </div>
+  1701→        </div>
+  1702→
+  1703→        {/* Quick Stats */}
+  1704→        <div>
+  1705→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Statistics</h2>
+  1706→          <div className="flex flex-col gap-1.5">
+  1707→            {[
+  1708→              { label: 'Total Reports', value: (s?.totalRomelReports || 0) + (s?.totalVdReports || 0), icon: BarChart3 },
+  1709→              { label: 'Tasks Completed', value: s?.tasksDone || 0, icon: CheckCircle2 },
+  1710→              { label: 'Completion Rate', value: `${s?.taskCompletionRate || 0}%`, icon: TrendingUp },
+  1711→              { label: 'Total Notes', value: s?.totalNotes || 0, icon: StickyNote },
+  1712→              { label: 'Contacts', value: s?.totalContacts || 0, icon: Users },
+  1713→              { label: 'Knowledge Base', value: s?.totalKnowledge || 0, icon: Brain },
+  1714→              { label: 'Data Syncs', value: s?.totalSyncs || 0, icon: RefreshCw },
+  1715→            ].map((stat) => (
+  1716→              <div
+  1717→                key={stat.label}
+  1718→                className="flex items-center justify-between p-3 rounded-xl transition-colors"
+  1719→                style={{ backgroundColor: t.bgCard }}
+  1720→              >
+  1721→                <div className="flex items-center gap-3">
+  1722→                  <stat.icon className="w-4 h-4" style={{ color: t.textSecondary }} />
+  1723→                  <span className="text-sm" style={{ color: t.text }}>{stat.label}</span>
+  1724→                </div>
+  1725→                <span className="text-sm font-semibold" style={{ color: t.text }}>{stat.value}</span>
+  1726→              </div>
+  1727→            ))}
+  1728→          </div>
+  1729→        </div>
+  1730→
+  1731→        {/* About */}
+  1732→        <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1733→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: t.textMuted }}>About</h2>
+  1734→          <p className="text-xs leading-relaxed" style={{ color: t.textSecondary }}>
+  1735→            Career AI Ethiopia is your executive assistant bot for managing sales, college operations, 
+  1736→            job applications, tasks, notes, contacts, and more. Use commands in Telegram to interact 
+  1737→            with your data, or browse through this dashboard.
+  1738→          </p>
+  1739→          <div className="flex flex-wrap gap-1.5 mt-3">
+  1740→            {['Sales', 'College', 'Jobs', 'Tasks', 'Notes', 'CRM', 'AI'].map((tag) => (
+  1741→              <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>
+  1742→                {tag}
+  1743→              </span>
+  1744→            ))}
+  1745→          </div>
+  1746→        </div>
+  1747→
+  1748→        {/* Version & Features */}
+  1749→        <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1750→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Available Features</h2>
+  1751→          <div className="flex flex-col gap-1.5">
+  1752→            {[
+  1753→              { label: 'Receipt Scanner', desc: 'AI reads receipts → auto expense', icon: Camera, color: 'text-orange-400' },
+  1754→              { label: 'Document AI', desc: 'Upload docs → AI summary', icon: FileSearch, color: 'text-violet-400' },
+  1755→              { label: 'Predictive Analytics', desc: 'AI forecasts cash flow', icon: LineChart, color: 'text-emerald-400' },
+  1756→              { label: 'Email AI', desc: 'AI-assisted emails', icon: MailOpen, color: 'text-pink-400' },
+  1757→              { label: 'Export Reports', desc: 'CSV & PDF downloads', icon: DownloadCloud, color: 'text-cyan-400' },
+  1758→              { label: 'Role Management', desc: 'Multi-user permissions', icon: Shield, color: 'text-amber-400' },
+  1759→              { label: 'API Access', desc: 'REST API for integrations', icon: KeyRound, color: 'text-teal-400' },
+  1760→            ].map((feat) => (
+  1761→              <div key={feat.label} className="flex items-center gap-3 p-2.5 rounded-lg" style={{ backgroundColor: t.bg }}>
+  1762→                <feat.icon className={`w-4 h-4 ${feat.color} shrink-0`} />
+  1763→                <div className="flex-1 min-w-0">
+  1764→                  <p className="text-xs font-medium" style={{ color: t.text }}>{feat.label}</p>
+  1765→                  <p className="text-[10px]" style={{ color: t.textMuted }}>{feat.desc}</p>
+  1766→                </div>
+  1767→                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+  1768→              </div>
+  1769→            ))}
+  1770→          </div>
+  1771→        </div>
+  1772→
+  1773→        {/* Role Management */}
+  1774→        <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1775→          <div className="flex items-center gap-3 mb-3">
+  1776→            <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center">
+  1777→              <Shield className="w-5 h-5 text-amber-400" />
+  1778→            </div>
+  1779→            <div>
+  1780→              <p className="text-sm font-semibold" style={{ color: t.text }}>Role & Permissions</p>
+  1781→              <p className="text-[10px]" style={{ color: t.textSecondary }}>Manage access levels</p>
+  1782→            </div>
+  1783→          </div>
+  1784→          <div className="flex flex-col gap-1.5">
+  1785→            {[
+  1786→              { role: 'Admin', desc: 'Full access to all features', active: true },
+  1787→              { role: 'Manager', desc: 'Business & finance access', active: false },
+  1788→              { role: 'Viewer', desc: 'Read-only access', active: false },
+  1789→            ].map((r) => (
+  1790→              <div key={r.role} className="flex items-center justify-between p-2.5 rounded-lg" style={{ backgroundColor: t.bg }}>
+  1791→                <div>
+  1792→                  <p className="text-xs font-medium" style={{ color: t.text }}>{r.role}</p>
+  1793→                  <p className="text-[10px]" style={{ color: t.textMuted }}>{r.desc}</p>
+  1794→                </div>
+  1795→                <div className={`w-2 h-2 rounded-full ${r.active ? 'bg-emerald-400' : 'bg-gray-500/30'}`} />
+  1796→              </div>
+  1797→            ))}
+  1798→          </div>
+  1799→        </div>
+  1800→
+  1801→        {/* Version */}
+  1802→        <div className="text-center py-2">
+  1803→          <p className="text-[10px]" style={{ color: t.textMuted }}>Mini App v3 · Career AI Ethiopia · 7 AI Features</p>
+  1804→        </div>
+  1805→      </div>
+  1806→    );
+  1807→  };
+  1808→
+  1809→  // ─── Finance Tab ─────────────────────────────────────────────────────────
+  1810→
+  1811→  const renderFinance = () => {
+  1812→    const txns = (financeData?.transactions || []) as Array<{
+  1813→      id: string; type: string; amount: number; category?: string;
+  1814→      description?: string; date?: string; currency?: string;
+  1815→    }>;
+  1816→    const summary = financeData?.summary || {};
+  1817→
+  1818→    const totalIncome = summary.totalIncome ?? txns.filter((t) => t.type === 'income').reduce((s, t) => s + (t.amount || 0), 0);
+  1819→    const totalExpenses = summary.totalExpenses ?? txns.filter((t) => t.type === 'expense').reduce((s, t) => s + (t.amount || 0), 0);
+  1820→    const netProfit = totalIncome - totalExpenses;
+  1821→
+  1822→    const summaryCards = [
+  1823→      { label: 'Total Income', value: `${totalIncome.toLocaleString()} ETB`, color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
+  1824→      { label: 'Total Expenses', value: `${totalExpenses.toLocaleString()} ETB`, color: 'text-red-400', bg: 'bg-red-500/15' },
+  1825→      { label: 'Net Profit', value: `${netProfit.toLocaleString()} ETB`, color: netProfit >= 0 ? 'text-emerald-400' : 'text-red-400', bg: netProfit >= 0 ? 'bg-emerald-500/15' : 'bg-red-500/15' },
+  1826→      { label: 'Transactions', value: String(txns.length), color: 'text-cyan-400', bg: 'bg-cyan-500/15' },
+  1827→    ];
+  1828→
+  1829→    return (
+  1830→      <div className="flex flex-col gap-5 pb-4">
+  1831→        <div>
+  1832→          <h1 className="text-lg font-bold" style={{ color: t.text }}>Finance</h1>
+  1833→          <p className="text-xs mt-0.5" style={{ color: t.textSecondary }}>
+  1834→            Track your income & expenses
+  1835→          </p>
+  1836→        </div>
+  1837→
+  1838→        {/* Summary Cards */}
+  1839→        <div className="grid grid-cols-2 gap-2.5">
+  1840→          {summaryCards.map((card) => (
+  1841→            <div key={card.label} className={`p-3.5 rounded-xl ${card.bg}`}>
+  1842→              <p className="text-[11px]" style={{ color: t.textSecondary }}>{card.label}</p>
+  1843→              <p className={`text-lg font-bold mt-1 ${card.color}`}>{card.value}</p>
+  1844→            </div>
+  1845→          ))}
+  1846→        </div>
+  1847→
+  1848→        {/* Transaction List */}
+  1849→        <div>
+  1850→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>
+  1851→            Recent Transactions
+  1852→          </h2>
+  1853→          {txns.length > 0 ? (
+  1854→            <div className="flex flex-col gap-2 max-h-96 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+  1855→              {txns.map((txn) => {
+  1856→                const isIncome = txn.type === 'income';
+  1857→                return (
+  1858→                  <div
+  1859→                    key={txn.id}
+  1860→                    className="flex items-center gap-3 p-3 rounded-xl"
+  1861→                    style={{ backgroundColor: t.bgCard }}
+  1862→                  >
+  1863→                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-emerald-500/15' : 'bg-red-500/15'}`}>
+  1864→                      {isIncome
+  1865→                        ? <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+  1866→                        : <ArrowDownRight className="w-4 h-4 text-red-400" />
+  1867→                      }
+  1868→                    </div>
+  1869→                    <div className="flex-1 min-w-0">
+  1870→                      <div className="flex items-center gap-2">
+  1871→                        <p className="text-sm font-medium" style={{ color: t.text }}>
+  1872→                          {txn.description || (isIncome ? 'Income' : 'Expense')}
+  1873→                        </p>
+  1874→                        {txn.category && (
+  1875→                          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium bg-slate-500/15 text-slate-400">
+  1876→                            {txn.category}
+  1877→                          </span>
+  1878→                        )}
+  1879→                      </div>
+  1880→                      {txn.date && (
+  1881→                        <p className="text-[10px] mt-0.5" style={{ color: t.textMuted }}>{txn.date}</p>
+  1882→                      )}
+  1883→                    </div>
+  1884→                    <p className={`text-sm font-bold shrink-0 ${isIncome ? 'text-emerald-400' : 'text-red-400'}`}>
+  1885→                      {isIncome ? '+' : '-'}{txn.amount?.toLocaleString()} {txn.currency || 'ETB'}
+  1886→                    </p>
+  1887→                  </div>
+  1888→                );
+  1889→              })}
+  1890→            </div>
+  1891→          ) : (
+  1892→            <div className="flex flex-col items-center gap-3 py-10 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1893→              <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 flex items-center justify-center">
+  1894→                <Wallet className="w-6 h-6 text-emerald-400" />
+  1895→              </div>
+  1896→              <p className="text-sm font-medium" style={{ color: t.text }}>No transactions yet</p>
+  1897→              <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+  1898→                Use /income or /expense in Telegram to track your finances
+  1899→              </p>
+  1900→            </div>
+  1901→          )}
+  1902→        </div>
+  1903→
+  1904→        {/* Action Buttons */}
+  1905→        <div className="grid grid-cols-3 gap-2.5">
+  1906→          <button
+  1907→            onClick={() => openForm('income')}
+  1908→            className="flex items-center justify-center gap-1.5 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 active:scale-95 transition-transform"
+  1909→          >
+  1910→            <Plus className="w-4 h-4" />
+  1911→            <span className="text-xs font-medium">Income</span>
+  1912→          </button>
+  1913→          <button
+  1914→            onClick={() => openForm('expense')}
+  1915→            className="flex items-center justify-center gap-1.5 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 active:scale-95 transition-transform"
+  1916→          >
+  1917→            <Plus className="w-4 h-4" />
+  1918→            <span className="text-xs font-medium">Expense</span>
+  1919→          </button>
+  1920→          <button
+  1921→            onClick={() => handleExport('finance', 'csv')}
+  1922→            disabled={!!exporting}
+  1923→            className="flex items-center justify-center gap-1.5 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 active:scale-95 transition-transform disabled:opacity-50"
+  1924→          >
+  1925→            <DownloadCloud className="w-4 h-4" />
+  1926→            <span className="text-xs font-medium">{exporting === 'finance-csv' ? '...' : 'Export'}</span>
+  1927→          </button>
+  1928→        </div>
+  1929→      </div>
+  1930→    );
+  1931→  };
+  1932→
+  1933→  // ─── Calendar Tab ────────────────────────────────────────────────────────
+  1934→
+  1935→  const renderCalendar = () => {
+  1936→    const events = (calendarData?.events || []) as Array<{
+  1937→      id: string; title: string; date?: string; time?: string;
+  1938→      type?: string; priority?: string; description?: string;
+  1939→    }>;
+  1940→
+  1941→    const todayEvents = selectedDate
+  1942→      ? events.filter((e) => e.date === selectedDate)
+  1943→      : events;
+  1944→
+  1945→    const typeColors: Record<string, { bg: string; text: string }> = {
+  1946→      event: { bg: 'bg-emerald-500/15', text: 'text-emerald-400' },
+  1947→      meeting: { bg: 'bg-blue-500/15', text: 'text-blue-400' },
+  1948→      reminder: { bg: 'bg-amber-500/15', text: 'text-amber-400' },
+  1949→      deadline: { bg: 'bg-red-500/15', text: 'text-red-400' },
+  1950→    };
+  1951→
+  1952→    const priorityColors: Record<string, string> = {
+  1953→      high: 'bg-red-500',
+  1954→      medium: 'bg-amber-500',
+  1955→      low: 'bg-green-500',
+  1956→    };
+  1957→
+  1958→    const navigateDate = (direction: number) => {
+  1959→      haptic('light');
+  1960→      const d = new Date(selectedDate);
+  1961→      d.setDate(d.getDate() + direction);
+  1962→      setSelectedDate(d.toISOString().split('T')[0]);
+  1963→    };
+  1964→
+  1965→    const goToday = () => {
+  1966→      haptic('light');
+  1967→      setSelectedDate(new Date().toISOString().split('T')[0]);
+  1968→    };
+  1969→
+  1970→    const formatDateDisplay = (dateStr: string) => {
+  1971→      try {
+  1972→        const d = new Date(dateStr + 'T00:00:00');
+  1973→        return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  1974→      } catch {
+  1975→        return dateStr;
+  1976→      }
+  1977→    };
+  1978→
+  1979→    const todayStr = new Date().toISOString().split('T')[0];
+  1980→
+  1981→    return (
+  1982→      <div className="flex flex-col gap-5 pb-4">
+  1983→        <div>
+  1984→          <h1 className="text-lg font-bold" style={{ color: t.text }}>Calendar</h1>
+  1985→          <p className="text-xs mt-0.5" style={{ color: t.textSecondary }}>
+  1986→            Manage your events & reminders
+  1987→          </p>
+  1988→        </div>
+  1989→
+  1990→        {/* Date Navigation */}
+  1991→        <div className="flex items-center justify-between p-3 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1992→          <button onClick={() => navigateDate(-1)} className="w-9 h-9 rounded-lg flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bg }}>
+  1993→            <ChevronLeft className="w-4 h-4" style={{ color: t.text }} />
+  1994→          </button>
+  1995→          <button onClick={goToday} className="flex flex-col items-center">
+  1996→            <span className="text-sm font-semibold" style={{ color: t.text }}>{formatDateDisplay(selectedDate)}</span>
+  1997→            {selectedDate === todayStr && (
+  1998→              <span className="text-[10px] text-emerald-400 font-medium">Today</span>
+  1999→            )}
+  2000→          </button>
+
+[showing lines 1-2000 of 2894; use offset=2001 with limit to continue reading]

@@ -1,0 +1,695 @@
+  2200→              </div>
+  2201→            </div>
+  2202→            <p className="text-[11px] leading-relaxed" style={{ color: t.textSecondary }}>
+  2203→              Use the REST API to integrate Career AI with your tools. Available endpoints: /api/finance, /api/calendar, /api/businesses, /api/documents, /api/analytics/forecast
+  2204→            </p>
+  2205→            <div className="mt-2 p-2.5 rounded-lg text-[10px] font-mono" style={{ backgroundColor: t.bg, color: t.textMuted }}>
+  2206→              GET /api/finance?period=monthly<br />
+  2207→              POST /api/finance {'{'}"type":"income"{'}'}<br />
+  2208→              GET /api/analytics/forecast
+  2209→            </div>
+  2210→          </div>
+  2211→        </div>
+  2212→      );
+  2213→    }
+  2214→
+  2215→    // Receipt Scanner View
+  2216→    if (aiView === 'receipt') {
+  2217→      return (
+  2218→        <div className="flex flex-col gap-4 pb-4">
+  2219→          <div className="flex items-center gap-3">
+  2220→            <button onClick={() => setAiView('menu')} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bgCard }}>
+  2221→              <ChevronLeft className="w-5 h-5" style={{ color: t.text }} />
+  2222→            </button>
+  2223→            <div>
+  2224→              <h1 className="text-lg font-bold" style={{ color: t.text }}>📷 Scan Receipt</h1>
+  2225→              <p className="text-xs" style={{ color: t.textSecondary }}>Take a photo of your receipt</p>
+  2226→            </div>
+  2227→          </div>
+  2228→
+  2229→          {/* Upload Area */}
+  2230→          {!receiptImage && !receiptLoading && (
+  2231→            <label className="flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors" style={{ borderColor: t.border, backgroundColor: t.bgCard }}>
+  2232→              <div className="w-16 h-16 rounded-2xl bg-orange-500/15 flex items-center justify-center">
+  2233→                <Camera className="w-8 h-8 text-orange-400" />
+  2234→              </div>
+  2235→              <p className="text-sm font-medium" style={{ color: t.text }}>Tap to upload receipt</p>
+  2236→              <p className="text-[10px]" style={{ color: t.textSecondary }}>Supports JPG, PNG, WEBP</p>
+  2237→              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => e.target.files?.[0] && handleReceiptScan(e.target.files[0])} />
+  2238→            </label>
+  2239→          )}
+  2240→
+  2241→          {/* Loading */}
+  2242→          {receiptLoading && !receiptAnalysis && (
+  2243→            <div className="flex flex-col items-center gap-3 py-12 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  2244→              <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
+  2245→              <p className="text-sm" style={{ color: t.textSecondary }}>Analyzing receipt with AI...</p>
+  2246→            </div>
+  2247→          )}
+  2248→
+  2249→          {/* Image Preview */}
+  2250→          {receiptImage && receiptAnalysis && (
+  2251→            <div className="flex flex-col gap-3">
+  2252→              {receiptImage && (
+  2253→                <div className="rounded-xl overflow-hidden" style={{ backgroundColor: t.bgCard }}>
+  2254→                  <img src={receiptImage} alt="Receipt" className="w-full h-48 object-cover" />
+  2255→                </div>
+  2256→              )}
+  2257→
+  2258→              {/* Analysis Results */}
+  2259→              {receiptAnalysis.error ? (
+  2260→                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+  2261→                  <p className="text-xs text-red-400">{receiptAnalysis.error}</p>
+  2262→                </div>
+  2263→              ) : (
+  2264→                <div className="p-4 rounded-xl space-y-3" style={{ backgroundColor: t.bgCard }}>
+  2265→                  <h3 className="text-sm font-semibold" style={{ color: t.text }}>Extracted Data</h3>
+  2266→                  {receiptAnalysis.merchantName && (
+  2267→                    <div className="flex justify-between">
+  2268→                      <span className="text-xs" style={{ color: t.textSecondary }}>Merchant</span>
+  2269→                      <span className="text-xs font-medium" style={{ color: t.text }}>{receiptAnalysis.merchantName}</span>
+  2270→                    </div>
+  2271→                  )}
+  2272→                  <div className="flex justify-between">
+  2273→                    <span className="text-xs" style={{ color: t.textSecondary }}>Amount</span>
+  2274→                    <span className="text-sm font-bold text-orange-400">{receiptAnalysis.amount || receiptAnalysis.subtotal || 'N/A'} {receiptAnalysis.currency || 'ETB'}</span>
+  2275→                  </div>
+  2276→                  {receiptAnalysis.category && (
+  2277→                    <div className="flex justify-between">
+  2278→                      <span className="text-xs" style={{ color: t.textSecondary }}>Category</span>
+  2279→                      <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400">{receiptAnalysis.category}</span>
+  2280→                    </div>
+  2281→                  )}
+  2282→                  {receiptAnalysis.date && (
+  2283→                    <div className="flex justify-between">
+  2284→                      <span className="text-xs" style={{ color: t.textSecondary }}>Date</span>
+  2285→                      <span className="text-xs font-medium" style={{ color: t.text }}>{receiptAnalysis.date}</span>
+  2286→                    </div>
+  2287→                  )}
+  2288→                  {receiptAnalysis.items && receiptAnalysis.items.length > 0 && (
+  2289→                    <div>
+  2290→                      <p className="text-xs mb-1" style={{ color: t.textSecondary }}>Items</p>
+  2291→                      <div className="flex flex-col gap-1">
+  2292→                        {receiptAnalysis.items.map((item: any, i: number) => (
+  2293→                          <div key={i} className="flex justify-between text-[11px]">
+  2294→                            <span style={{ color: t.text }}>{item.name || item.description}</span>
+  2295→                            <span style={{ color: t.textMuted }}>{item.price || item.amount}</span>
+  2296→                          </div>
+  2297→                        ))}
+  2298→                      </div>
+  2299→                    </div>
+  2300→                  )}
+  2301→
+  2302→                  <button
+  2303→                    onClick={handleReceiptConfirm}
+  2304→                    disabled={receiptLoading}
+  2305→                    className="w-full py-3 rounded-xl text-sm font-semibold text-white bg-orange-500 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+  2306→                  >
+  2307→                    {receiptLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+  2308→                    <span>Save as Expense</span>
+  2309→                  </button>
+  2310→                </div>
+  2311→              )}
+  2312→
+  2313→              <button
+  2314→                onClick={() => { setReceiptImage(null); setReceiptAnalysis(null); }}
+  2315→                className="w-full py-2.5 rounded-xl text-xs font-medium border active:scale-95 transition-transform"
+  2316→                style={{ borderColor: t.border, color: t.textSecondary }}
+  2317→              >
+  2318→                Scan Another Receipt
+  2319→              </button>
+  2320→            </div>
+  2321→          )}
+  2322→        </div>
+  2323→      );
+  2324→    }
+  2325→
+  2326→    // Document AI View
+  2327→    if (aiView === 'document') {
+  2328→      return (
+  2329→        <div className="flex flex-col gap-4 pb-4">
+  2330→          <div className="flex items-center gap-3">
+  2331→            <button onClick={() => setAiView('menu')} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bgCard }}>
+  2332→              <ChevronLeft className="w-5 h-5" style={{ color: t.text }} />
+  2333→            </button>
+  2334→            <div>
+  2335→              <h1 className="text-lg font-bold" style={{ color: t.text }}>📄 Document AI</h1>
+  2336→              <p className="text-xs" style={{ color: t.textSecondary }}>Upload & analyze with AI</p>
+  2337→            </div>
+  2338→          </div>
+  2339→
+  2340→          {!docFile && !docLoading && (
+  2341→            <label className="flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors" style={{ borderColor: t.border, backgroundColor: t.bgCard }}>
+  2342→              <div className="w-16 h-16 rounded-2xl bg-violet-500/15 flex items-center justify-center">
+  2343→                <FileUp className="w-8 h-8 text-violet-400" />
+  2344→              </div>
+  2345→              <p className="text-sm font-medium" style={{ color: t.text }}>Tap to upload document</p>
+  2346→              <p className="text-[10px]" style={{ color: t.textSecondary }}>Supports PDF, Image, DOCX</p>
+  2347→              <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.txt" className="hidden" onChange={(e) => e.target.files?.[0] && handleDocumentUpload(e.target.files[0])} />
+  2348→            </label>
+  2349→          )}
+  2350→
+  2351→          {docLoading && !docAnalysis && (
+  2352→            <div className="flex flex-col items-center gap-3 py-12 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  2353→              <Sparkles className="w-8 h-8 text-violet-400 animate-pulse" />
+  2354→              <p className="text-sm" style={{ color: t.textSecondary }}>Analyzing document with AI...</p>
+  2355→            </div>
+  2356→          )}
+  2357→
+  2358→          {docAnalysis && (
+  2359→            <div className="flex flex-col gap-3">
+  2360→              {docAnalysis.error ? (
+  2361→                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+  2362→                  <p className="text-xs text-red-400">{docAnalysis.error}</p>
+  2363→                </div>
+  2364→              ) : (
+  2365→                <div className="p-4 rounded-xl space-y-3" style={{ backgroundColor: t.bgCard }}>
+  2366→                  {docAnalysis.documentType && (
+  2367→                    <div className="flex items-center gap-2">
+  2368→                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 font-medium">{docAnalysis.documentType}</span>
+  2369→                      {docAnalysis.language && (
+  2370→                        <span className="text-[9px] px-2 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>{docAnalysis.language}</span>
+  2371→                      )}
+  2372→                    </div>
+  2373→                  )}
+  2374→
+  2375→                  {docAnalysis.summary && (
+  2376→                    <div>
+  2377→                      <p className="text-xs font-semibold mb-1" style={{ color: t.text }}>Summary</p>
+  2378→                      <p className="text-xs leading-relaxed" style={{ color: t.textSecondary }}>{docAnalysis.summary}</p>
+  2379→                    </div>
+  2380→                  )}
+  2381→
+  2382→                  {docAnalysis.keyPoints && docAnalysis.keyPoints.length > 0 && (
+  2383→                    <div>
+  2384→                      <p className="text-xs font-semibold mb-1.5" style={{ color: t.text }}>Key Points</p>
+  2385→                      <div className="flex flex-col gap-1">
+  2386→                        {docAnalysis.keyPoints.map((point: string, i: number) => (
+  2387→                          <div key={i} className="flex items-start gap-2">
+  2388→                            <div className="w-1 h-1 rounded-full bg-violet-400 mt-1.5 shrink-0" />
+  2389→                            <p className="text-[11px] leading-relaxed" style={{ color: t.textSecondary }}>{point}</p>
+  2390→                          </div>
+  2391→                        ))}
+  2392→                      </div>
+  2393→                    </div>
+  2394→                  )}
+  2395→
+  2396→                  {docAnalysis.keywords && docAnalysis.keywords.length > 0 && (
+  2397→                    <div className="flex flex-wrap gap-1.5">
+  2398→                      {docAnalysis.keywords.map((kw: string, i: number) => (
+  2399→                        <span key={i} className="text-[9px] px-2 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>{kw}</span>
+  2400→                      ))}
+  2401→                    </div>
+  2402→                  )}
+  2403→
+  2404→                  {docAnalysis.sentiment && (
+  2405→                    <div className="flex items-center gap-2">
+  2406→                      <span className="text-xs" style={{ color: t.textSecondary }}>Sentiment:</span>
+  2407→                      <span className={`text-xs font-medium ${docAnalysis.sentiment === 'positive' ? 'text-emerald-400' : docAnalysis.sentiment === 'negative' ? 'text-red-400' : 'text-amber-400'}`}>
+  2408→                        {docAnalysis.sentiment}
+  2409→                      </span>
+  2410→                    </div>
+  2411→                  )}
+  2412→                </div>
+  2413→              )}
+  2414→
+  2415→              <button
+  2416→                onClick={() => { setDocFile(null); setDocAnalysis(null); }}
+  2417→                className="w-full py-2.5 rounded-xl text-xs font-medium border active:scale-95 transition-transform"
+  2418→                style={{ borderColor: t.border, color: t.textSecondary }}
+  2419→              >
+  2420→                Analyze Another Document
+  2421→              </button>
+  2422→            </div>
+  2423→          )}
+  2424→        </div>
+  2425→      );
+  2426→    }
+  2427→
+  2428→    // Analytics View
+  2429→    if (aiView === 'analytics') {
+  2430→      const fc = forecastData?.forecast;
+  2431→      const fs = forecastData?.stats;
+  2432→
+  2433→      return (
+  2434→        <div className="flex flex-col gap-4 pb-4">
+  2435→          <div className="flex items-center gap-3">
+  2436→            <button onClick={() => setAiView('menu')} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bgCard }}>
+  2437→              <ChevronLeft className="w-5 h-5" style={{ color: t.text }} />
+  2438→            </button>
+  2439→            <div>
+  2440→              <h1 className="text-lg font-bold" style={{ color: t.text }}>📊 Predictive Analytics</h1>
+  2441→              <p className="text-xs" style={{ color: t.textSecondary }}>AI-powered financial forecasts</p>
+  2442→            </div>
+  2443→          </div>
+  2444→
+  2445→          {forecastLoading && !forecastData ? (
+  2446→            <div className="flex flex-col items-center gap-3 py-12 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  2447→              <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+  2448→              <p className="text-sm" style={{ color: t.textSecondary }}>Generating AI forecast...</p>
+  2449→            </div>
+  2450→          ) : forecastData && fc ? (
+  2451→            <div className="flex flex-col gap-3">
+  2452→              {/* Summary */}
+  2453→              <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-600/20 to-teal-600/20 border border-emerald-500/20">
+  2454→                <div className="flex items-center gap-2 mb-2">
+  2455→                  <Sparkles className="w-4 h-4 text-emerald-400" />
+  2456→                  <p className="text-xs font-semibold text-emerald-400">AI Assessment</p>
+  2457→                </div>
+  2458→                <p className="text-sm leading-relaxed" style={{ color: t.text }}>{fc.summary || 'No analysis available'}</p>
+  2459→              </div>
+  2460→
+  2461→              {/* Next Month Prediction */}
+  2462→              {fc.nextMonthPrediction && (
+  2463→                <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  2464→                  <p className="text-xs font-semibold mb-3" style={{ color: t.text }}>Next Month Forecast</p>
+  2465→                  <div className="grid grid-cols-3 gap-2">
+  2466→                    <div className="p-3 rounded-lg bg-emerald-500/10 text-center">
+  2467→                      <p className="text-[10px]" style={{ color: t.textSecondary }}>Income</p>
+  2468→                      <p className="text-sm font-bold text-emerald-400">{(fc.nextMonthPrediction.income || 0).toLocaleString()}</p>
+  2469→                    </div>
+  2470→                    <div className="p-3 rounded-lg bg-red-500/10 text-center">
+  2471→                      <p className="text-[10px]" style={{ color: t.textSecondary }}>Expense</p>
+  2472→                      <p className="text-sm font-bold text-red-400">{(fc.nextMonthPrediction.expense || 0).toLocaleString()}</p>
+  2473→                    </div>
+  2474→                    <div className="p-3 rounded-lg bg-cyan-500/10 text-center">
+  2475→                      <p className="text-[10px]" style={{ color: t.textSecondary }}>Net</p>
+  2476→                      <p className={`text-sm font-bold ${(fc.nextMonthPrediction.net || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+  2477→                        {(fc.nextMonthPrediction.net || 0).toLocaleString()}
+  2478→                      </p>
+  2479→                    </div>
+  2480→                  </div>
+  2481→                </div>
+  2482→              )}
+  2483→
+  2484→              {/* Trends */}
+  2485→              {fc.trends && fc.trends.length > 0 && (
+  2486→                <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  2487→                  <p className="text-xs font-semibold mb-2" style={{ color: t.text }}>📈 Trends</p>
+  2488→                  <div className="flex flex-col gap-1.5">
+  2489→                    {fc.trends.map((trend: string, i: number) => (
+  2490→                      <div key={i} className="flex items-start gap-2">
+  2491→                        <TrendingUp className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
+  2492→                        <p className="text-[11px] leading-relaxed" style={{ color: t.textSecondary }}>{trend}</p>
+  2493→                      </div>
+  2494→                    ))}
+  2495→                  </div>
+  2496→                </div>
+  2497→              )}
+  2498→
+  2499→              {/* Insights */}
+  2500→              {fc.insights && fc.insights.length > 0 && (
+  2501→                <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  2502→                  <p className="text-xs font-semibold mb-2" style={{ color: t.text }}>💡 Insights</p>
+  2503→                  <div className="flex flex-col gap-1.5">
+  2504→                    {fc.insights.map((insight: string, i: number) => (
+  2505→                      <div key={i} className="flex items-start gap-2">
+  2506→                        <Lightbulb className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+  2507→                        <p className="text-[11px] leading-relaxed" style={{ color: t.textSecondary }}>{insight}</p>
+  2508→                      </div>
+  2509→                    ))}
+  2510→                  </div>
+  2511→                </div>
+  2512→              )}
+  2513→
+  2514→              {/* Recommendations */}
+  2515→              {fc.recommendations && fc.recommendations.length > 0 && (
+  2516→                <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  2517→                  <p className="text-xs font-semibold mb-2" style={{ color: t.text }}>🎯 Recommendations</p>
+  2518→                  <div className="flex flex-col gap-1.5">
+  2519→                    {fc.recommendations.map((rec: string, i: number) => (
+  2520→                      <div key={i} className="flex items-start gap-2">
+  2521→                        <Target className="w-3.5 h-3.5 text-cyan-400 mt-0.5 shrink-0" />
+  2522→                        <p className="text-[11px] leading-relaxed" style={{ color: t.textSecondary }}>{rec}</p>
+  2523→                      </div>
+  2524→                    ))}
+  2525→                  </div>
+  2526→                </div>
+  2527→              )}
+  2528→
+  2529→              {/* Risk Alerts */}
+  2530→              {fc.riskAlerts && fc.riskAlerts.length > 0 && (
+  2531→                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+  2532→                  <p className="text-xs font-semibold mb-2 text-red-400">⚠️ Risk Alerts</p>
+  2533→                  <div className="flex flex-col gap-1.5">
+  2534→                    {fc.riskAlerts.map((alert: string, i: number) => (
+  2535→                      <div key={i} className="flex items-start gap-2">
+  2536→                        <AlertCircle className="w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0" />
+  2537→                        <p className="text-[11px] leading-relaxed text-red-300">{alert}</p>
+  2538→                      </div>
+  2539→                    ))}
+  2540→                  </div>
+  2541→                </div>
+  2542→              )}
+  2543→
+  2544→              {/* Stats Summary */}
+  2545→              {fs && (
+  2546→                <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  2547→                  <p className="text-xs font-semibold mb-2" style={{ color: t.text }}>📊 Period Stats</p>
+  2548→                  <div className="flex flex-col gap-1">
+  2549→                    {[
+  2550→                      { label: 'Transactions Analyzed', value: fs.totalTransactions },
+  2551→                      { label: 'Total Income', value: `${(fs.totalIncome || 0).toLocaleString()} ETB` },
+  2552→                      { label: 'Total Expenses', value: `${(fs.totalExpense || 0).toLocaleString()} ETB` },
+  2553→                      { label: 'Period', value: fs.periodAnalyzed || 'N/A' },
+  2554→                    ].map((s) => (
+  2555→                      <div key={s.label} className="flex justify-between text-[11px]">
+  2556→                        <span style={{ color: t.textSecondary }}>{s.label}</span>
+  2557→                        <span className="font-medium" style={{ color: t.text }}>{s.value}</span>
+  2558→                      </div>
+  2559→                    ))}
+  2560→                  </div>
+  2561→                </div>
+  2562→              )}
+  2563→
+  2564→              <button
+  2565→                onClick={handleLoadForecast}
+  2566→                className="w-full py-2.5 rounded-xl text-xs font-medium bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 active:scale-95 transition-transform flex items-center justify-center gap-2"
+  2567→              >
+  2568→                <RefreshCw className="w-3.5 h-3.5" />
+  2569→                <span>Refresh Forecast</span>
+  2570→              </button>
+  2571→            </div>
+  2572→          ) : (
+  2573→            <div className="flex flex-col items-center gap-3 py-12 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  2574→              <LineChart className="w-10 h-10" style={{ color: t.textMuted }} />
+  2575→              <p className="text-sm" style={{ color: t.text }}>No forecast data</p>
+  2576→              <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+  2577→                Add transactions first, then AI will generate forecasts
+  2578→              </p>
+  2579→            </div>
+  2580→          )}
+  2581→        </div>
+  2582→      );
+  2583→    }
+  2584→
+  2585→    // Email View
+  2586→    if (aiView === 'email') {
+  2587→      return (
+  2588→        <div className="flex flex-col gap-4 pb-4">
+  2589→          <div className="flex items-center gap-3">
+  2590→            <button onClick={() => setAiView('menu')} className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bgCard }}>
+  2591→              <ChevronLeft className="w-5 h-5" style={{ color: t.text }} />
+  2592→            </button>
+  2593→            <div>
+  2594→              <h1 className="text-lg font-bold" style={{ color: t.text }}>✉️ Email AI</h1>
+  2595→              <p className="text-xs" style={{ color: t.textSecondary }}>AI-assisted email composition</p>
+  2596→            </div>
+  2597→          </div>
+  2598→
+  2599→          <div className="flex flex-col gap-3">
+  2600→            <div>
+  2601→              <label className="block text-xs font-medium mb-1.5" style={{ color: t.textSecondary }}>To</label>
+  2602→              <input
+  2603→                type="email"
+  2604→                value={emailForm.to}
+  2605→                onChange={(e) => setEmailForm({ ...emailForm, to: e.target.value })}
+  2606→                placeholder="recipient@example.com"
+  2607→                className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
+  2608→                style={inputStyle}
+  2609→              />
+  2610→            </div>
+  2611→            <div>
+  2612→              <label className="block text-xs font-medium mb-1.5" style={{ color: t.textSecondary }}>Subject</label>
+  2613→              <input
+  2614→                type="text"
+  2615→                value={emailForm.subject}
+  2616→                onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })}
+  2617→                placeholder="Meeting follow-up"
+  2618→                className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
+  2619→                style={inputStyle}
+  2620→              />
+  2621→            </div>
+  2622→            <div>
+  2623→              <label className="block text-xs font-medium mb-1.5" style={{ color: t.textSecondary }}>Message (AI will polish this)</label>
+  2624→              <textarea
+  2625→                value={emailForm.body}
+  2626→                onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
+  2627→                placeholder="Write your rough message here, AI will help improve it..."
+  2628→                rows={5}
+  2629→                className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none resize-none"
+  2630→                style={inputStyle}
+  2631→              />
+  2632→            </div>
+  2633→
+  2634→            {emailSent && (
+  2635→              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2">
+  2636→                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+  2637→                <p className="text-xs text-emerald-400">Email drafted! Check your Telegram chat for the result.</p>
+  2638→              </div>
+  2639→            )}
+  2640→
+  2641→            <button
+  2642→              onClick={handleSendEmail}
+  2643→              disabled={emailSending || !emailForm.to || !emailForm.subject}
+  2644→              className="w-full py-3 rounded-xl text-sm font-semibold text-white bg-pink-500 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+  2645→            >
+  2646→              {emailSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+  2647→              <span>AI Compose & Send</span>
+  2648→            </button>
+  2649→          </div>
+  2650→        </div>
+  2651→      );
+  2652→    }
+  2653→
+  2654→    return null;
+  2655→  };
+  2656→
+  2657→  // ─── Form Modal Render ────────────────────────────────────────────────────
+  2658→
+  2659→  const renderFormModal = () => {
+  2660→    if (!formModal.open) return null;
+  2661→
+  2662→    const inputStyle: React.CSSProperties = {
+  2663→      backgroundColor: t.bg,
+  2664→      color: t.text,
+  2665→      border: `1px solid ${t.border}`,
+  2666→    };
+  2667→
+  2668→    return (
+  2669→      <div className="fixed inset-0 z-50 flex items-end justify-center">
+  2670→        {/* Overlay */}
+  2671→        <div
+  2672→          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+  2673→          onClick={closeForm}
+  2674→        />
+  2675→
+  2676→        {/* Bottom Sheet */}
+  2677→        <div
+  2678→          className="relative w-full max-w-lg rounded-t-2xl transition-transform duration-300 ease-out"
+  2679→          style={{
+  2680→            backgroundColor: t.bgCard,
+  2681→            maxHeight: '85vh',
+  2682→            paddingBottom: t.safeBottom + 16,
+  2683→            transform: formModal.open ? 'translateY(0)' : 'translateY(100%)',
+  2684→          }}
+  2685→        >
+  2686→          {/* Drag Handle */}
+  2687→          <div className="flex justify-center pt-3 pb-1">
+  2688→            <div className="w-10 h-1 rounded-full" style={{ backgroundColor: t.border }} />
+  2689→          </div>
+  2690→
+  2691→          {/* Header */}
+  2692→          <div className="flex items-center justify-between px-5 pb-3 pt-1">
+  2693→            <h2 className="text-base font-bold" style={{ color: t.text }}>{formModal.title}</h2>
+  2694→            <button
+  2695→              onClick={closeForm}
+  2696→              className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 transition-transform"
+  2697→              style={{ backgroundColor: t.bg }}
+  2698→            >
+  2699→              <X className="w-4 h-4" style={{ color: t.textSecondary }} />
+  2700→            </button>
+  2701→          </div>
+  2702→
+  2703→          {/* Error */}
+  2704→          {formError && (
+  2705→            <div className="mx-5 mb-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+  2706→              <p className="text-xs text-red-400">{formError}</p>
+  2707→            </div>
+  2708→          )}
+  2709→
+  2710→          {/* Form Fields */}
+  2711→          <div className="overflow-y-auto px-5 pb-4" style={{ maxHeight: 'calc(85vh - 160px)', scrollbarWidth: 'thin' }}>
+  2712→            <div className="flex flex-col gap-3">
+  2713→              {formModal.fields.map((field) => (
+  2714→                <div key={field.name}>
+  2715→                  <label className="block text-xs font-medium mb-1.5" style={{ color: t.textSecondary }}>
+  2716→                    {field.label}
+  2717→                    {field.required && <span className="text-red-400 ml-0.5">*</span>}
+  2718→                  </label>
+  2719→                  {field.type === 'select' ? (
+  2720→                    <select
+  2721→                      value={formValues[field.name] || ''}
+  2722→                      onChange={(e) => { haptic('light'); updateFormValue(field.name, e.target.value); }}
+  2723→                      className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none appearance-none transition-colors"
+  2724→                      style={inputStyle}
+  2725→                    >
+  2726→                      <option value="">{field.placeholder}</option>
+  2727→                      {field.options?.map((opt) => (
+  2728→                        <option key={opt} value={opt} style={{ backgroundColor: t.bgCard, color: t.text }}>
+  2729→                          {opt}
+  2730→                        </option>
+  2731→                      ))}
+  2732→                    </select>
+  2733→                  ) : field.type === 'textarea' ? (
+  2734→                    <textarea
+  2735→                      value={formValues[field.name] || ''}
+  2736→                      onChange={(e) => updateFormValue(field.name, e.target.value)}
+  2737→                      placeholder={field.placeholder}
+  2738→                      rows={3}
+  2739→                      className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none resize-none transition-colors"
+  2740→                      style={inputStyle}
+  2741→                    />
+  2742→                  ) : (
+  2743→                    <input
+  2744→                      type={field.type}
+  2745→                      value={formValues[field.name] || ''}
+  2746→                      onChange={(e) => updateFormValue(field.name, e.target.value)}
+  2747→                      placeholder={field.placeholder}
+  2748→                      className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none transition-colors"
+  2749→                      style={inputStyle}
+  2750→                    />
+  2751→                  )}
+  2752→                </div>
+  2753→              ))}
+  2754→            </div>
+  2755→          </div>
+  2756→
+  2757→          {/* Submit Button */}
+  2758→          <div className="px-5 pt-2 border-t" style={{ borderColor: t.border }}>
+  2759→            <button
+  2760→              onClick={submitForm}
+  2761→              disabled={formLoading}
+  2762→              className="w-full py-3 rounded-xl text-sm font-semibold text-white bg-emerald-500 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+  2763→            >
+  2764→              {formLoading ? (
+  2765→                <>
+  2766→                  <Loader2 className="w-4 h-4 animate-spin" />
+  2767→                  <span>Saving...</span>
+  2768→                </>
+  2769→              ) : (
+  2770→                <>
+  2771→                  <Check className="w-4 h-4" />
+  2772→                  <span>Submit</span>
+  2773→                </>
+  2774→              )}
+  2775→            </button>
+  2776→          </div>
+  2777→        </div>
+  2778→      </div>
+  2779→    );
+  2780→  };
+  2781→
+  2782→  // ─── Tab Bar ─────────────────────────────────────────────────────────────
+  2783→
+  2784→  const tabs: { id: TabId; label: string; icon: typeof Home }[] = [
+  2785→    { id: 'home', label: 'Home', icon: Home },
+  2786→    { id: 'categories', label: 'Categories', icon: LayoutGrid },
+  2787→    { id: 'finance', label: 'Finance', icon: Wallet },
+  2788→    { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+  2789→    { id: 'ai', label: 'AI', icon: Sparkles },
+  2790→    { id: 'profile', label: 'Profile', icon: User },
+  2791→  ];
+  2792→
+  2793→  // ─── Main Render ─────────────────────────────────────────────────────────
+  2794→
+  2795→  return (
+  2796→    <div className="flex flex-col min-h-screen" style={{ backgroundColor: t.bg }}>
+  2797→      {/* Pull-to-refresh indicator */}
+  2798→      {pullRefreshing && (
+  2799→        <div className="flex items-center justify-center py-3" style={{ paddingTop: t.safeTop + 12 }}>
+  2800→          <Loader2 className="w-4 h-4 animate-spin text-emerald-400 mr-2" />
+  2801→          <span className="text-xs text-emerald-400">Refreshing...</span>
+  2802→        </div>
+  2803→      )}
+  2804→
+  2805→      {/* Content Area */}
+  2806→      <div
+  2807→        ref={scrollRef}
+  2808→        className="flex-1 overflow-y-auto px-4"
+  2809→        style={{
+  2810→          paddingTop: t.safeTop + (pullRefreshing ? 0 : 16),
+  2811→          paddingBottom: 80 + t.safeBottom,
+  2812→          scrollbarWidth: 'thin',
+  2813→        }}
+  2814→        onTouchStart={handleTouchStart}
+  2815→        onTouchMove={handleTouchMove}
+  2816→        onTouchEnd={handleTouchEnd}
+  2817→      >
+  2818→        {/* Error banner (non-blocking) */}
+  2819→        {error && botData && (
+  2820→          <div className="flex items-center gap-2 p-3 mb-4 rounded-xl bg-red-500/10 border border-red-500/20">
+  2821→            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+  2822→            <p className="text-xs text-red-400 flex-1">{error}</p>
+  2823→            <button onClick={() => fetchData()} className="text-[10px] font-medium text-red-400 underline shrink-0">
+  2824→              Retry
+  2825→            </button>
+  2826→          </div>
+  2827→        )}
+  2828→
+  2829→        {/* Tab Content */}
+  2830→        <div className="transition-opacity duration-200">
+  2831→          {selectedCategory ? (
+  2832→            renderCategoryDetail()
+  2833→          ) : activeTab === 'home' ? (
+  2834→            renderHome()
+  2835→          ) : activeTab === 'categories' ? (
+  2836→            renderCategories()
+  2837→          ) : activeTab === 'finance' ? (
+  2838→            renderFinance()
+  2839→          ) : activeTab === 'calendar' ? (
+  2840→            renderCalendar()
+  2841→          ) : activeTab === 'ai' ? (
+  2842→            renderAI()
+  2843→          ) : activeTab === 'search' ? (
+  2844→            renderSearch()
+  2845→          ) : activeTab === 'profile' ? (
+  2846→            renderProfile()
+  2847→          ) : null}
+  2848→        </div>
+  2849→      </div>
+  2850→
+  2851→      {/* Bottom Tab Bar */}
+  2852→      <div
+  2853→        className="fixed bottom-0 left-0 right-0 border-t flex items-center justify-around"
+  2854→        style={{
+  2855→          backgroundColor: t.bg,
+  2856→          borderColor: t.border,
+  2857→          paddingBottom: t.safeBottom,
+  2858→          paddingTop: 6,
+  2859→          paddingLeft: t.safeTop > 0 ? 8 : 0,
+  2860→          paddingRight: t.safeTop > 0 ? 8 : 0,
+  2861→        }}
+  2862→      >
+  2863→        {tabs.map((tab) => {
+  2864→          const isActive = activeTab === tab.id && !selectedCategory;
+  2865→          return (
+  2866→            <button
+  2867→              key={tab.id}
+  2868→              onClick={() => { haptic('light'); setActiveTab(tab.id); setSelectedCategory(null); }}
+  2869→              className="flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl transition-all active:scale-95"
+  2870→              style={{ color: isActive ? '#10b981' : t.textMuted }}
+  2871→            >
+  2872→              <tab.icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
+  2873→              <span className="text-[10px] font-medium">{tab.label}</span>
+  2874→              {isActive && (
+  2875→                <div className="w-1 h-1 rounded-full bg-emerald-400 mt-0.5" />
+  2876→              )}
+  2877→            </button>
+  2878→          );
+  2879→        })}
+  2880→      </div>
+  2881→
+  2882→      {/* Form Modal */}
+  2883→      {renderFormModal()}
+  2884→
+  2885→      {/* Success Toast */}
+  2886→      {formSuccess && (
+  2887→        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-xl bg-emerald-500 text-white text-sm font-medium flex items-center gap-2 shadow-lg shadow-emerald-500/30">
+  2888→          <CheckCircle2 className="w-4 h-4" />
+  2889→          <span>Saved successfully!</span>
+  2890→        </div>
+  2891→      )}
+  2892→    </div>
+  2893→  );
+  2894→}
