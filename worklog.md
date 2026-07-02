@@ -331,3 +331,30 @@ Stage Summary:
 - Table auto-created on Vercel via CREATE TABLE IF NOT EXISTS pattern
 - Groq AI integration for report analysis with Telegram-friendly 3500 char truncation
 - File created: src/app/api/reports/analysis/route.ts
+---
+Task ID: 3b
+Agent: Main Agent
+Task: Add comprehensive report analysis commands to Telegram webhook
+
+Work Log:
+- Added handleReports() function (230+ lines) to webhook/route.ts
+- Added fetchAnalysis() helper to call the reports analysis API
+- /report [text] — paste any report, auto-detects type (vd, romel, college, tech, etc.) and saves
+- /report summary — all reports grouped by type with counts and latest dates
+- /report stats — overall statistics with top active days
+- /report all — list all reports with pagination
+- /report date YYYY-MM-DD — all reports for a specific date with raw content
+- /report week YYYY-MM-DD — all reports for the week containing that date
+- /report month YYYY-MM-DD — all reports for that month
+- /report quarter YYYY-MM-DD — all reports for that quarter
+- /report analyze [type] — AI analysis via Groq of all reports of a type
+- /report analyze_date YYYY-MM-DD — AI analysis of all reports on a date
+- /weekreport now aliased to /report week
+- Added REPORTS section to /help text
+- Lint passes, pushed to Vercel (commit 350db0f)
+
+Stage Summary:
+- Complete report analysis system deployed
+- User can: send any report text, get summaries by type/date/period, AI analysis
+- Auto-detection of report type from content keywords
+- All data persisted to BotReport table
