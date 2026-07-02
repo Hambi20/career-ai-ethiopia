@@ -304,28 +304,230 @@ async function handleNews(chatId: number, args: string) {
 // ROMEL COMMANDS
 // ============================================================
 
+interface SalesReportData {
+  date: string | null;
+  name: string | null;
+  route: string | null;
+  visitCallExisting: number | null;
+  visitCallNew: number | null;
+  effectiveCallExisting: number | null;
+  effectiveCallNew: number | null;
+  dailyTarget: number | null;
+  actualSales: number | null;
+  variance: number | null;
+  mtdTarget: number | null;
+  mtdActualSales: number | null;
+  mtdVariance: number | null;
+  notes: string | null;
+}
+
+async function parseSalesReportWithAI(text: string): Promise<SalesReportData | null> {
+  const systemPrompt = `You are a precise sales report parser. The user will paste a structured sales report from a field sales rep.
+
+Extract these fields and return ONLY valid JSON (no markdown, no code blocks, no extra text):
+
+{
+  "date": "the date string from the report",
+  "name": "person/sales rep name",
+  "route": "route/area name",
+  "visitCallExisting": <number or null>,
+  "visitCallNew": <number or null>,
+  "effectiveCallExisting": <number or null>,
+  "effectiveCallNew": <number or null>,
+  "dailyTarget": <number or null>,
+  "actualSales": <number or null>,
+  "variance": <number or null>,
+  "mtdTarget": <number or null>,
+  "mtdActualSales": <number or null>,
+  "mtdVariance": <number or null>,
+  "notes": "any extra observations or text not covered above"
+}
+
+CRITICAL RULES:
+1. "Actual sales" is the REAL sales amount — this is the key metric
+2. "Variance" shown as (138,872.79) means NEGATIVE variance — return as negative number like -138872.79
+3. Visit counts, call counts, and targets are NOT sales figures
+4. If actual sales is 0 or empty, return 0 — do NOT substitute with target numbers
+5. If a field is empty or missing, return null
+6. Parse amounts correctly: 138,872.79 = 138872.79
+7. Date format like 1/07/26 = keep as-is
+8. Return ONLY the JSON object, nothing else`;
+
+  try {
+    const result = await askGroq(text, systemPrompt);
+    const jsonStr = result.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(jsonStr) as SalesReportData;
+    // Basic validation
+    if (parsed && typeof parsed === 'object') return parsed;
+    return null;
+  } catch (err) {
+    console.error('[parseSalesReportWithAI] AI parse failed:', err);
+    return null;
+  }
+}
+
+async function parseSalesReportWithRegex(text: string): Promise<SalesReportData> {
+  const data: SalesReportData = {
+    date: null, name: null, route: null,
+    visitCallExisting: null, visitCallNew: null,
+    effectiveCallExisting: null, effectiveCallNew: null,
+    dailyTarget: null, actualSales: null, variance: null,
+    mtdTarget: null, mtdActualSales: null, mtdVariance: null,
+    notes: null,
+  };
+
+  // Extract date
+  const dateMatch = text.match(/Date[\s.]*([\d\/\-\.]+)/i);
+  if (dateMatch) data.date = dateMatch[1].trim();
+
+  // Extract name
+  const nameMatch = text.match(/Name[\s.]*([A-Za-z\s]+)/i);
+  if (nameMatch) data.name = nameMatch[1].trim();
+
+  // Extract route
+  const routeMatch = text.match(/Route[\s.]*([A-Za-z\s]+)/i);
+  if (routeMatch) data.route = routeMatch[1].trim();
+
+  // Extract visit call existing
+  const vcExistingMatch = text.match(/Visit\s*call\s*existing[\s.]*([\d,]+)/i);
+  if (vcExistingMatch) data.visitCallExisting = parseFloat(vcExistingMatch[1].replace(/,/g, ''));
+
+  // Extract visit call new
+  const vcNewMatch = text.match(/Visit\s*call\s*new[\s.]*([\d,]+)/i);
+  if (vcNewMatch) data.visitCallNew = parseFloat(vcNewMatch[1].replace(/,/g, ''));
+
+  // Extract effective call existing
+  const ecExistingMatch = text.match(/Effective\s*call\s*existing[\s.]*([\d,]+)/i);
+  if (ecExistingMatch) data.effectiveCallExisting = parseFloat(ecExistingMatch[1].replace(/,/g, ''));
+
+  // Extract effective call new
+  const ecNewMatch = text.match(/Effective\s*call\s*new[\s.]*([\d,]+)/i);
+  if (ecNewMatch) data.effectiveCallNew = parseFloat(ecNewMatch[1].replace(/,/g, ''));
+
+  // Extract daily target
+  const dailyTargetMatch = text.match(/Daily\s*target[\s.]*([\d,.]+)/i);
+  if (dailyTargetMatch) data.dailyTarget = parseFloat(dailyTargetMatch[1].replace(/,/g, ''));
+
+  // Extract actual sales (the FIRST "Actual sales" line = daily)
+  const actualSalesMatch = text.match(/Actual\s*sales[\s.]*([\d,.]+)/i);
+  if (actualSalesMatch) data.actualSales = parseFloat(actualSalesMatch[1].replace(/,/g, ''));
+
+  // Extract variance (may be in parentheses = negative)
+  const varianceMatch = text.match(/Variance[\s.]*[\(]?([\d,.]+)/i);
+  if (varianceMatch) {
+    const val = parseFloat(varianceMatch[1].replace(/,/g, ''));
+    // Check if wrapped in parentheses
+    const varFull = text.match(/Variance[\s.]*\(([\d,.]+)\)/i);
+    data.variance = varFull ? -val : val;
+  }
+
+  // Extract MTD target
+  const mtdTargetMatch = text.match(/MTD\s*target[\s.]*([\d,.]+)/i);
+  if (mtdTargetMatch) data.mtdTarget = parseFloat(mtdTargetMatch[1].replace(/,/g, ''));
+
+  // Extract MTD actual sales
+  const mtdActualMatch = text.match(/MTD[\s.]*Actual\s*sales[\s.]*([\d,.]+)/i) || text.match(/Actual\s*sales[\s.]*([\d,.]+)/g);
+  if (mtdActualMatch && mtdActualMatch.length >= 2) {
+    // Second "Actual sales" occurrence is MTD
+    const second = mtdActualMatch[1].match(/([\d,.]+)/);
+    if (second) data.mtdActualSales = parseFloat(second[1].replace(/,/g, ''));
+  }
+
+  // Extract MTD variance
+  const mtdVarMatch = text.match(/MTD[\s.]*Variance[\s.]*\(([\d,.]+)\)/i) || text.match(/Variance[\s.]*\(([\d,.]+)\)/g);
+  if (mtdVarMatch && mtdVarMatch.length >= 2) {
+    const second = mtdVarMatch[1].match(/([\d,.]+)/);
+    if (second) data.mtdVariance = -parseFloat(second[1].replace(/,/g, ''));
+  }
+
+  return data;
+}
+
+function formatSalesReportSummary(r: SalesReportData): string {
+  const fmt = (n: number | null) => n !== null ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+  const pct = (n: number | null) => n !== null ? `${n.toFixed(1)}%` : '—';
+
+  // Achievement rate
+  const achievementRate = (r.actualSales !== null && r.dailyTarget !== null && r.dailyTarget > 0)
+    ? (r.actualSales / r.dailyTarget) * 100 : null;
+
+  const mtdAchievement = (r.mtdActualSales !== null && r.mtdTarget !== null && r.mtdTarget > 0)
+    ? (r.mtdActualSales / r.mtdTarget) * 100 : null;
+
+  let summary = '';
+
+  // Header
+  if (r.date || r.name || r.route) {
+    summary += '📋 <b>Report Details</b>\n';
+    if (r.date) summary += `   📅 Date: <b>${r.date}</b>\n`;
+    if (r.name) summary += `   👤 Name: <b>${r.name}</b>\n`;
+    if (r.route) summary += `   📍 Route: <b>${r.route}</b>\n`;
+    summary += '\n';
+  }
+
+  // Visit calls
+  if (r.visitCallExisting !== null || r.visitCallNew !== null || r.effectiveCallExisting !== null || r.effectiveCallNew !== null) {
+    summary += '📞 <b>Calls</b>\n';
+    if (r.visitCallExisting !== null) summary += `   Visit Existing: ${r.visitCallExisting}\n`;
+    if (r.visitCallNew !== null) summary += `   Visit New: ${r.visitCallNew ?? '—'}\n`;
+    if (r.effectiveCallExisting !== null) summary += `   Effective Existing: ${r.effectiveCallExisting}\n`;
+    if (r.effectiveCallNew !== null) summary += `   Effective New: ${r.effectiveCallNew ?? '—'}\n`;
+    summary += '\n';
+  }
+
+  // Daily performance
+  if (r.dailyTarget !== null || r.actualSales !== null) {
+    summary += '📊 <b>Daily Performance</b>\n';
+    if (r.dailyTarget !== null) summary += `   🎯 Target: ${fmt(r.dailyTarget)} ETB\n`;
+    if (r.actualSales !== null) summary += `   💰 Actual Sales: ${fmt(r.actualSales)} ETB\n`;
+    if (r.variance !== null) summary += `   ${r.variance >= 0 ? '📈' : '📉'} Variance: ${fmt(Math.abs(r.variance))} ETB ${r.variance < 0 ? '(shortfall)' : '(surplus)'}\n`;
+    if (achievementRate !== null) summary += `   📈 Achievement: ${pct(achievementRate)}\n`;
+    summary += '\n';
+  }
+
+  // MTD
+  if (r.mtdTarget !== null || r.mtdActualSales !== null) {
+    summary += '📅 <b>Month-to-Date (MTD)</b>\n';
+    if (r.mtdTarget !== null) summary += `   🎯 Target: ${fmt(r.mtdTarget)} ETB\n`;
+    if (r.mtdActualSales !== null) summary += `   💰 Actual Sales: ${fmt(r.mtdActualSales)} ETB\n`;
+    if (r.mtdVariance !== null) summary += `   ${r.mtdVariance >= 0 ? '📈' : '📉'} Variance: ${fmt(Math.abs(r.mtdVariance))} ETB ${r.mtdVariance < 0 ? '(shortfall)' : '(surplus)'}\n`;
+    if (mtdAchievement !== null) summary += `   📈 Achievement: ${pct(mtdAchievement)}\n`;
+    summary += '\n';
+  }
+
+  // Notes
+  if (r.notes) {
+    summary += `📝 <b>Notes:</b> ${r.notes}\n\n`;
+  }
+
+  return summary.trim();
+}
+
 async function handleRomel(chatId: number, args: string, firstName: string) {
   if (!args) {
-    await sendTelegramMessage(chatId, '<b>Romel Report</b>\n\nPaste your sales report after the command:\n<code>/romel [paste report text]</code>\n\nI will parse the date, sales data, and save it to the dashboard.');
+    await sendTelegramMessage(chatId, '<b>Romel Report</b>\n\nPaste your sales report after the command:\n<code>/romel [paste report text]</code>\n\nI will parse the date, name, route, calls, targets, actual sales, and variance — then save it to the dashboard.');
     return;
   }
   await sendChatAction(chatId, 'typing');
 
-  // Extract date from text
-  const dateMatch = args.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{2,4})/i);
-  const reportDate = dateMatch ? dateMatch[0] : todayStr();
+  // Step 1: Try AI-powered structured parsing
+  let reportData = await parseSalesReportWithAI(args);
 
-  // Parse sales figures
-  const amountMatches = args.match(/[\$]?[\d,]+\.?\d*/g) || [];
-  const amounts = amountMatches.map(a => parseFloat(a.replace(/[$,]/g, ''))).filter(n => n > 10 && n < 10000000);
+  // Step 2: Fallback to regex if AI fails
+  if (!reportData) {
+    console.log('[handleRomel] AI parse failed, using regex fallback');
+    reportData = await parseSalesReportWithRegex(args);
+  }
 
-  const totalSales = amounts.reduce((s, a) => s + a, 0);
-  const summary = `Date: ${reportDate}\nTotal Sales Found: ${amounts.length} figures\nSum: ${totalSales.toLocaleString()}`;
+  const reportDate = reportData.date || todayStr();
+  const summaryText = formatSalesReportSummary(reportData);
+  const summaryJson = JSON.stringify(reportData);
 
+  // Save raw content with structured summary in the summary field
   const saved = await saveReportToWeb('romel', 'Romel', `Sales Report - ${reportDate}`, args, chatId, firstName);
   const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
 
-  await sendTelegramMessage(chatId, `<b>🏪 Romel Report Saved</b>\n\n${summary}\n\n<b>Data points found:</b> ${amounts.length}\n<b>Extracted amounts:</b> ${amounts.slice(0, 10).join(', ')}${amounts.length > 10 ? '...' : ''}\n\n<i>${tag}</i>`);
+  await sendTelegramMessage(chatId, `<b>🏪 Romel Report Saved</b>\n\n${summaryText}\n\n<i>${tag}</i>`);
 }
 
 async function handleTarget(chatId: number, args: string) {
@@ -1352,7 +1554,7 @@ Send reports and get AI-powered analysis!
     let detectedType = 'raw';
     const lower = args.toLowerCase();
     if (lower.includes('vice dean') || lower.includes('vc report') || lower.includes('faculty')) detectedType = 'vd';
-    else if (lower.includes('sales') || lower.includes('romel') || lower.includes('revenue') || lower.includes('target')) detectedType = 'romel';
+    else if (lower.includes('actual sales') || lower.includes('daily target') || lower.includes('visit call') || lower.includes('effective call') || lower.includes('variance') || lower.includes('mtd') || lower.includes('sales report')) detectedType = 'romel';
     else if (lower.includes('exam') || lower.includes('test') || lower.includes('grade')) detectedType = 'exam';
     else if (lower.includes('admission') || lower.includes('enrolled') || lower.includes('applicant')) detectedType = 'admission';
     else if (lower.includes('quarterly') || lower.includes('q1') || lower.includes('q2') || lower.includes('q3') || lower.includes('q4')) detectedType = 'quarterly';
@@ -1369,6 +1571,18 @@ Send reports and get AI-powered analysis!
     // Extract title (first line or first 60 chars)
     const firstLine = args.split('\n')[0].trim();
     const title = firstLine.length > 80 ? firstLine.slice(0, 80) + '...' : firstLine;
+
+    // If sales report detected, use smart structured parsing
+    if (detectedType === 'romel') {
+      let reportData = await parseSalesReportWithAI(args);
+      if (!reportData) reportData = await parseSalesReportWithRegex(args);
+      const summaryText = formatSalesReportSummary(reportData);
+      const savedDate = reportData.date || reportDate;
+      const saved = await saveReportToWeb('romel', reportData.name || 'Romel', `Sales Report - ${savedDate}`, args, chatId);
+      const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+      await sendTelegramMessage(chatId, `<b>🏪 Sales Report Saved</b>\n\n${summaryText}\n\n<i>${tag}</i>`);
+      return;
+    }
 
     const saved = await saveReportToWeb(detectedType, detectedType === 'vd' || detectedType === 'college' ? 'Olbright College' : detectedType === 'romel' ? 'Romel' : 'Hambisa', `${title} - ${reportDate}`, args, chatId);
     const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
