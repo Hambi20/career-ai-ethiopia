@@ -1181,7 +1181,20 @@ async function handleHelp(chatId: number) {
 <b>📄 DOCUMENTS</b>
 /savefile [title] [desc] — Save document
 /files — List documents
-/documents — List documents`;
+/documents — List documents
+
+<b>📊 REPORTS</b>
+/report [paste text] — Send & save a report (auto-detects type)
+/report summary — Summary of all reports by type
+/report stats — Report statistics
+/report date 2025-07-02 — Reports for a date
+/report week 2025-07-02 — Reports for that week
+/report month 2025-07-02 — Reports for that month
+/report quarter 2025-07-02 — Reports for that quarter
+/report analyze vd — AI analysis of Vice Dean reports
+/report analyze romel — AI analysis of Sales reports
+/report analyze_date 2025-07-02 — AI analysis of a date
+/report all — List all reports`;
 
   await sendTelegramMessage(chatId, helpText);
 }
@@ -1280,6 +1293,243 @@ async function handleRawReport(chatId: number, args: string, firstName: string) 
   const saved = await saveReportToWeb('raw', '', `Raw Report - ${todayStr()}`, args, chatId, firstName);
   const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
   await sendTelegramMessage(chatId, `<b>📄 Raw Report Saved</b>\n\n${args.slice(0, 200)}${args.length > 200 ? '...' : ''}\n\n<i>${tag}</i>`);
+}
+
+// ============================================================
+// REPORT ANALYSIS COMMANDS
+// ============================================================
+
+async function fetchAnalysis(action: string, params: Record<string, string>): Promise<any> {
+  try {
+    const url = new URL(`${APP_URL}/api/reports/analysis`);
+    url.searchParams.set('action', action);
+    for (const [k, v] of Object.entries(params)) {
+      if (v) url.searchParams.set(k, v);
+    }
+    const res = await fetch(url.toString());
+    return await res.json();
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function handleReports(chatId: number, args: string) {
+  if (!args.trim()) {
+    await sendTelegramMessage(chatId, `<b>📊 Report Analysis Center</b>
+
+Send reports and get AI-powered analysis!
+
+<b>Send a report:</b>
+<code>/report [paste your report text]</code>
+
+<b>View summaries:</b>
+<code>/report summary</code> — All reports by type
+<code>/report stats</code> — Overall statistics
+<code>/report all</code> — List all reports
+
+<b>By date:</b>
+<code>/report date 2025-07-02</code> — Reports for a date
+<code>/report week 2025-07-02</code> — Reports for that week
+<code>/report month 2025-07-02</code> — Reports for that month
+<code>/report quarter 2025-07-02</code> — Reports for that quarter
+
+<b>AI Analysis:</b>
+<code>/report analyze vd</code> — AI analysis of Vice Dean reports
+<code>/report analyze romel</code> — AI analysis of Sales reports
+<code>/report analyze_date 2025-07-02</code> — AI analysis of a date's reports
+
+<b>Supported report types:</b> vd, romel, college, tech, eval, quarterly, admission, exam, employees, students, briefing, raw`);
+    return;
+  }
+
+  const parts = args.trim().split(/\s+/);
+  const subCmd = parts[0].toLowerCase();
+
+  // SEND REPORT — paste text directly
+  if (!['summary', 'stats', 'all', 'date', 'week', 'monthly', 'month', 'quarter', 'quarterly', 'analyze', 'analyze_date'].includes(subCmd)) {
+    await sendChatAction(chatId, 'typing');
+    // Auto-detect report type from content
+    let detectedType = 'raw';
+    const lower = args.toLowerCase();
+    if (lower.includes('vice dean') || lower.includes('vc report') || lower.includes('faculty')) detectedType = 'vd';
+    else if (lower.includes('sales') || lower.includes('romel') || lower.includes('revenue') || lower.includes('target')) detectedType = 'romel';
+    else if (lower.includes('exam') || lower.includes('test') || lower.includes('grade')) detectedType = 'exam';
+    else if (lower.includes('admission') || lower.includes('enrolled') || lower.includes('applicant')) detectedType = 'admission';
+    else if (lower.includes('quarterly') || lower.includes('q1') || lower.includes('q2') || lower.includes('q3') || lower.includes('q4')) detectedType = 'quarterly';
+    else if (lower.includes('employee') || lower.includes('staff') || lower.includes('hr')) detectedType = 'employees';
+    else if (lower.includes('student') || lower.includes('enrollment') || lower.includes('program')) detectedType = 'students';
+    else if (lower.includes('college') || lower.includes('university') || lower.includes('department')) detectedType = 'college';
+    else if (lower.includes('tech') || lower.includes('system') || lower.includes('software') || lower.includes('it ')) detectedType = 'tech';
+    else if (lower.includes('meeting') || lower.includes('briefing') || lower.includes('daily')) detectedType = 'briefing';
+
+    // Extract date
+    const dateMatch = args.match(/(\d{4}[-\/]\d{1,2}[-\/]\d{1,2}|\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{2,4})/i);
+    const reportDate = dateMatch ? dateMatch[0] : todayStr();
+
+    // Extract title (first line or first 60 chars)
+    const firstLine = args.split('\n')[0].trim();
+    const title = firstLine.length > 80 ? firstLine.slice(0, 80) + '...' : firstLine;
+
+    const saved = await saveReportToWeb(detectedType, detectedType === 'vd' || detectedType === 'college' ? 'Olbright College' : detectedType === 'romel' ? 'Romel' : 'Hambisa', `${title} - ${reportDate}`, args, chatId);
+    const tag = saved ? '✅ Synced to dashboard' : '⚠️ Saved locally';
+
+    await sendTelegramMessage(chatId, `<b>📊 Report Saved</b>\n\n<b>Type:</b> ${detectedType}\n<b>Date:</b> ${reportDate}\n<b>Title:</b> ${title}\n\n<i>${tag}</i>`);
+    return;
+  }
+
+  await sendChatAction(chatId, 'typing');
+
+  // SUMMARY
+  if (subCmd === 'summary') {
+    const data = await fetchAnalysis('summary', {});
+    if (!data.success || !data.data) {
+      await sendTelegramMessage(chatId, 'No reports found. Send a report with /report [text]');
+      return;
+    }
+    const groups = data.data.groups || {};
+    const total = data.data.total || 0;
+    let text = `<b>📊 Report Summary — ${total} reports</b>\n\n`;
+    for (const [type, info] of Object.entries(groups) as [string, any][]) {
+      const emoji = { vd: '🏛', romel: '🏪', college: '🏫', tech: '💻', eval: '📋', quarterly: '📈', admission: '🎓', exam: '📝', employees: '👥', students: '🎓', briefing: '📋', raw: '📄' }[type] || '📄';
+      text += `${emoji} <b>${type}</b>: ${info.count} reports`;
+      if (info.latestDate) text += ` (latest: ${info.latestDate})`;
+      text += '\n';
+    }
+    text += `\n<b>Date range:</b> ${data.data.dateRange || 'N/A'}`;
+    await sendTelegramMessage(chatId, text);
+    return;
+  }
+
+  // STATS
+  if (subCmd === 'stats') {
+    const data = await fetchAnalysis('stats', {});
+    if (!data.success || !data.data) {
+      await sendTelegramMessage(chatId, 'No reports found.');
+      return;
+    }
+    const d = data.data;
+    let text = `<b>📈 Report Statistics</b>\n\n<b>Total:</b> ${d.total || 0} reports\n<b>Date range:</b> ${d.dateRange || 'N/A'}\n\n`;
+    text += `<b>By Type:</b>\n`;
+    for (const [type, count] of Object.entries(d.byType || {})) {
+      text += `  ${type}: ${count}\n`;
+    }
+    if (d.topDays && d.topDays.length > 0) {
+      text += `\n<b>Most Active Days:</b>\n`;
+      d.topDays.slice(0, 5).forEach((day: any) => { text += `  ${day.date}: ${day.count} reports\n`; });
+    }
+    await sendTelegramMessage(chatId, text);
+    return;
+  }
+
+  // ALL
+  if (subCmd === 'all') {
+    const data = await fetchAnalysis('all', { limit: '20' });
+    if (!data.success || !data.data || !data.data.reports || data.data.reports.length === 0) {
+      await sendTelegramMessage(chatId, 'No reports found.');
+      return;
+    }
+    let text = `<b>📄 Recent Reports (${data.data.total})</b>\n\n`;
+    data.data.reports.slice(0, 15).forEach((r: any, i: number) => {
+      text += `${i + 1}. <b>${r.type}</b> — ${r.title || 'Untitled'}\n   ${r.date} ${(r.content || '').slice(0, 60)}...\n\n`;
+    });
+    await sendTelegramMessage(chatId, text);
+    return;
+  }
+
+  // BY DATE
+  if (subCmd === 'date') {
+    const date = parts[1] || todayStr();
+    const data = await fetchAnalysis('bydate', { date });
+    if (!data.success || !data.data || data.data.reports.length === 0) {
+      await sendTelegramMessage(chatId, `No reports found for ${date}.`);
+      return;
+    }
+    let text = `<b>📅 Reports for ${date}</b>\n\n<b>${data.data.reports.length} reports found</b>\n\n`;
+    data.data.reports.forEach((r: any, i: number) => {
+      const content = (r.content || r.title || '').slice(0, 400);
+      text += `<b>${i + 1}. [${r.type}] ${r.title || 'Untitled'}</b>\n${content}${(r.content || '').length > 400 ? '...' : ''}\n\n`;
+    });
+    await sendTelegramMessage(chatId, text);
+    return;
+  }
+
+  // WEEKLY
+  if (subCmd === 'week' || subCmd === 'weekly') {
+    const date = parts[1] || todayStr();
+    const data = await fetchAnalysis('weekly', { date });
+    if (!data.success || !data.data || data.data.reports.length === 0) {
+      await sendTelegramMessage(chatId, `No reports found for the week of ${date}.`);
+      return;
+    }
+    let text = `<b>📆 Weekly Reports (${data.data.dateRange})</b>\n\n<b>${data.data.reports.length} reports</b>\n\n`;
+    data.data.reports.forEach((r: any, i: number) => {
+      text += `${i + 1}. <b>[${r.type}] ${r.date}</b> — ${(r.title || '').slice(0, 80)}\n   ${(r.content || '').slice(0, 200)}\n\n`;
+    });
+    await sendTelegramMessage(chatId, text);
+    return;
+  }
+
+  // MONTHLY
+  if (subCmd === 'month' || subCmd === 'monthly') {
+    const date = parts[1] || todayStr();
+    const data = await fetchAnalysis('monthly', { date });
+    if (!data.success || !data.data || data.data.reports.length === 0) {
+      await sendTelegramMessage(chatId, `No reports found for the month of ${date}.`);
+      return;
+    }
+    let text = `<b>🗓 Monthly Reports (${data.data.dateRange})</b>\n\n<b>${data.data.reports.length} reports</b>\n\n`;
+    data.data.reports.forEach((r: any, i: number) => {
+      text += `${i + 1}. <b>[${r.type}] ${r.date}</b> — ${(r.title || '').slice(0, 80)}\n   ${(r.content || '').slice(0, 150)}\n\n`;
+    });
+    await sendTelegramMessage(chatId, text);
+    return;
+  }
+
+  // QUARTERLY
+  if (subCmd === 'quarter' || subCmd === 'quarterly') {
+    const date = parts[1] || todayStr();
+    const data = await fetchAnalysis('quarterly', { date });
+    if (!data.success || !data.data || data.data.reports.length === 0) {
+      await sendTelegramMessage(chatId, `No reports found for the quarter containing ${date}.`);
+      return;
+    }
+    let text = `<b>📊 Quarterly Reports (${data.data.dateRange})</b>\n\n<b>${data.data.reports.length} reports</b>\n\n`;
+    data.data.reports.forEach((r: any, i: number) => {
+      text += `${i + 1}. <b>[${r.type}] ${r.date}</b> — ${(r.title || '').slice(0, 80)}\n\n`;
+    });
+    await sendTelegramMessage(chatId, text);
+    return;
+  }
+
+  // ANALYZE BY TYPE
+  if (subCmd === 'analyze' && parts[1]) {
+    const type = parts[1];
+    await sendTelegramMessage(chatId, `Analyzing all <b>${type}</b> reports with AI...`);
+    const data = await fetchAnalysis('analyze', { type });
+    if (!data.success || !data.data) {
+      await sendTelegramMessage(chatId, `No ${type} reports found or AI analysis failed.`);
+      return;
+    }
+    const analysis = (data.data.analysis || 'No analysis generated').slice(0, 3500);
+    await sendTelegramMessage(chatId, `<b>🤖 AI Analysis — ${type} reports</b>\n\n${analysis}`);
+    return;
+  }
+
+  // ANALYZE BY DATE
+  if (subCmd === 'analyze_date') {
+    const date = parts[1] || todayStr();
+    await sendTelegramMessage(chatId, `Analyzing reports for <b>${date}</b> with AI...`);
+    const data = await fetchAnalysis('analyze_date', { date });
+    if (!data.success || !data.data) {
+      await sendTelegramMessage(chatId, `No reports found for ${date} or AI analysis failed.`);
+      return;
+    }
+    const analysis = (data.data.analysis || 'No analysis generated').slice(0, 3500);
+    await sendTelegramMessage(chatId, `<b>🤖 AI Analysis — ${date}</b>\n\n${analysis}`);
+    return;
+  }
+
+  await sendTelegramMessage(chatId, 'Unknown /report sub-command. Type <b>/report</b> to see options.');
 }
 
 // ============================================================
@@ -1904,6 +2154,8 @@ async function processUpdate(update: any) {
       // SCRAPING
       case '/scrape': await handleScrape(chatId, args); break;
       case '/rawreport': await handleRawReport(chatId, args, firstName); break;
+      case '/report': case '/reports': await handleReports(chatId, args); break;
+      case '/weekreport': await handleReports(chatId, `week ${args.trim()}`); break;
 
       // BUSINESS
       case '/biz': case '/business': case '/businesses': await handleBusiness(chatId, args); break;

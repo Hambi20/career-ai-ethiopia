@@ -297,3 +297,37 @@ Stage Summary:
 - /removeapp and /closeapp commands also available as backup
 - /app command still opens Mini App when user wants it
 - /start auto-removes menu button as safety net
+---
+Task ID: 3a
+Agent: general-purpose
+Task: Build report analysis API endpoint
+
+Work Log:
+- Explored project structure: existing API patterns, db.ts (Prisma proxy), BotReport schema, SQL escape patterns
+- Reviewed finance/route.ts and analytics/forecast/route.ts for $executeRawUnsafe + CREATE TABLE IF NOT EXISTS patterns
+- Created directory /src/app/api/reports/analysis/
+- Created /src/app/api/reports/analysis/route.ts (489 lines) with all 9 action handlers
+- Implemented ensureTable() with CREATE TABLE IF NOT EXISTS for BotReport (Vercel serverless-safe)
+- Added SQL injection prevention via esc() helper on all user inputs
+- Added YYYY-MM-DD date validation via isValidDate() regex
+- Built date range calculators: getWeekRange (ISO Mon-Sun), getMonthRange, getQuarterRange
+- Implemented callGroq() with fetch to Groq API (llama-3.3-70b-versatile, max_tokens 2000), response truncation at 3500 chars
+- Implemented 9 actions: summary, bydate, weekly, monthly, quarterly, analyze, analyze_date, stats, all
+- action=summary (default): GROUP BY type with count, latest/earliest date per type
+- action=bydate: all reports for a specific date with raw content
+- action=weekly: reports for the ISO week containing the given date
+- action=monthly: reports for the month containing the given date (YYYY-MM)
+- action=quarterly: reports for the quarter (Q1-Q4) containing the given date
+- action=analyze: Groq AI analysis of up to 50 reports of a given type (type param sanitized to alphanumeric+underscore)
+- action=analyze_date: Groq AI daily bundle analysis
+- action=stats: overall stats — by type, by company, by category, date range, top 5 active days, 6-month trend
+- action=all: paginated list (offset/limit, max 500) with total count and hasMore flag
+- ESLint: 0 errors, 0 warnings
+- Fixed Set spread for ES2017 compat (Array.from instead of ...)
+
+Stage Summary:
+- Created /src/app/api/reports/analysis/route.ts — comprehensive report analysis API
+- 9 query actions + 2 AI analysis actions, all using $executeRawUnsafe with SQL injection protection
+- Table auto-created on Vercel via CREATE TABLE IF NOT EXISTS pattern
+- Groq AI integration for report analysis with Telegram-friendly 3500 char truncation
+- File created: src/app/api/reports/analysis/route.ts
