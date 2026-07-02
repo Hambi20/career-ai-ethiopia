@@ -1,0 +1,1699 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import { useState, useEffect, useRef, useCallback } from 'react';
+     4→     4→import {
+     5→     5→  Home, LayoutGrid, Search, User, RefreshCw, Loader2,
+     6→     6→  ChevronLeft, Clock, CalendarDays, FileText, CheckSquare,
+     7→     7→  Building2, GraduationCap, Monitor, Briefcase, Mail,
+     8→     8→  Target, BookOpen, BarChart3, Database, Bot, Users,
+     9→     9→  Settings, Bell, Zap, Lightbulb, TrendingUp, ClipboardList,
+    10→    10→  Upload, Download, Send, Globe, Brain, UserPlus, BarChart2,
+    11→    11→  MessageSquare, FileUp, PenTool, Compass, AlertCircle, Star,
+    12→    12→  ChevronDown, ChevronUp, ArrowLeft, CircleDot, Hash,
+    13→    13→  StickyNote, Bookmark, FolderOpen, Link2, Cpu, Heart,
+    14→    14→  Shield, Info, Activity, PieChart, ListChecks, Award,
+    15→    15→  Wallet, ArrowUpRight, ArrowDownRight, ChevronRight, Plus, CheckCircle2
+    16→    16→} from 'lucide-react';
+    17→    17→
+    18→    18→// ─── Telegram WebApp Types ───────────────────────────────────────────────────
+    19→    19→
+    20→    20→interface TelegramWebApp {
+    21→    21→  ready: () => void;
+    22→    22→  expand: () => void;
+    23→    23→  close: () => void;
+    24→    24→  MainButton: {
+    25→    25→    text: string;
+    26→    26→    show: () => void;
+    27→    27→    hide: () => void;
+    28→    28→    onClick: (fn: () => void) => void;
+    29→    29→    color: string;
+    30→    30→    textColor: string;
+    31→    31→  };
+    32→    32→  BackButton: {
+    33→    33→    show: () => void;
+    34→    34→    hide: () => void;
+    35→    35→    onClick: (fn: () => void) => void;
+    36→    36→  };
+    37→    37→  colorScheme: 'light' | 'dark';
+    38→    38→  themeParams: Record<string, string>;
+    39→    39→  initDataUnsafe: {
+    40→    40→    user?: {
+    41→    41→      id: number;
+    42→    42→      first_name: string;
+    43→    43→      last_name?: string;
+    44→    44→      username?: string;
+    45→    45→      language_code?: string;
+    46→    46→      photo_url?: string;
+    47→    47→    };
+    48→    48→    chat?: { id: number; type: string; title?: string };
+    49→    49→    start_param?: string;
+    50→    50→  };
+    51→    51→  HapticFeedback: {
+    52→    52→    impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
+    53→    53→    notificationOccurred: (type: 'error' | 'success' | 'warning') => void;
+    54→    54→    selectionChanged: () => void;
+    55→    55→  };
+    56→    56→  showPopup: (params: { title?: string; message: string; buttons?: Array<{ type: string; text: string }> }) => void;
+    57→    57→  isExpanded: boolean;
+    58→    58→  viewportHeight: number;
+    59→    59→  viewportStableHeight: number;
+    60→    60→  safeAreaInset: { top: number; bottom: number; left: number; right: number };
+    61→    61→  headerColor: string;
+    62→    62→  backgroundColor: string;
+    63→    63→}
+    64→    64→
+    65→    65→declare global {
+    66→    66→  interface Window {
+    67→    67→    Telegram?: { WebApp: TelegramWebApp };
+    68→    68→  }
+    69→    69→}
+    70→    70→
+    71→    71→// ─── Data Types ──────────────────────────────────────────────────────────────
+    72→    72→
+    73→    73→interface BotData {
+    74→    74→  success: boolean;
+    75→    75→  hasData: boolean;
+    76→    76→  summary: {
+    77→    77→    totalRomelReports: number;
+    78→    78→    totalVdReports: number;
+    79→    79→    totalTasks: number;
+    80→    80→    tasksDone: number;
+    81→    81→    tasksTodo: number;
+    82→    82→    tasksInProgress: number;
+    83→    83→    taskCompletionRate: number;
+    84→    84→    totalNotes: number;
+    85→    85→    totalContacts: number;
+    86→    86→    totalKnowledge: number;
+    87→    87→    dailyAchievementRate: number;
+    88→    88→    lastSync: string | null;
+    89→    89→    totalSyncs: number;
+    90→    90→  };
+    91→    91→  sales: {
+    92→    92→    summary: Record<string, unknown>;
+    93→    93→    totalDailyTarget: number;
+    94→    94→    totalDailyActual: number;
+    95→    95→    latestReport: Record<string, unknown> | null;
+    96→    96→    reports: Record<string, unknown>[];
+    97→    97→  };
+    98→    98→  tasks: { list: TaskItem[]; byPriority: Record<string, number>; byStatus: Record<string, number> };
+    99→    99→  notes: NoteItem[];
+   100→   100→  contacts: { list: ContactItem[]; breakdown: Record<string, number> };
+   101→   101→  knowledgeBase: KnowledgeItem[];
+   102→   102→  vdReports: Record<string, unknown>[];
+   103→   103→  recentActivities: ActivityItem[];
+   104→   104→  rawSyncData: Record<string, unknown>;
+   105→   105→  syncCount: number;
+   106→   106→  updatedAt: string | null;
+   107→   107→}
+   108→   108→
+   109→   109→interface TaskItem {
+   110→   110→  id: string;
+   111→   111→  title: string;
+   112→   112→  description?: string;
+   113→   113→  priority: string;
+   114→   114→  status: string;
+   115→   115→  dueDate?: string;
+   116→   116→  createdAt?: string;
+   117→   117→  category?: string;
+   118→   118→}
+   119→   119→
+   120→   120→interface NoteItem {
+   121→   121→  id: string;
+   122→   122→  title: string;
+   123→   123→  content: string;
+   124→   124→  createdAt?: string;
+   125→   125→  category?: string;
+   126→   126→}
+   127→   127→
+   128→   128→interface ContactItem {
+   129→   129→  id: string;
+   130→   130→  name: string;
+   131→   131→  phone?: string;
+   132→   132→  email?: string;
+   133→   133→  type?: string;
+   134→   134→  company?: string;
+   135→   135→  notes?: string;
+   136→   136→}
+   137→   137→
+   138→   138→interface KnowledgeItem {
+   139→   139→  id: string;
+   140→   140→  topic: string;
+   141→   141→  content: string;
+   142→   142→  createdAt?: string;
+   143→   143→  source?: string;
+   144→   144→}
+   145→   145→
+   146→   146→interface ActivityItem {
+   147→   147→  id: string;
+   148→   148→  type: string;
+   149→   149→  action: string;
+   150→   150→  timestamp: string;
+   151→   151→  details?: string;
+   152→   152→}
+   153→   153→
+   154→   154→interface ReportsData {
+   155→   155→  success: boolean;
+   156→   156→  total: number;
+   157→   157→  filtered: ReportItem[];
+   158→   158→  filters: { types: string[]; companies: string[] };
+   159→   159→  stats: {
+   160→   160→    total: number;
+   161→   161→    today: number;
+   162→   162→    thisWeek: number;
+   163→   163→    byType: Record<string, number>;
+   164→   164→  };
+   165→   165→}
+   166→   166→
+   167→   167→interface ReportItem {
+   168→   168→  id: string;
+   169→   169→  type: string;
+   170→   170→  company: string;
+   171→   171→  category: string;
+   172→   172→  title: string;
+   173→   173→  content: string;
+   174→   174→  summary: string;
+   175→   175→  date: string;
+   176→   176→  timestamp: string;
+   177→   177→}
+   178→   178→
+   179→   179→// ─── Category Definitions ────────────────────────────────────────────────────
+   180→   180→
+   181→   181→type CategoryId = 'daily' | 'romel' | 'college' | 'tech' | 'jobs' | 'communication' | 'strategy' | 'learning' | 'reports' | 'data' | 'ai' | 'crm' | 'core' | 'business' | 'finance' | 'calendar' | 'documents';
+   182→   182→
+   183→   183→interface CommandDef {
+   184→   184→  name: string;
+   185→   185→  cmd: string;
+   186→   186→  description: string;
+   187→   187→}
+   188→   188→
+   189→   189→interface CategoryDef {
+   190→   190→  id: CategoryId;
+   191→   191→  name: string;
+   192→   192→  emoji: string;
+   193→   193→  color: string;
+   194→   194→  bgColor: string;
+   195→   195→  borderColor: string;
+   196→   196→  textColor: string;
+   197→   197→  commands: CommandDef[];
+   198→   198→  dataKeys: string[];
+   199→   199→}
+   200→   200→
+   201→   201→const CATEGORIES: CategoryDef[] = [
+   202→   202→  {
+   203→   203→    id: 'daily', name: 'Daily', emoji: '📋', color: 'emerald',
+   204→   204→    bgColor: 'bg-emerald-500/15', borderColor: 'border-emerald-500/30', textColor: 'text-emerald-400',
+   205→   205→    commands: [
+   206→   206→      { name: 'Briefing', cmd: '/briefing', description: 'Get your daily briefing' },
+   207→   207→      { name: 'Verse', cmd: '/verse', description: 'Daily inspiration verse' },
+   208→   208→      { name: 'Set Reminder', cmd: '/setreminder', description: 'Create a new reminder' },
+   209→   209→      { name: 'Reminders', cmd: '/reminders', description: 'View all reminders' },
+   210→   210→    ],
+   211→   211→    dataKeys: [],
+   212→   212→  },
+   213→   213→  {
+   214→   214→    id: 'romel', name: 'ROMEL', emoji: '🏢', color: 'orange',
+   215→   215→    bgColor: 'bg-orange-500/15', borderColor: 'border-orange-500/30', textColor: 'text-orange-400',
+   216→   216→    commands: [
+   217→   217→      { name: 'Log', cmd: '/log', description: 'Log sales activity' },
+   218→   218→      { name: 'KPI', cmd: '/kpi', description: 'View KPI performance' },
+   219→   219→      { name: 'Romel', cmd: '/romel', description: 'Romel sales report' },
+   220→   220→      { name: 'Romel History', cmd: '/romelhistory', description: 'View sales history' },
+   221→   221→      { name: 'Target', cmd: '/target', description: 'View/set sales targets' },
+   222→   222→    ],
+   223→   223→    dataKeys: ['sales', 'reports'],
+   224→   224→  },
+   225→   225→  {
+   226→   226→    id: 'college', name: 'College', emoji: '🎓', color: 'purple',
+   227→   227→    bgColor: 'bg-purple-500/15', borderColor: 'border-purple-500/30', textColor: 'text-purple-400',
+   228→   228→    commands: [
+   229→   229→      { name: 'College', cmd: '/college', description: 'College overview' },
+   230→   230→      { name: 'Admission', cmd: '/admission', description: 'Admission info' },
+   231→   231→      { name: 'Exam', cmd: '/exam', description: 'Exam schedule & results' },
+   232→   232→      { name: 'Report', cmd: '/reportcollege', description: 'College report' },
+   233→   233→      { name: 'Evaluate', cmd: '/eval', description: 'Evaluate performance' },
+   234→   234→      { name: 'VC Report', cmd: '/vicereport', description: 'Vice Dean single report' },
+   235→   235→      { name: 'VC Reports', cmd: '/vicereports', description: 'All VC reports' },
+   236→   236→      { name: 'Quarterly', cmd: '/quarterly', description: 'Quarterly summary' },
+   237→   237→      { name: 'Employees', cmd: '/employees', description: 'Employee records' },
+   238→   238→      { name: 'Staff', cmd: '/staff', description: 'Staff management' },
+   239→   239→    ],
+   240→   240→    dataKeys: ['vdReports', 'reports'],
+   241→   241→  },
+   242→   242→  {
+   243→   243→    id: 'tech', name: 'Tech', emoji: '💻', color: 'cyan',
+   244→   244→    bgColor: 'bg-cyan-500/15', borderColor: 'border-cyan-500/30', textColor: 'text-cyan-400',
+   245→   245→    commands: [
+   246→   246→      { name: 'Tech', cmd: '/tech', description: 'Tech overview' },
+   247→   247→      { name: 'Students', cmd: '/students', description: 'Student records' },
+   248→   248→    ],
+   249→   249→    dataKeys: [],
+   250→   250→  },
+   251→   251→  {
+   252→   252→    id: 'jobs', name: 'Jobs', emoji: '💼', color: 'blue',
+   253→   253→    bgColor: 'bg-blue-500/15', borderColor: 'border-blue-500/30', textColor: 'text-blue-400',
+   254→   254→    commands: [
+   255→   255→      { name: 'Apply', cmd: '/apply', description: 'Apply for a job' },
+   256→   256→      { name: 'My CV', cmd: '/cv', description: 'View your CV' },
+   257→   257→      { name: 'Courses', cmd: '/courses', description: 'Available courses' },
+   258→   258→      { name: 'Upload CV', cmd: '/uploadcv', description: 'Upload CV file' },
+   259→   259→      { name: 'Paste CV', cmd: '/cvpaste', description: 'Paste CV text' },
+   260→   260→      { name: 'Find Jobs', cmd: '/findjobs', description: 'Search for jobs' },
+   261→   261→      { name: 'My CVs', cmd: '/mycv', description: 'Manage your CVs' },
+   262→   262→    ],
+   263→   263→    dataKeys: ['rawSyncData'],
+   264→   264→  },
+   265→   265→  {
+   266→   266→    id: 'communication', name: 'Communication', emoji: '📧', color: 'pink',
+   267→   267→    bgColor: 'bg-pink-500/15', borderColor: 'border-pink-500/30', textColor: 'text-pink-400',
+   268→   268→    commands: [
+   269→   269→      { name: 'Email', cmd: '/email', description: 'Compose email' },
+   270→   270→      { name: 'Meeting', cmd: '/meeting', description: 'Schedule meeting' },
+   271→   271→      { name: 'Draft', cmd: '/draft', description: 'View/edit drafts' },
+   272→   272→    ],
+   273→   273→    dataKeys: [],
+   274→   274→  },
+   275→   275→  {
+   276→   276→    id: 'strategy', name: 'Strategy', emoji: '🎯', color: 'amber',
+   277→   277→    bgColor: 'bg-amber-500/15', borderColor: 'border-amber-500/30', textColor: 'text-amber-400',
+   278→   278→    commands: [
+   279→   279→      { name: 'Goals', cmd: '/goals', description: 'View/set goals' },
+   280→   280→      { name: 'SWOT', cmd: '/swot', description: 'SWOT analysis' },
+   281→   281→      { name: 'Plan', cmd: '/plan', description: 'Strategic plan' },
+   282→   282→    ],
+   283→   283→    dataKeys: [],
+   284→   284→  },
+   285→   285→  {
+   286→   286→    id: 'learning', name: 'Learning', emoji: '📚', color: 'indigo',
+   287→   287→    bgColor: 'bg-indigo-500/15', borderColor: 'border-indigo-500/30', textColor: 'text-indigo-400',
+   288→   288→    commands: [
+   289→   289→      { name: 'Books', cmd: '/books', description: 'Book recommendations' },
+   290→   290→      { name: 'Podcast', cmd: '/podcast', description: 'Podcast suggestions' },
+   291→   291→      { name: 'Tasks', cmd: '/tasks', description: 'View learning tasks' },
+   292→   292→      { name: 'Ask', cmd: '/ask', description: 'Ask a question' },
+   293→   293→    ],
+   294→   294→    dataKeys: ['tasks'],
+   295→   295→  },
+   296→   296→  {
+   297→   297→    id: 'reports', name: 'Reports', emoji: '📊', color: 'teal',
+   298→   298→    bgColor: 'bg-teal-500/15', borderColor: 'border-teal-500/30', textColor: 'text-teal-400',
+   299→   299→    commands: [
+   300→   300→      { name: 'Week Report', cmd: '/weekreport', description: 'Weekly summary report' },
+   301→   301→      { name: 'Raw Report', cmd: '/rawreport', description: 'Raw data report' },
+   302→   302→    ],
+   303→   303→    dataKeys: ['reports'],
+   304→   304→  },
+   305→   305→  {
+   306→   306→    id: 'data', name: 'Data', emoji: '💾', color: 'slate',
+   307→   307→    bgColor: 'bg-slate-500/15', borderColor: 'border-slate-500/30', textColor: 'text-slate-400',
+   308→   308→    commands: [
+   309→   309→      { name: 'Note', cmd: '/note', description: 'Create a note' },
+   310→   310→      { name: 'Notes', cmd: '/notes', description: 'View all notes' },
+   311→   311→      { name: 'Search', cmd: '/search', description: 'Search data' },
+   312→   312→      { name: 'Save Data', cmd: '/savedata', description: 'Save data to memory' },
+   313→   313→      { name: 'Load Data', cmd: '/loaddata', description: 'Load saved data' },
+   314→   314→      { name: 'Export JSON', cmd: '/exportjson', description: 'Export as JSON' },
+   315→   315→      { name: 'Send Data', cmd: '/senddata', description: 'Send data to chat' },
+   316→   316→      { name: 'Sync Web', cmd: '/syncweb', description: 'Sync with web' },
+   317→   317→    ],
+   318→   318→    dataKeys: ['notes'],
+   319→   319→  },
+   320→   320→  {
+   321→   321→    id: 'ai', name: 'AI', emoji: '🤖', color: 'violet',
+   322→   322→    bgColor: 'bg-violet-500/15', borderColor: 'border-violet-500/30', textColor: 'text-violet-400',
+   323→   323→    commands: [
+   324→   324→      { name: 'Auto Learn', cmd: '/autolearn', description: 'AI auto-learning mode' },
+   325→   325→      { name: 'Teach', cmd: '/teach', description: 'Teach the AI' },
+   326→   326→      { name: 'Knowledge', cmd: '/knowledge', description: 'View knowledge base' },
+   327→   327→    ],
+   328→   328→    dataKeys: ['knowledgeBase'],
+   329→   329→  },
+   330→   330→  {
+   331→   331→    id: 'crm', name: 'CRM', emoji: '📇', color: 'rose',
+   332→   332→    bgColor: 'bg-rose-500/15', borderColor: 'border-rose-500/30', textColor: 'text-rose-400',
+   333→   333→    commands: [
+   334→   334→      { name: 'Scrape', cmd: '/scrape', description: 'Scrape contacts' },
+   335→   335→      { name: 'Contacts', cmd: '/contacts', description: 'View contacts' },
+   336→   336→      { name: 'Analytics', cmd: '/analytics', description: 'CRM analytics' },
+   337→   337→    ],
+   338→   338→    dataKeys: ['contacts'],
+   339→   339→  },
+   340→   340→  {
+   341→   341→    id: 'core', name: 'Core', emoji: '⚙️', color: 'gray',
+   342→   342→    bgColor: 'bg-gray-500/15', borderColor: 'border-gray-500/30', textColor: 'text-gray-400',
+   343→   343→    commands: [
+   344→   344→      { name: 'Help', cmd: '/help', description: 'Show help & commands' },
+   345→   345→      { name: 'Dashboard', cmd: '/dashboard', description: 'Open dashboard' },
+   346→   346→      { name: 'Sync', cmd: '/sync', description: 'Sync all data' },
+   347→   347→      { name: 'Profile', cmd: '/profile', description: 'View profile' },
+   348→   348→    ],
+   349→   349→    dataKeys: [],
+   350→   350→  },
+   351→   351→  {
+   352→   352→    id: 'business', name: 'Business', emoji: '🏢', color: 'emerald',
+   353→   353→    bgColor: 'bg-emerald-500/15', borderColor: 'border-emerald-500/30', textColor: 'text-emerald-400',
+   354→   354→    commands: [
+   355→   355→      { name: 'Business', cmd: '/business', description: 'Business overview' },
+   356→   356→      { name: 'Businesses', cmd: '/businesses', description: 'View all businesses' },
+   357→   357→      { name: 'Biz', cmd: '/biz', description: 'Quick business info' },
+   358→   358→    ],
+   359→   359→    dataKeys: [],
+   360→   360→  },
+   361→   361→  {
+   362→   362→    id: 'finance', name: 'Finance', emoji: '💰', color: 'orange',
+   363→   363→    bgColor: 'bg-orange-500/15', borderColor: 'border-orange-500/30', textColor: 'text-orange-400',
+   364→   364→    commands: [
+   365→   365→      { name: 'Income', cmd: '/income', description: 'Log income' },
+   366→   366→      { name: 'Expense', cmd: '/expense', description: 'Log expense' },
+   367→   367→      { name: 'Budget', cmd: '/budget', description: 'View/set budget' },
+   368→   368→      { name: 'Finance', cmd: '/finance', description: 'Finance overview' },
+   369→   369→      { name: 'Transfer', cmd: '/transfer', description: 'Transfer funds' },
+   370→   370→    ],
+   371→   371→    dataKeys: [],
+   372→   372→  },
+   373→   373→  {
+   374→   374→    id: 'calendar', name: 'Calendar', emoji: '📅', color: 'cyan',
+   375→   375→    bgColor: 'bg-cyan-500/15', borderColor: 'border-cyan-500/30', textColor: 'text-cyan-400',
+   376→   376→    commands: [
+   377→   377→      { name: 'Event', cmd: '/event', description: 'Create an event' },
+   378→   378→      { name: 'Events', cmd: '/events', description: 'View all events' },
+   379→   379→      { name: 'Remind', cmd: '/remind', description: 'Set a reminder' },
+   380→   380→      { name: 'Schedule', cmd: '/schedule', description: 'View schedule' },
+   381→   381→    ],
+   382→   382→    dataKeys: [],
+   383→   383→  },
+   384→   384→  {
+   385→   385→    id: 'documents', name: 'Documents', emoji: '📄', color: 'slate',
+   386→   386→    bgColor: 'bg-slate-500/15', borderColor: 'border-slate-500/30', textColor: 'text-slate-400',
+   387→   387→    commands: [
+   388→   388→      { name: 'Save File', cmd: '/savefile', description: 'Save a file' },
+   389→   389→      { name: 'Files', cmd: '/files', description: 'View all files' },
+   390→   390→      { name: 'Documents', cmd: '/documents', description: 'View documents' },
+   391→   391→    ],
+   392→   392→    dataKeys: [],
+   393→   393→  },
+   394→   394→];
+   395→   395→
+   396→   396→// Quick actions for Home tab (most-used commands)
+   397→   397→const QUICK_ACTIONS: CommandDef[] = [
+   398→   398→  { name: 'Briefing', cmd: '/briefing', description: 'Daily briefing' },
+   399→   399→  { name: 'KPI', cmd: '/kpi', description: 'KPI performance' },
+   400→   400→  { name: 'Tasks', cmd: '/tasks', description: 'View tasks' },
+   401→   401→  { name: 'Notes', cmd: '/notes', description: 'All notes' },
+   402→   402→  { name: 'Contacts', cmd: '/contacts', description: 'CRM contacts' },
+   403→   403→  { name: 'Knowledge', cmd: '/knowledge', description: 'AI knowledge' },
+   404→   404→  { name: 'Week Report', cmd: '/weekreport', description: 'Weekly report' },
+   405→   405→  { name: 'Find Jobs', cmd: '/findjobs', description: 'Job search' },
+   406→   406→  { name: 'Business', cmd: '/business', description: 'Business overview' },
+   407→   407→  { name: 'Income', cmd: '/income', description: 'Log income' },
+   408→   408→  { name: 'Event', cmd: '/event', description: 'Create event' },
+   409→   409→  { name: 'Files', cmd: '/files', description: 'View files' },
+   410→   410→];
+   411→   411→
+   412→   412→// ─── Theme Helper ────────────────────────────────────────────────────────────
+   413→   413→
+   414→   414→interface ThemeColors {
+   415→   415→  bg: string;
+   416→   416→  bgCard: string;
+   417→   417→  bgCardHover: string;
+   418→   418→  text: string;
+   419→   419→  textSecondary: string;
+   420→   420→  textMuted: string;
+   421→   421→  border: string;
+   422→   422→  isDark: boolean;
+   423→   423→  safeTop: number;
+   424→   424→  safeBottom: number;
+   425→   425→}
+   426→   426→
+   427→   427→function getTelegramTheme(): ThemeColors {
+   428→   428→  if (typeof window === 'undefined') {
+   429→   429→    return {
+   430→   430→      bg: '#1a1a2e', bgCard: '#16213e', bgCardHover: '#1a2744',
+   431→   431→      text: '#e4e4e7', textSecondary: '#a1a1aa', textMuted: '#71717a',
+   432→   432→      border: '#27272a', isDark: true, safeTop: 0, safeBottom: 0,
+   433→   433→    };
+   434→   434→  }
+   435→   435→
+   436→   436→  const tg = window.Telegram?.WebApp;
+   437→   437→  const tp = tg?.themeParams || {};
+   438→   438→  const isDark = tg?.colorScheme === 'dark';
+   439→   439→
+   440→   440→  return {
+   441→   441→    bg: tp.bg_color || (isDark ? '#1a1a2e' : '#ffffff'),
+   442→   442→    bgCard: tp.secondary_bg_color || (isDark ? '#16213e' : '#f4f4f5'),
+   443→   443→    bgCardHover: isDark ? '#1a2744' : '#e4e4e7',
+   444→   444→    text: tp.text_color || (isDark ? '#e4e4e7' : '#18181b'),
+   445→   445→    textSecondary: tp.hint_color || (isDark ? '#a1a1aa' : '#71717a'),
+   446→   446→    textMuted: isDark ? '#52525b' : '#a1a1aa',
+   447→   447→    border: isDark ? '#27272a' : '#e4e4e7',
+   448→   448→    isDark,
+   449→   449→    safeTop: tg?.safeAreaInset?.top || 0,
+   450→   450→    safeBottom: tg?.safeAreaInset?.bottom || 0,
+   451→   451→  };
+   452→   452→}
+   453→   453→
+   454→   454→// ─── Telegram Helpers ────────────────────────────────────────────────────────
+   455→   455→
+   456→   456→function haptic(style: 'light' | 'medium' | 'heavy' = 'light') {
+   457→   457→  if (typeof window !== 'undefined') {
+   458→   458→    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred(style);
+   459→   459→  }
+   460→   460→}
+   461→   461→
+   462→   462→function showCommandPopup(cmd: string) {
+   463→   463→  haptic('light');
+   464→   464→  if (typeof window !== 'undefined' && window.Telegram?.WebApp?.showPopup) {
+   465→   465→    window.Telegram.WebApp.showPopup({
+   466→   466→      title: 'Command',
+   467→   467→      message: `Type ${cmd} in chat to use this feature`,
+   468→   468→    });
+   469→   469→  } else if (typeof window !== 'undefined') {
+   470→   470→    // Fallback for dev mode
+   471→   471→    alert(`Type ${cmd} in chat to use this feature`);
+   472→   472→  }
+   473→   473→}
+   474→   474→
+   475→   475→// ─── Utility ─────────────────────────────────────────────────────────────────
+   476→   476→
+   477→   477→function timeAgo(ts: string): string {
+   478→   478→  try {
+   479→   479→    const diff = Date.now() - new Date(ts).getTime();
+   480→   480→    const mins = Math.floor(diff / 60000);
+   481→   481→    if (mins < 1) return 'just now';
+   482→   482→    if (mins < 60) return `${mins}m ago`;
+   483→   483→    const hrs = Math.floor(mins / 60);
+   484→   484→    if (hrs < 24) return `${hrs}h ago`;
+   485→   485→    const days = Math.floor(hrs / 24);
+   486→   486→    if (days < 7) return `${days}d ago`;
+   487→   487→    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+   488→   488→  } catch {
+   489→   489→    return '';
+   490→   490→  }
+   491→   491→}
+   492→   492→
+   493→   493→function truncate(str: string, len: number): string {
+   494→   494→  if (!str) return '';
+   495→   495→  return str.length > len ? str.slice(0, len) + '...' : str;
+   496→   496→}
+   497→   497→
+   498→   498→// ─── Skeleton Loader ─────────────────────────────────────────────────────────
+   499→   499→
+   500→   500→function Skeleton({ className }: { className?: string }) {
+   501→   501→  return (
+   502→   502→    <div className={`animate-pulse rounded-lg bg-white/10 ${className || ''}`} />
+   503→   503→  );
+   504→   504→}
+   505→   505→
+   506→   506→// ─── Main Component ──────────────────────────────────────────────────────────
+   507→   507→
+   508→   508→type TabId = 'home' | 'categories' | 'finance' | 'calendar' | 'search' | 'profile';
+   509→   509→
+   510→   510→export default function MiniAppPage() {
+   511→   511→  const [activeTab, setActiveTab] = useState<TabId>('home');
+   512→   512→  const [selectedCategory, setSelectedCategory] = useState<CategoryDef | null>(null);
+   513→   513→  const [searchQuery, setSearchQuery] = useState('');
+   514→   514→  const [botData, setBotData] = useState<BotData | null>(null);
+   515→   515→  const [reportsData, setReportsData] = useState<ReportsData | null>(null);
+   516→   516→  const [loading, setLoading] = useState(true);
+   517→   517→  const [error, setError] = useState<string | null>(null);
+   518→   518→  const [theme, setTheme] = useState<ThemeColors>(getTelegramTheme);
+   519→   519→  const [expandedSearchItem, setExpandedSearchItem] = useState<string | null>(null);
+   520→   520→  const [pullRefreshing, setPullRefreshing] = useState(false);
+   521→   521→  const [financeData, setFinanceData] = useState<any>(null);
+   522→   522→  const [calendarData, setCalendarData] = useState<any>(null);
+   523→   523→  const [selectedDate, setSelectedDate] = useState<string>(() => {
+   524→   524→    if (typeof window === 'undefined') return new Date().toISOString().split('T')[0];
+   525→   525→    return new Date().toISOString().split('T')[0];
+   526→   526→  });
+   527→   527→
+   528→   528→  const scrollRef = useRef<HTMLDivElement>(null);
+   529→   529→  const pullStartY = useRef(0);
+   530→   530→  const pullDistance = useRef(0);
+   531→   531→
+   532→   532→  // Initialize Telegram
+   533→   533→  useEffect(() => {
+   534→   534→    if (typeof window === 'undefined') return;
+   535→   535→    const tg = window.Telegram?.WebApp;
+   536→   536→    if (tg) {
+   537→   537→      tg.ready();
+   538→   538→      tg.expand();
+   539→   539→      setTheme(getTelegramTheme());
+   540→   540→      // Listen for theme changes
+   541→   541→      tg.onEvent?.('themeChanged', () => {
+   542→   542→        setTheme(getTelegramTheme());
+   543→   543→      });
+   544→   544→    }
+   545→   545→  }, []);
+   546→   546→
+   547→   547→  // Back button handling for category drill-down
+   548→   548→  useEffect(() => {
+   549→   549→    if (typeof window === 'undefined') return;
+   550→   550→    const tg = window.Telegram?.WebApp;
+   551→   551→    if (!tg) return;
+   552→   552→    if (selectedCategory) {
+   553→   553→      tg.BackButton.show();
+   554→   554→      tg.BackButton.onClick(() => {
+   555→   555→        haptic('light');
+   556→   556→        setSelectedCategory(null);
+   557→   557→      });
+   558→   558→    } else {
+   559→   559→      tg.BackButton.hide();
+   560→   560→    }
+   561→   561→    return () => {
+   562→   562→      tg.BackButton.hide();
+   563→   563→    };
+   564→   564→  }, [selectedCategory]);
+   565→   565→
+   566→   566→  // Fetch data
+   567→   567→  const fetchData = useCallback(async (showLoader = true) => {
+   568→   568→    if (showLoader) setLoading(true);
+   569→   569→    setError(null);
+   570→   570→    try {
+   571→   571→      const [dataRes, reportsRes] = await Promise.all([
+   572→   572→        fetch('/api/bot/data'),
+   573→   573→        fetch('/api/bot/reports'),
+   574→   574→      ]);
+   575→   575→      if (!dataRes.ok || !reportsRes.ok) throw new Error('Failed to fetch data');
+   576→   576→      const [dataJson, reportsJson] = await Promise.all([dataRes.json(), reportsRes.json()]);
+   577→   577→      setBotData(dataJson);
+   578→   578→      setReportsData(reportsJson);
+   579→   579→
+   580→   580→      // Finance
+   581→   581→      try {
+   582→   582→        const r = await fetch('/api/finance?limit=50');
+   583→   583→        const d = await r.json();
+   584→   584→        if (d.success) setFinanceData(d);
+   585→   585→      } catch { /* silent */ }
+   586→   586→
+   587→   587→      // Calendar
+   588→   588→      try {
+   589→   589→        const r = await fetch('/api/calendar?limit=50');
+   590→   590→        const d = await r.json();
+   591→   591→        if (d.success) setCalendarData(d);
+   592→   592→      } catch { /* silent */ }
+   593→   593→    } catch (err: unknown) {
+   594→   594→      setError(err instanceof Error ? err.message : 'Unknown error');
+   595→   595→    } finally {
+   596→   596→      setLoading(false);
+   597→   597→      setPullRefreshing(false);
+   598→   598→    }
+   599→   599→  }, []);
+   600→   600→
+   601→   601→  useEffect(() => {
+   602→   602→    fetchData();
+   603→   603→  }, [fetchData]);
+   604→   604→
+   605→   605→  // Pull-to-refresh
+   606→   606→  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+   607→   607→    if (scrollRef.current && scrollRef.current.scrollTop <= 0) {
+   608→   608→      pullStartY.current = e.touches[0].clientY;
+   609→   609→    }
+   610→   610→  }, []);
+   611→   611→
+   612→   612→  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+   613→   613→    if (pullStartY.current === 0) return;
+   614→   614→    if (scrollRef.current && scrollRef.current.scrollTop > 0) {
+   615→   615→      pullStartY.current = 0;
+   616→   616→      pullDistance.current = 0;
+   617→   617→      return;
+   618→   618→    }
+   619→   619→    const dist = e.touches[0].clientY - pullStartY.current;
+   620→   620→    if (dist > 0) {
+   621→   621→      pullDistance.current = Math.min(dist * 0.5, 80);
+   622→   622→    }
+   623→   623→  }, []);
+   624→   624→
+   625→   625→  const handleTouchEnd = useCallback(() => {
+   626→   626→    if (pullDistance.current > 50) {
+   627→   627→      setPullRefreshing(true);
+   628→   628→      fetchData(false);
+   629→   629→    }
+   630→   630→    pullStartY.current = 0;
+   631→   631→    pullDistance.current = 0;
+   632→   632→  }, [fetchData]);
+   633→   633→
+   634→   634→  // Navigation
+   635→   635→  const goToCategory = (cat: CategoryDef) => {
+   636→   636→    haptic('medium');
+   637→   637→    setSelectedCategory(cat);
+   638→   638→  };
+   639→   639→
+   640→   640→  const goBack = () => {
+   641→   641→    haptic('light');
+   642→   642→    setSelectedCategory(null);
+   643→   643→  };
+   644→   644→
+   645→   645→  // Search logic
+   646→   646→  const searchResults = (() => {
+   647→   647→    if (!searchQuery.trim() || !botData) return { reports: [], notes: [], tasks: [], contacts: [], knowledge: [] };
+   648→   648→    const q = searchQuery.toLowerCase();
+   649→   649→
+   650→   650→    const reports = (reportsData?.filtered || [])
+   651→   651→      .filter((r: ReportItem) =>
+   652→   652→        r.title.toLowerCase().includes(q) || r.content.toLowerCase().includes(q) || r.type.toLowerCase().includes(q)
+   653→   653→      )
+   654→   654→      .slice(0, 10)
+   655→   655→      .map((r: ReportItem) => ({ id: r.id, type: 'report' as const, title: r.title, detail: r.content, date: r.date, sub: r.type }));
+   656→   656→
+   657→   657→    const notes = (botData.notes || [])
+   658→   658→      .filter((n: NoteItem) => n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q))
+   659→   659→      .slice(0, 10)
+   660→   660→      .map((n: NoteItem) => ({ id: n.id, type: 'note' as const, title: n.title, detail: n.content, date: n.createdAt || '', sub: n.category || 'Note' }));
+   661→   661→
+   662→   662→    const tasks = (botData.tasks?.list || [])
+   663→   663→      .filter((t: TaskItem) => t.title.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q))
+   664→   664→      .slice(0, 10)
+   665→   665→      .map((t: TaskItem) => ({ id: t.id, type: 'task' as const, title: t.title, detail: t.description || '', date: t.dueDate || t.createdAt || '', sub: t.status }));
+   666→   666→
+   667→   667→    const contacts = (botData.contacts?.list || [])
+   668→   668→      .filter((c: ContactItem) => c.name.toLowerCase().includes(q) || (c.company || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q))
+   669→   669→      .slice(0, 10)
+   670→   670→      .map((c: ContactItem) => ({ id: c.id, type: 'contact' as const, title: c.name, detail: `${c.company || ''} ${c.email || ''} ${c.phone || ''}`.trim(), date: '', sub: c.type || 'Contact' }));
+   671→   671→
+   672→   672→    const knowledge = (botData.knowledgeBase || [])
+   673→   673→      .filter((k: KnowledgeItem) => k.topic.toLowerCase().includes(q) || k.content.toLowerCase().includes(q))
+   674→   674→      .slice(0, 10)
+   675→   675→      .map((k: KnowledgeItem) => ({ id: k.id, type: 'knowledge' as const, title: k.topic, detail: k.content, date: k.createdAt || '', sub: k.source || 'Knowledge' }));
+   676→   676→
+   677→   677→    return { reports, notes, tasks, contacts, knowledge };
+   678→   678→  })();
+   679→   679→
+   680→   680→  const totalSearchResults = searchResults.reports.length + searchResults.notes.length + searchResults.tasks.length + searchResults.contacts.length + searchResults.knowledge.length;
+   681→   681→
+   682→   682→  // Category data extraction
+   683→   683→  const getCategoryData = (cat: CategoryDef) => {
+   684→   684→    if (!botData) return null;
+   685→   685→    switch (cat.id) {
+   686→   686→      case 'romel':
+   687→   687→        return {
+   688→   688→          items: (botData.sales?.reports || []).slice(0, 20),
+   689→   689→          totalCount: botData.summary.totalRomelReports,
+   690→   690→          label: 'Sales Reports',
+   691→   691→          emptyCmd: '/log',
+   692→   692→          emptyText: 'Log a sales activity to see reports here',
+   693→   693→        };
+   694→   694→      case 'college':
+   695→   695→        return {
+   696→   696→          items: (botData.vdReports || []).slice(0, 20),
+   697→   697→          totalCount: botData.summary.totalVdReports,
+   698→   698→          label: 'Vice Dean Reports',
+   699→   699→          emptyCmd: '/vicereport',
+   700→   700→          emptyText: 'Create a VC report to see data here',
+   701→   701→        };
+   702→   702→      case 'jobs':
+   703→   703→        return {
+   704→   704→          items: ((botData.rawSyncData?.applications as unknown[]) || []).slice(0, 20),
+   705→   705→          totalCount: ((botData.rawSyncData?.applications as unknown[]) || []).length,
+   706→   706→          label: 'Applications',
+   707→   707→          emptyCmd: '/apply',
+   708→   708→          emptyText: 'Apply for a job to see applications here',
+   709→   709→        };
+   710→   710→      case 'data':
+   711→   711→        return {
+   712→   712→          items: (botData.notes || []).slice(0, 20),
+   713→   713→          totalCount: botData.summary.totalNotes,
+   714→   714→          label: 'Notes',
+   715→   715→          emptyCmd: '/note',
+   716→   716→          emptyText: 'Create a note to see data here',
+   717→   717→        };
+   718→   718→      case 'learning':
+   719→   719→        return {
+   720→   720→          items: (botData.tasks?.list || []).slice(0, 20),
+   721→   721→          totalCount: botData.summary.totalTasks,
+   722→   722→          label: 'Learning Tasks',
+   723→   723→          emptyCmd: '/tasks',
+   724→   724→          emptyText: 'Add tasks to see them here',
+   725→   725→        };
+   726→   726→      case 'crm':
+   727→   727→        return {
+   728→   728→          items: (botData.contacts?.list || []).slice(0, 20),
+   729→   729→          totalCount: botData.summary.totalContacts,
+   730→   730→          label: 'Contacts',
+   731→   731→          emptyCmd: '/contacts',
+   732→   732→          emptyText: 'Add contacts to see them here',
+   733→   733→        };
+   734→   734→      case 'ai':
+   735→   735→        return {
+   736→   736→          items: (botData.knowledgeBase || []).slice(0, 20),
+   737→   737→          totalCount: botData.summary.totalKnowledge,
+   738→   738→          label: 'Knowledge Base',
+   739→   739→          emptyCmd: '/teach',
+   740→   740→          emptyText: 'Teach the AI to build your knowledge base',
+   741→   741→        };
+   742→   742→      case 'reports':
+   743→   743→        return {
+   744→   744→          items: (reportsData?.filtered || []).slice(0, 20),
+   745→   745→          totalCount: reportsData?.total || 0,
+   746→   746→          label: 'All Reports',
+   747→   747→          emptyCmd: '/weekreport',
+   748→   748→          emptyText: 'Generate a report to see data here',
+   749→   749→        };
+   750→   750→      default:
+   751→   751→        return null;
+   752→   752→    }
+   753→   753→  };
+   754→   754→
+   755→   755→  // ─── Render Helpers ──────────────────────────────────────────────────────
+   756→   756→
+   757→   757→  const t = theme;
+   758→   758→  const user = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initDataUnsafe?.user : null;
+   759→   759→  const firstName = user?.first_name || 'Hambisa';
+   760→   760→  const username = user?.username || '';
+   761→   761→
+   762→   762→  // ─── Loading State ───────────────────────────────────────────────────────
+   763→   763→
+   764→   764→  if (loading && !botData) {
+   765→   765→    return (
+   766→   766→      <div className="flex flex-col items-center justify-center min-h-screen" style={{ backgroundColor: t.bg, paddingTop: t.safeTop }}>
+   767→   767→        <div className="flex flex-col items-center gap-4">
+   768→   768→          <div className="relative">
+   769→   769→            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+   770→   770→              <Bot className="w-8 h-8 text-white" />
+   771→   771→            </div>
+   772→   772→            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center">
+   773→   773→              <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+   774→   774→            </div>
+   775→   775→          </div>
+   776→   776→          <div className="flex flex-col items-center gap-2">
+   777→   777→            <p className="text-sm font-medium" style={{ color: t.text }}>Career AI Ethiopia</p>
+   778→   778→            <div className="flex items-center gap-2">
+   779→   779→              <Loader2 className="w-4 h-4 animate-spin" style={{ color: t.textSecondary }} />
+   780→   780→              <p className="text-xs" style={{ color: t.textSecondary }}>Loading your data...</p>
+   781→   781→            </div>
+   782→   782→          </div>
+   783→   783→        </div>
+   784→   784→      </div>
+   785→   785→    );
+   786→   786→  }
+   787→   787→
+   788→   788→  // ─── Error State ─────────────────────────────────────────────────────────
+   789→   789→
+   790→   790→  if (error && !botData) {
+   791→   791→    return (
+   792→   792→      <div className="flex flex-col items-center justify-center min-h-screen p-6" style={{ backgroundColor: t.bg, paddingTop: t.safeTop }}>
+   793→   793→        <div className="flex flex-col items-center gap-4 text-center max-w-xs">
+   794→   794→          <div className="w-14 h-14 rounded-full bg-red-500/15 flex items-center justify-center">
+   795→   795→            <AlertCircle className="w-7 h-7 text-red-400" />
+   796→   796→          </div>
+   797→   797→          <p className="text-sm font-medium" style={{ color: t.text }}>Failed to load</p>
+   798→   798→          <p className="text-xs" style={{ color: t.textSecondary }}>{error}</p>
+   799→   799→          <button
+   800→   800→            onClick={() => fetchData()}
+   801→   801→            className="mt-2 px-5 py-2.5 rounded-xl text-sm font-medium bg-emerald-500 text-white active:scale-95 transition-transform"
+   802→   802→          >
+   803→   803→            Try Again
+   804→   804→          </button>
+   805→   805→        </div>
+   806→   806→      </div>
+   807→   807→    );
+   808→   808→  }
+   809→   809→
+   810→   810→  // ─── Category Detail Page ────────────────────────────────────────────────
+   811→   811→
+   812→   812→  const renderCategoryDetail = () => {
+   813→   813→    if (!selectedCategory) return null;
+   814→   814→    const cat = selectedCategory;
+   815→   815→    const catData = getCategoryData(cat);
+   816→   816→
+   817→   817→    return (
+   818→   818→      <div className="flex flex-col gap-4 pb-4">
+   819→   819→        {/* Header */}
+   820→   820→        <div className="flex items-center gap-3">
+   821→   821→          <button
+   822→   822→            onClick={goBack}
+   823→   823→            className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors active:scale-95"
+   824→   824→            style={{ backgroundColor: t.bgCard }}
+   825→   825→          >
+   826→   826→            <ChevronLeft className="w-5 h-5" style={{ color: t.text }} />
+   827→   827→          </button>
+   828→   828→          <div className="flex items-center gap-2.5">
+   829→   829→            <span className="text-2xl">{cat.emoji}</span>
+   830→   830→            <div>
+   831→   831→              <h1 className="text-lg font-bold" style={{ color: t.text }}>{cat.name}</h1>
+   832→   832→              <p className="text-xs" style={{ color: t.textSecondary }}>{cat.commands.length} commands</p>
+   833→   833→            </div>
+   834→   834→          </div>
+   835→   835→        </div>
+   836→   836→
+   837→   837→        {/* Quick Actions Grid */}
+   838→   838→        <div>
+   839→   839→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>
+   840→   840→            Commands
+   841→   841→          </h2>
+   842→   842→          <div className="grid grid-cols-2 gap-2.5">
+   843→   843→            {cat.commands.map((cmd) => (
+   844→   844→              <button
+   845→   845→                key={cmd.cmd}
+   846→   846→                onClick={() => showCommandPopup(cmd.cmd)}
+   847→   847→                className={`p-3.5 rounded-xl text-left transition-all active:scale-[0.97] border ${cat.bgColor} ${cat.borderColor}`}
+   848→   848→              >
+   849→   849→                <p className={`text-sm font-semibold ${cat.textColor}`}>{cmd.name}</p>
+   850→   850→                <p className="text-[11px] mt-0.5" style={{ color: t.textSecondary }}>
+   851→   851→                  {cmd.cmd}
+   852→   852→                </p>
+   853→   853→                <p className="text-[10px] mt-1 leading-tight" style={{ color: t.textMuted }}>
+   854→   854→                  {cmd.description}
+   855→   855→                </p>
+   856→   856→              </button>
+   857→   857→            ))}
+   858→   858→          </div>
+   859→   859→        </div>
+   860→   860→
+   861→   861→        {/* Data View */}
+   862→   862→        {catData && (
+   863→   863→          <div>
+   864→   864→            <div className="flex items-center justify-between mb-3">
+   865→   865→              <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: t.textMuted }}>
+   866→   866→                {catData.label}
+   867→   867→              </h2>
+   868→   868→              {catData.totalCount > 0 && (
+   869→   869→                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: t.bgCard, color: t.textSecondary }}>
+   870→   870→                  {catData.totalCount}
+   871→   871→                </span>
+   872→   872→              )}
+   873→   873→            </div>
+   874→   874→
+   875→   875→            {catData.items.length > 0 ? (
+   876→   876→              <div className="flex flex-col gap-2 max-h-80 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+   877→   877→                {catData.items.map((item: Record<string, unknown>, idx: number) => {
+   878→   878→                  const title = (item.title as string) || (item.topic as string) || (item.name as string) || `Item ${idx + 1}`;
+   879→   879→                  const detail = (item.content as string) || (item.report as string) || (item.details as string) || (item.description as string) || '';
+   880→   880→                  const date = (item.date as string) || (item.createdAt as string) || '';
+   881→   881→                  const status = (item.status as string) || (item.priority as string) || '';
+   882→   882→                  const type = (item.type as string) || '';
+   883→   883→
+   884→   884→                  return (
+   885→   885→                    <div
+   886→   886→                      key={(item.id as string) || idx}
+   887→   887→                      className="p-3 rounded-xl transition-colors"
+   888→   888→                      style={{ backgroundColor: t.bgCard }}
+   889→   889→                    >
+   890→   890→                      <div className="flex items-start justify-between gap-2">
+   891→   891→                        <p className="text-sm font-medium leading-snug" style={{ color: t.text }}>
+   892→   892→                          {truncate(title, 60)}
+   893→   893→                        </p>
+   894→   894→                        {status && (
+   895→   895→                          <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-full font-medium bg-emerald-500/15 text-emerald-400">
+   896→   896→                            {status}
+   897→   897→                          </span>
+   898→   898→                        )}
+   899→   899→                      </div>
+   900→   900→                      {detail && (
+   901→   901→                        <p className="text-[11px] mt-1 leading-relaxed" style={{ color: t.textSecondary }}>
+   902→   902→                          {truncate(detail, 120)}
+   903→   903→                        </p>
+   904→   904→                      )}
+   905→   905→                      {(date || type) && (
+   906→   906→                        <div className="flex items-center gap-2 mt-1.5">
+   907→   907→                          {type && (
+   908→   908→                            <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>
+   909→   909→                              {type}
+   910→   910→                            </span>
+   911→   911→                          )}
+   912→   912→                          {date && (
+   913→   913→                            <span className="text-[10px]" style={{ color: t.textMuted }}>
+   914→   914→                              {date}
+   915→   915→                            </span>
+   916→   916→                          )}
+   917→   917→                        </div>
+   918→   918→                      )}
+   919→   919→                    </div>
+   920→   920→                  );
+   921→   921→                })}
+   922→   922→              </div>
+   923→   923→            ) : (
+   924→   924→              <div className="flex flex-col items-center gap-3 py-8 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+   925→   925→                <div className={`w-12 h-12 rounded-xl ${cat.bgColor} flex items-center justify-center`}>
+   926→   926→                  <Database className={`w-6 h-6 ${cat.textColor}`} />
+   927→   927→                </div>
+   928→   928→                <div className="text-center">
+   929→   929→                  <p className="text-sm font-medium" style={{ color: t.text }}>No data yet</p>
+   930→   930→                  <p className="text-xs mt-1" style={{ color: t.textSecondary }}>
+   931→   931→                    Use {catData.emptyCmd} in Telegram to {catData.emptyText.toLowerCase()}
+   932→   932→                  </p>
+   933→   933→                </div>
+   934→   934→                <button
+   935→   935→                  onClick={() => showCommandPopup(catData.emptyCmd)}
+   936→   936→                  className={`px-4 py-2 rounded-xl text-xs font-medium ${cat.bgColor} ${cat.textColor} border ${cat.borderColor} active:scale-95 transition-transform`}
+   937→   937→                >
+   938→   938→                  {catData.emptyCmd}
+   939→   939→                </button>
+   940→   940→              </div>
+   941→   941→            )}
+   942→   942→          </div>
+   943→   943→        )}
+   944→   944→
+   945→   945→        {!catData && (
+   946→   946→          <div className="flex flex-col items-center gap-3 py-8 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+   947→   947→            <div className={`w-12 h-12 rounded-xl ${cat.bgColor} flex items-center justify-center`}>
+   948→   948→              <Zap className={`w-6 h-6 ${cat.textColor}`} />
+   949→   949→            </div>
+   950→   950→            <div className="text-center">
+   951→   951→              <p className="text-sm font-medium" style={{ color: t.text }}>Interactive Commands</p>
+   952→   952→              <p className="text-xs mt-1" style={{ color: t.textSecondary }}>
+   953→   953→                Tap any command above to use it in Telegram
+   954→   954→              </p>
+   955→   955→            </div>
+   956→   956→          </div>
+   957→   957→        )}
+   958→   958→      </div>
+   959→   959→    );
+   960→   960→  };
+   961→   961→
+   962→   962→  // ─── Home Tab ────────────────────────────────────────────────────────────
+   963→   963→
+   964→   964→  const renderHome = () => {
+   965→   965→    const s = botData?.summary;
+   966→   966→    return (
+   967→   967→      <div className="flex flex-col gap-5 pb-4">
+   968→   968→        {/* Welcome Card */}
+   969→   969→        <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-emerald-600 to-teal-700 text-white">
+   970→   970→          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
+   971→   971→          <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-6 -translate-x-6" />
+   972→   972→          <div className="relative">
+   973→   973→            <div className="flex items-center gap-2 mb-1">
+   974→   974→              <p className="text-base font-bold">Welcome back, {firstName}! 👋</p>
+   975→   975→            </div>
+   976→   976→            <p className="text-xs text-emerald-100/80">
+   977→   977→              Career AI Ethiopia — Your executive assistant
+   978→   978→            </p>
+   979→   979→            <div className="flex items-center gap-1.5 mt-2.5">
+   980→   980→              <div className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+   981→   981→              <p className="text-[10px] text-emerald-200/70">
+   982→   982→                {s?.lastSync ? `Synced ${timeAgo(s.lastSync)}` : 'Ready'}
+   983→   983→              </p>
+   984→   984→            </div>
+   985→   985→          </div>
+   986→   986→        </div>
+   987→   987→
+   988→   988→        {/* Stats Grid */}
+   989→   989→        <div>
+   990→   990→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Overview</h2>
+   991→   991→          <div className="grid grid-cols-2 gap-2.5">
+   992→   992→            {[
+   993→   993→              { label: 'Reports', value: (s?.totalRomelReports || 0) + (s?.totalVdReports || 0), icon: FileText, color: 'text-teal-400', bg: 'bg-teal-500/15' },
+   994→   994→              { label: 'Tasks', value: s?.totalTasks || 0, icon: CheckSquare, color: 'text-amber-400', bg: 'bg-amber-500/15', sub: s ? `${s.taskCompletionRate}% done` : '' },
+   995→   995→              { label: 'Contacts', value: s?.totalContacts || 0, icon: Users, color: 'text-rose-400', bg: 'bg-rose-500/15' },
+   996→   996→              { label: 'Knowledge', value: s?.totalKnowledge || 0, icon: Brain, color: 'text-violet-400', bg: 'bg-violet-500/15' },
+   997→   997→            ].map((stat) => (
+   998→   998→              <div key={stat.label} className="p-3.5 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+   999→   999→                <div className="flex items-center justify-between">
+  1000→  1000→                  <span className="text-2xl font-bold" style={{ color: t.text }}>{stat.value}</span>
+  1001→  1001→                  <div className={`w-8 h-8 rounded-lg ${stat.bg} flex items-center justify-center`}>
+  1002→  1002→                    <stat.icon className={`w-4 h-4 ${stat.color}`} />
+  1003→  1003→                  </div>
+  1004→  1004→                </div>
+  1005→  1005→                <p className="text-[11px] mt-1" style={{ color: t.textSecondary }}>{stat.label}</p>
+  1006→  1006→                {stat.sub && <p className="text-[10px]" style={{ color: t.textMuted }}>{stat.sub}</p>}
+  1007→  1007→              </div>
+  1008→  1008→            ))}
+  1009→  1009→          </div>
+  1010→  1010→        </div>
+  1011→  1011→
+  1012→  1012→        {/* Quick Actions */}
+  1013→  1013→        <div>
+  1014→  1014→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Quick Actions</h2>
+  1015→  1015→          <div className="grid grid-cols-4 gap-2">
+  1016→  1016→            {QUICK_ACTIONS.map((action) => (
+  1017→  1017→              <button
+  1018→  1018→                key={action.cmd}
+  1019→  1019→                onClick={() => showCommandPopup(action.cmd)}
+  1020→  1020→                className="flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all active:scale-95"
+  1021→  1021→                style={{ backgroundColor: t.bgCard }}
+  1022→  1022→              >
+  1023→  1023→                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+  1024→  1024→                  <Zap className="w-4.5 h-4.5 text-emerald-400" />
+  1025→  1025→                </div>
+  1026→  1026→                <span className="text-[10px] font-medium leading-tight text-center" style={{ color: t.textSecondary }}>
+  1027→  1027→                  {action.name}
+  1028→  1028→                </span>
+  1029→  1029→              </button>
+  1030→  1030→            ))}
+  1031→  1031→          </div>
+  1032→  1032→        </div>
+  1033→  1033→
+  1034→  1034→        {/* Recent Activity */}
+  1035→  1035→        <div>
+  1036→  1036→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Recent Activity</h2>
+  1037→  1037→          {botData?.recentActivities && botData.recentActivities.length > 0 ? (
+  1038→  1038→            <div className="flex flex-col gap-2">
+  1039→  1039→              {botData.recentActivities.slice(0, 5).map((act: ActivityItem) => (
+  1040→  1040→                <div
+  1041→  1041→                  key={act.id}
+  1042→  1042→                  className="flex items-start gap-3 p-3 rounded-xl transition-colors"
+  1043→  1043→                  style={{ backgroundColor: t.bgCard }}
+  1044→  1044→                >
+  1045→  1045→                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+  1046→  1046→                    <Activity className="w-4 h-4 text-emerald-400" />
+  1047→  1047→                  </div>
+  1048→  1048→                  <div className="flex-1 min-w-0">
+  1049→  1049→                    <p className="text-sm font-medium leading-snug" style={{ color: t.text }}>
+  1050→  1050→                      {truncate(act.action, 70)}
+  1051→  1051→                    </p>
+  1052→  1052→                    <p className="text-[10px] mt-0.5" style={{ color: t.textMuted }}>
+  1053→  1053→                      {timeAgo(act.timestamp)}
+  1054→  1054→                    </p>
+  1055→  1055→                  </div>
+  1056→  1056→                </div>
+  1057→  1057→              ))}
+  1058→  1058→            </div>
+  1059→  1059→          ) : (
+  1060→  1060→            <div className="p-4 rounded-xl text-center" style={{ backgroundColor: t.bgCard }}>
+  1061→  1061→              <p className="text-xs" style={{ color: t.textSecondary }}>No recent activity</p>
+  1062→  1062→            </div>
+  1063→  1063→          )}
+  1064→  1064→        </div>
+  1065→  1065→      </div>
+  1066→  1066→    );
+  1067→  1067→  };
+  1068→  1068→
+  1069→  1069→  // ─── Categories Tab ──────────────────────────────────────────────────────
+  1070→  1070→
+  1071→  1071→  const renderCategories = () => (
+  1072→  1072→    <div className="flex flex-col gap-4 pb-4">
+  1073→  1073→      <div>
+  1074→  1074→        <h1 className="text-lg font-bold" style={{ color: t.text }}>All Categories</h1>
+  1075→  1075→        <p className="text-xs mt-0.5" style={{ color: t.textSecondary }}>
+  1076→  1076→          17 categories · 60+ commands
+  1077→  1077→        </p>
+  1078→  1078→      </div>
+  1079→  1079→      <div className="grid grid-cols-2 gap-2.5">
+  1080→  1080→        {CATEGORIES.map((cat) => {
+  1081→  1081→          const itemCount = getItemCount(cat);
+  1082→  1082→          return (
+  1083→  1083→            <button
+  1084→  1084→              key={cat.id}
+  1085→  1085→              onClick={() => goToCategory(cat)}
+  1086→  1086→              className={`p-4 rounded-xl text-left transition-all active:scale-[0.97] border ${cat.bgColor} ${cat.borderColor}`}
+  1087→  1087→            >
+  1088→  1088→              <div className="flex items-start justify-between">
+  1089→  1089→                <span className="text-2xl">{cat.emoji}</span>
+  1090→  1090→                {itemCount > 0 && (
+  1091→  1091→                  <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: t.bg, color: t.textSecondary }}>
+  1092→  1092→                    {itemCount}
+  1093→  1093→                  </span>
+  1094→  1094→                )}
+  1095→  1095→              </div>
+  1096→  1096→              <p className={`text-sm font-semibold mt-2 ${cat.textColor}`}>{cat.name}</p>
+  1097→  1097→              <p className="text-[10px] mt-0.5" style={{ color: t.textSecondary }}>
+  1098→  1098→                {cat.commands.length} commands
+  1099→  1099→              </p>
+  1100→  1100→            </button>
+  1101→  1101→          );
+  1102→  1102→        })}
+  1103→  1103→      </div>
+  1104→  1104→    </div>
+  1105→  1105→  );
+  1106→  1106→
+  1107→  1107→  // Count items for a category
+  1108→  1108→  function getItemCount(cat: CategoryDef): number {
+  1109→  1109→    if (!botData) return 0;
+  1110→  1110→    switch (cat.id) {
+  1111→  1111→      case 'romel': return botData.summary.totalRomelReports;
+  1112→  1112→      case 'college': return botData.summary.totalVdReports;
+  1113→  1113→      case 'data': return botData.summary.totalNotes;
+  1114→  1114→      case 'learning': return botData.summary.totalTasks;
+  1115→  1115→      case 'crm': return botData.summary.totalContacts;
+  1116→  1116→      case 'ai': return botData.summary.totalKnowledge;
+  1117→  1117→      case 'reports': return reportsData?.total || 0;
+  1118→  1118→      default: return 0;
+  1119→  1119→    }
+  1120→  1120→  }
+  1121→  1121→
+  1122→  1122→  // ─── Search Tab ──────────────────────────────────────────────────────────
+  1123→  1123→
+  1124→  1124→  const renderSearch = () => {
+  1125→  1125→    const resultGroups = [
+  1126→  1126→      { key: 'reports', label: 'Reports', icon: FileText, color: 'text-teal-400', items: searchResults.reports },
+  1127→  1127→      { key: 'notes', label: 'Notes', icon: StickyNote, color: 'text-slate-400', items: searchResults.notes },
+  1128→  1128→      { key: 'tasks', label: 'Tasks', icon: CheckSquare, color: 'text-amber-400', items: searchResults.tasks },
+  1129→  1129→      { key: 'contacts', label: 'Contacts', icon: Users, color: 'text-rose-400', items: searchResults.contacts },
+  1130→  1130→      { key: 'knowledge', label: 'Knowledge', icon: Brain, color: 'text-violet-400', items: searchResults.knowledge },
+  1131→  1131→    ].filter(g => g.items.length > 0);
+  1132→  1132→
+  1133→  1133→    return (
+  1134→  1134→      <div className="flex flex-col gap-4 pb-4">
+  1135→  1135→        {/* Search Input */}
+  1136→  1136→        <div className="relative">
+  1137→  1137→          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: t.textMuted }} />
+  1138→  1138→          <input
+  1139→  1139→            type="text"
+  1140→  1140→            value={searchQuery}
+  1141→  1141→            onChange={(e) => { haptic('light'); setSearchQuery(e.target.value); setExpandedSearchItem(null); }}
+  1142→  1142→            placeholder="Search reports, notes, tasks..."
+  1143→  1143→            className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-colors"
+  1144→  1144→            style={{
+  1145→  1145→              backgroundColor: t.bgCard,
+  1146→  1146→              color: t.text,
+  1147→  1147→              border: `1px solid ${t.border}`,
+  1148→  1148→            }}
+  1149→  1149→          />
+  1150→  1150→          {searchQuery && (
+  1151→  1151→            <button
+  1152→  1152→              onClick={() => { haptic('light'); setSearchQuery(''); setExpandedSearchItem(null); }}
+  1153→  1153→              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs px-2 py-0.5 rounded-md"
+  1154→  1154→              style={{ backgroundColor: t.bg, color: t.textSecondary }}
+  1155→  1155→            >
+  1156→  1156→              Clear
+  1157→  1157→            </button>
+  1158→  1158→          )}
+  1159→  1159→        </div>
+  1160→  1160→
+  1161→  1161→        {searchQuery.trim() && (
+  1162→  1162→          <p className="text-[11px]" style={{ color: t.textMuted }}>
+  1163→  1163→            {totalSearchResults} result{totalSearchResults !== 1 ? 's' : ''} found
+  1164→  1164→          </p>
+  1165→  1165→        )}
+  1166→  1166→
+  1167→  1167→        {/* Results */}
+  1168→  1168→        {searchQuery.trim() ? (
+  1169→  1169→          resultGroups.length > 0 ? (
+  1170→  1170→            <div className="flex flex-col gap-4">
+  1171→  1171→              {resultGroups.map((group) => (
+  1172→  1172→                <div key={group.key}>
+  1173→  1173→                  <div className="flex items-center gap-2 mb-2">
+  1174→  1174→                    <group.icon className={`w-3.5 h-3.5 ${group.color}`} />
+  1175→  1175→                    <h3 className="text-xs font-semibold" style={{ color: t.textSecondary }}>
+  1176→  1176→                      {group.label}
+  1177→  1177→                    </h3>
+  1178→  1178→                    <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: t.bgCard, color: t.textMuted }}>
+  1179→  1179→                      {group.items.length}
+  1180→  1180→                    </span>
+  1181→  1181→                  </div>
+  1182→  1182→                  <div className="flex flex-col gap-1.5">
+  1183→  1183→                    {group.items.map((item) => {
+  1184→  1184→                      const isExpanded = expandedSearchItem === item.id;
+  1185→  1185→                      return (
+  1186→  1186→                        <button
+  1187→  1187→                          key={item.id}
+  1188→  1188→                          onClick={() => { haptic('light'); setExpandedSearchItem(isExpanded ? null : item.id); }}
+  1189→  1189→                          className="p-3 rounded-xl text-left transition-colors w-full"
+  1190→  1190→                          style={{ backgroundColor: t.bgCard }}
+  1191→  1191→                        >
+  1192→  1192→                          <div className="flex items-start justify-between gap-2">
+  1193→  1193→                            <p className="text-sm font-medium leading-snug" style={{ color: t.text }}>
+  1194→  1194→                              {truncate(item.title, 50)}
+  1195→  1195→                            </p>
+  1196→  1196→                            <div className="flex items-center gap-1.5 shrink-0">
+  1197→  1197→                              <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>
+  1198→  1198→                                {item.sub}
+  1199→  1199→                              </span>
+  1200→  1200→                              {isExpanded ? (
+  1201→  1201→                                <ChevronUp className="w-3.5 h-3.5" style={{ color: t.textMuted }} />
+  1202→  1202→                              ) : (
+  1203→  1203→                                <ChevronDown className="w-3.5 h-3.5" style={{ color: t.textMuted }} />
+  1204→  1204→                              )}
+  1205→  1205→                            </div>
+  1206→  1206→                          </div>
+  1207→  1207→                          {item.date && (
+  1208→  1208→                            <p className="text-[10px] mt-1" style={{ color: t.textMuted }}>{item.date}</p>
+  1209→  1209→                          )}
+  1210→  1210→                          {isExpanded && item.detail && (
+  1211→  1211→                            <p className="text-xs mt-2 leading-relaxed whitespace-pre-wrap" style={{ color: t.textSecondary }}>
+  1212→  1212→                              {truncate(item.detail, 500)}
+  1213→  1213→                            </p>
+  1214→  1214→                          )}
+  1215→  1215→                        </button>
+  1216→  1216→                      );
+  1217→  1217→                    })}
+  1218→  1218→                  </div>
+  1219→  1219→                </div>
+  1220→  1220→              ))}
+  1221→  1221→            </div>
+  1222→  1222→          ) : (
+  1223→  1223→            <div className="flex flex-col items-center gap-3 py-10">
+  1224→  1224→              <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: t.bgCard }}>
+  1225→  1225→                <Search className="w-6 h-6" style={{ color: t.textMuted }} />
+  1226→  1226→              </div>
+  1227→  1227→              <p className="text-sm font-medium" style={{ color: t.text }}>No results found</p>
+  1228→  1228→              <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+  1229→  1229→                Try different keywords or use commands in Telegram to add data
+  1230→  1230→              </p>
+  1231→  1231→            </div>
+  1232→  1232→          )
+  1233→  1233→        ) : (
+  1234→  1234→          <div className="flex flex-col items-center gap-3 py-10">
+  1235→  1235→            <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: t.bgCard }}>
+  1236→  1236→              <Search className="w-6 h-6" style={{ color: t.textMuted }} />
+  1237→  1237→            </div>
+  1238→  1238→            <p className="text-sm font-medium" style={{ color: t.text }}>Search everything</p>
+  1239→  1239→            <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+  1240→  1240→              Find reports, notes, tasks, contacts, and knowledge
+  1241→  1241→            </p>
+  1242→  1242→          </div>
+  1243→  1243→        )}
+  1244→  1244→      </div>
+  1245→  1245→    );
+  1246→  1246→  };
+  1247→  1247→
+  1248→  1248→  // ─── Profile Tab ─────────────────────────────────────────────────────────
+  1249→  1249→
+  1250→  1250→  const renderProfile = () => {
+  1251→  1251→    const s = botData?.summary;
+  1252→  1252→    return (
+  1253→  1253→      <div className="flex flex-col gap-5 pb-4">
+  1254→  1254→        {/* User Card */}
+  1255→  1255→        <div className="p-5 rounded-2xl flex items-center gap-4" style={{ backgroundColor: t.bgCard }}>
+  1256→  1256→          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xl font-bold shrink-0">
+  1257→  1257→            {firstName.charAt(0).toUpperCase()}
+  1258→  1258→          </div>
+  1259→  1259→          <div className="flex-1 min-w-0">
+  1260→  1260→            <p className="text-base font-bold" style={{ color: t.text }}>{firstName}</p>
+  1261→  1261→            {username && (
+  1262→  1262→              <p className="text-xs" style={{ color: t.textSecondary }}>@{username}</p>
+  1263→  1263→            )}
+  1264→  1264→            <div className="flex items-center gap-1.5 mt-1">
+  1265→  1265→              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+  1266→  1266→              <p className="text-[10px]" style={{ color: t.textMuted }}>Online</p>
+  1267→  1267→            </div>
+  1268→  1268→          </div>
+  1269→  1269→        </div>
+  1270→  1270→
+  1271→  1271→        {/* Bot Info */}
+  1272→  1272→        <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1273→  1273→          <div className="flex items-center gap-3">
+  1274→  1274→            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+  1275→  1275→              <Bot className="w-5 h-5 text-emerald-400" />
+  1276→  1276→            </div>
+  1277→  1277→            <div className="flex-1">
+  1278→  1278→              <p className="text-sm font-semibold" style={{ color: t.text }}>@hambi_career_ai_bot</p>
+  1279→  1279→              <p className="text-[11px]" style={{ color: t.textSecondary }}>Career AI Ethiopia</p>
+  1280→  1280→            </div>
+  1281→  1281→          </div>
+  1282→  1282→        </div>
+  1283→  1283→
+  1284→  1284→        {/* Quick Stats */}
+  1285→  1285→        <div>
+  1286→  1286→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>Statistics</h2>
+  1287→  1287→          <div className="flex flex-col gap-1.5">
+  1288→  1288→            {[
+  1289→  1289→              { label: 'Total Reports', value: (s?.totalRomelReports || 0) + (s?.totalVdReports || 0), icon: BarChart3 },
+  1290→  1290→              { label: 'Tasks Completed', value: s?.tasksDone || 0, icon: CheckCircle2 },
+  1291→  1291→              { label: 'Completion Rate', value: `${s?.taskCompletionRate || 0}%`, icon: TrendingUp },
+  1292→  1292→              { label: 'Total Notes', value: s?.totalNotes || 0, icon: StickyNote },
+  1293→  1293→              { label: 'Contacts', value: s?.totalContacts || 0, icon: Users },
+  1294→  1294→              { label: 'Knowledge Base', value: s?.totalKnowledge || 0, icon: Brain },
+  1295→  1295→              { label: 'Data Syncs', value: s?.totalSyncs || 0, icon: RefreshCw },
+  1296→  1296→            ].map((stat) => (
+  1297→  1297→              <div
+  1298→  1298→                key={stat.label}
+  1299→  1299→                className="flex items-center justify-between p-3 rounded-xl transition-colors"
+  1300→  1300→                style={{ backgroundColor: t.bgCard }}
+  1301→  1301→              >
+  1302→  1302→                <div className="flex items-center gap-3">
+  1303→  1303→                  <stat.icon className="w-4 h-4" style={{ color: t.textSecondary }} />
+  1304→  1304→                  <span className="text-sm" style={{ color: t.text }}>{stat.label}</span>
+  1305→  1305→                </div>
+  1306→  1306→                <span className="text-sm font-semibold" style={{ color: t.text }}>{stat.value}</span>
+  1307→  1307→              </div>
+  1308→  1308→            ))}
+  1309→  1309→          </div>
+  1310→  1310→        </div>
+  1311→  1311→
+  1312→  1312→        {/* About */}
+  1313→  1313→        <div className="p-4 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1314→  1314→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: t.textMuted }}>About</h2>
+  1315→  1315→          <p className="text-xs leading-relaxed" style={{ color: t.textSecondary }}>
+  1316→  1316→            Career AI Ethiopia is your executive assistant bot for managing sales, college operations, 
+  1317→  1317→            job applications, tasks, notes, contacts, and more. Use commands in Telegram to interact 
+  1318→  1318→            with your data, or browse through this dashboard.
+  1319→  1319→          </p>
+  1320→  1320→          <div className="flex flex-wrap gap-1.5 mt-3">
+  1321→  1321→            {['Sales', 'College', 'Jobs', 'Tasks', 'Notes', 'CRM', 'AI'].map((tag) => (
+  1322→  1322→              <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: t.bg, color: t.textMuted }}>
+  1323→  1323→                {tag}
+  1324→  1324→              </span>
+  1325→  1325→            ))}
+  1326→  1326→          </div>
+  1327→  1327→        </div>
+  1328→  1328→
+  1329→  1329→        {/* Version */}
+  1330→  1330→        <div className="text-center py-2">
+  1331→  1331→          <p className="text-[10px]" style={{ color: t.textMuted }}>Mini App v2 · Career AI Ethiopia</p>
+  1332→  1332→        </div>
+  1333→  1333→      </div>
+  1334→  1334→    );
+  1335→  1335→  };
+  1336→  1336→
+  1337→  1337→  // ─── Finance Tab ─────────────────────────────────────────────────────────
+  1338→  1338→
+  1339→  1339→  const renderFinance = () => {
+  1340→  1340→    const txns = (financeData?.transactions || []) as Array<{
+  1341→  1341→      id: string; type: string; amount: number; category?: string;
+  1342→  1342→      description?: string; date?: string; currency?: string;
+  1343→  1343→    }>;
+  1344→  1344→    const summary = financeData?.summary || {};
+  1345→  1345→
+  1346→  1346→    const totalIncome = summary.totalIncome ?? txns.filter((t) => t.type === 'income').reduce((s, t) => s + (t.amount || 0), 0);
+  1347→  1347→    const totalExpenses = summary.totalExpenses ?? txns.filter((t) => t.type === 'expense').reduce((s, t) => s + (t.amount || 0), 0);
+  1348→  1348→    const netProfit = totalIncome - totalExpenses;
+  1349→  1349→
+  1350→  1350→    const summaryCards = [
+  1351→  1351→      { label: 'Total Income', value: `${totalIncome.toLocaleString()} ETB`, color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
+  1352→  1352→      { label: 'Total Expenses', value: `${totalExpenses.toLocaleString()} ETB`, color: 'text-red-400', bg: 'bg-red-500/15' },
+  1353→  1353→      { label: 'Net Profit', value: `${netProfit.toLocaleString()} ETB`, color: netProfit >= 0 ? 'text-emerald-400' : 'text-red-400', bg: netProfit >= 0 ? 'bg-emerald-500/15' : 'bg-red-500/15' },
+  1354→  1354→      { label: 'Transactions', value: String(txns.length), color: 'text-cyan-400', bg: 'bg-cyan-500/15' },
+  1355→  1355→    ];
+  1356→  1356→
+  1357→  1357→    return (
+  1358→  1358→      <div className="flex flex-col gap-5 pb-4">
+  1359→  1359→        <div>
+  1360→  1360→          <h1 className="text-lg font-bold" style={{ color: t.text }}>Finance</h1>
+  1361→  1361→          <p className="text-xs mt-0.5" style={{ color: t.textSecondary }}>
+  1362→  1362→            Track your income & expenses
+  1363→  1363→          </p>
+  1364→  1364→        </div>
+  1365→  1365→
+  1366→  1366→        {/* Summary Cards */}
+  1367→  1367→        <div className="grid grid-cols-2 gap-2.5">
+  1368→  1368→          {summaryCards.map((card) => (
+  1369→  1369→            <div key={card.label} className={`p-3.5 rounded-xl ${card.bg}`}>
+  1370→  1370→              <p className="text-[11px]" style={{ color: t.textSecondary }}>{card.label}</p>
+  1371→  1371→              <p className={`text-lg font-bold mt-1 ${card.color}`}>{card.value}</p>
+  1372→  1372→            </div>
+  1373→  1373→          ))}
+  1374→  1374→        </div>
+  1375→  1375→
+  1376→  1376→        {/* Transaction List */}
+  1377→  1377→        <div>
+  1378→  1378→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>
+  1379→  1379→            Recent Transactions
+  1380→  1380→          </h2>
+  1381→  1381→          {txns.length > 0 ? (
+  1382→  1382→            <div className="flex flex-col gap-2 max-h-96 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+  1383→  1383→              {txns.map((txn) => {
+  1384→  1384→                const isIncome = txn.type === 'income';
+  1385→  1385→                return (
+  1386→  1386→                  <div
+  1387→  1387→                    key={txn.id}
+  1388→  1388→                    className="flex items-center gap-3 p-3 rounded-xl"
+  1389→  1389→                    style={{ backgroundColor: t.bgCard }}
+  1390→  1390→                  >
+  1391→  1391→                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-emerald-500/15' : 'bg-red-500/15'}`}>
+  1392→  1392→                      {isIncome
+  1393→  1393→                        ? <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+  1394→  1394→                        : <ArrowDownRight className="w-4 h-4 text-red-400" />
+  1395→  1395→                      }
+  1396→  1396→                    </div>
+  1397→  1397→                    <div className="flex-1 min-w-0">
+  1398→  1398→                      <div className="flex items-center gap-2">
+  1399→  1399→                        <p className="text-sm font-medium" style={{ color: t.text }}>
+  1400→  1400→                          {txn.description || (isIncome ? 'Income' : 'Expense')}
+  1401→  1401→                        </p>
+  1402→  1402→                        {txn.category && (
+  1403→  1403→                          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium bg-slate-500/15 text-slate-400">
+  1404→  1404→                            {txn.category}
+  1405→  1405→                          </span>
+  1406→  1406→                        )}
+  1407→  1407→                      </div>
+  1408→  1408→                      {txn.date && (
+  1409→  1409→                        <p className="text-[10px] mt-0.5" style={{ color: t.textMuted }}>{txn.date}</p>
+  1410→  1410→                      )}
+  1411→  1411→                    </div>
+  1412→  1412→                    <p className={`text-sm font-bold shrink-0 ${isIncome ? 'text-emerald-400' : 'text-red-400'}`}>
+  1413→  1413→                      {isIncome ? '+' : '-'}{txn.amount?.toLocaleString()} {txn.currency || 'ETB'}
+  1414→  1414→                    </p>
+  1415→  1415→                  </div>
+  1416→  1416→                );
+  1417→  1417→              })}
+  1418→  1418→            </div>
+  1419→  1419→          ) : (
+  1420→  1420→            <div className="flex flex-col items-center gap-3 py-10 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1421→  1421→              <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 flex items-center justify-center">
+  1422→  1422→                <Wallet className="w-6 h-6 text-emerald-400" />
+  1423→  1423→              </div>
+  1424→  1424→              <p className="text-sm font-medium" style={{ color: t.text }}>No transactions yet</p>
+  1425→  1425→              <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+  1426→  1426→                Use /income or /expense in Telegram to track your finances
+  1427→  1427→              </p>
+  1428→  1428→            </div>
+  1429→  1429→          )}
+  1430→  1430→        </div>
+  1431→  1431→
+  1432→  1432→        {/* Action Buttons */}
+  1433→  1433→        <div className="grid grid-cols-2 gap-2.5">
+  1434→  1434→          <button
+  1435→  1435→            onClick={() => showCommandPopup('/income')}
+  1436→  1436→            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 active:scale-95 transition-transform"
+  1437→  1437→          >
+  1438→  1438→            <Plus className="w-4 h-4" />
+  1439→  1439→            <span className="text-sm font-medium">Add Income</span>
+  1440→  1440→          </button>
+  1441→  1441→          <button
+  1442→  1442→            onClick={() => showCommandPopup('/expense')}
+  1443→  1443→            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 active:scale-95 transition-transform"
+  1444→  1444→          >
+  1445→  1445→            <Plus className="w-4 h-4" />
+  1446→  1446→            <span className="text-sm font-medium">Add Expense</span>
+  1447→  1447→          </button>
+  1448→  1448→        </div>
+  1449→  1449→      </div>
+  1450→  1450→    );
+  1451→  1451→  };
+  1452→  1452→
+  1453→  1453→  // ─── Calendar Tab ────────────────────────────────────────────────────────
+  1454→  1454→
+  1455→  1455→  const renderCalendar = () => {
+  1456→  1456→    const events = (calendarData?.events || []) as Array<{
+  1457→  1457→      id: string; title: string; date?: string; time?: string;
+  1458→  1458→      type?: string; priority?: string; description?: string;
+  1459→  1459→    }>;
+  1460→  1460→
+  1461→  1461→    const todayEvents = selectedDate
+  1462→  1462→      ? events.filter((e) => e.date === selectedDate)
+  1463→  1463→      : events;
+  1464→  1464→
+  1465→  1465→    const typeColors: Record<string, { bg: string; text: string }> = {
+  1466→  1466→      event: { bg: 'bg-emerald-500/15', text: 'text-emerald-400' },
+  1467→  1467→      meeting: { bg: 'bg-blue-500/15', text: 'text-blue-400' },
+  1468→  1468→      reminder: { bg: 'bg-amber-500/15', text: 'text-amber-400' },
+  1469→  1469→      deadline: { bg: 'bg-red-500/15', text: 'text-red-400' },
+  1470→  1470→    };
+  1471→  1471→
+  1472→  1472→    const priorityColors: Record<string, string> = {
+  1473→  1473→      high: 'bg-red-500',
+  1474→  1474→      medium: 'bg-amber-500',
+  1475→  1475→      low: 'bg-green-500',
+  1476→  1476→    };
+  1477→  1477→
+  1478→  1478→    const navigateDate = (direction: number) => {
+  1479→  1479→      haptic('light');
+  1480→  1480→      const d = new Date(selectedDate);
+  1481→  1481→      d.setDate(d.getDate() + direction);
+  1482→  1482→      setSelectedDate(d.toISOString().split('T')[0]);
+  1483→  1483→    };
+  1484→  1484→
+  1485→  1485→    const goToday = () => {
+  1486→  1486→      haptic('light');
+  1487→  1487→      setSelectedDate(new Date().toISOString().split('T')[0]);
+  1488→  1488→    };
+  1489→  1489→
+  1490→  1490→    const formatDateDisplay = (dateStr: string) => {
+  1491→  1491→      try {
+  1492→  1492→        const d = new Date(dateStr + 'T00:00:00');
+  1493→  1493→        return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  1494→  1494→      } catch {
+  1495→  1495→        return dateStr;
+  1496→  1496→      }
+  1497→  1497→    };
+  1498→  1498→
+  1499→  1499→    const todayStr = new Date().toISOString().split('T')[0];
+  1500→  1500→
+  1501→  1501→    return (
+  1502→  1502→      <div className="flex flex-col gap-5 pb-4">
+  1503→  1503→        <div>
+  1504→  1504→          <h1 className="text-lg font-bold" style={{ color: t.text }}>Calendar</h1>
+  1505→  1505→          <p className="text-xs mt-0.5" style={{ color: t.textSecondary }}>
+  1506→  1506→            Manage your events & reminders
+  1507→  1507→          </p>
+  1508→  1508→        </div>
+  1509→  1509→
+  1510→  1510→        {/* Date Navigation */}
+  1511→  1511→        <div className="flex items-center justify-between p-3 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1512→  1512→          <button onClick={() => navigateDate(-1)} className="w-9 h-9 rounded-lg flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bg }}>
+  1513→  1513→            <ChevronLeft className="w-4 h-4" style={{ color: t.text }} />
+  1514→  1514→          </button>
+  1515→  1515→          <button onClick={goToday} className="flex flex-col items-center">
+  1516→  1516→            <span className="text-sm font-semibold" style={{ color: t.text }}>{formatDateDisplay(selectedDate)}</span>
+  1517→  1517→            {selectedDate === todayStr && (
+  1518→  1518→              <span className="text-[10px] text-emerald-400 font-medium">Today</span>
+  1519→  1519→            )}
+  1520→  1520→          </button>
+  1521→  1521→          <button onClick={() => navigateDate(1)} className="w-9 h-9 rounded-lg flex items-center justify-center active:scale-95" style={{ backgroundColor: t.bg }}>
+  1522→  1522→            <ChevronRight className="w-4 h-4" style={{ color: t.text }} />
+  1523→  1523→          </button>
+  1524→  1524→        </div>
+  1525→  1525→
+  1526→  1526→        {/* Today's Events */}
+  1527→  1527→        <div>
+  1528→  1528→          <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: t.textMuted }}>
+  1529→  1529→            Events for {selectedDate === todayStr ? 'Today' : 'Selected Date'}
+  1530→  1530→          </h2>
+  1531→  1531→          {todayEvents.length > 0 ? (
+  1532→  1532→            <div className="flex flex-col gap-2 max-h-96 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+  1533→  1533→              {todayEvents.map((evt) => {
+  1534→  1534→                const tc = typeColors[evt.type || ''] || typeColors.event;
+  1535→  1535→                const pc = priorityColors[evt.priority || ''];
+  1536→  1536→                return (
+  1537→  1537→                  <div
+  1538→  1538→                    key={evt.id}
+  1539→  1539→                    className="flex items-start gap-3 p-3 rounded-xl"
+  1540→  1540→                    style={{ backgroundColor: t.bgCard }}
+  1541→  1541→                  >
+  1542→  1542→                    <div className="flex flex-col items-center gap-1.5 shrink-0 pt-0.5">
+  1543→  1543→                      {pc && <div className={`w-2 h-2 rounded-full ${pc}`} />}
+  1544→  1544→                      {evt.time && (
+  1545→  1545→                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-500/15 text-slate-400 font-medium whitespace-nowrap">
+  1546→  1546→                          {evt.time}
+  1547→  1547→                        </span>
+  1548→  1548→                      )}
+  1549→  1549→                    </div>
+  1550→  1550→                    <div className="flex-1 min-w-0">
+  1551→  1551→                      <p className="text-sm font-medium" style={{ color: t.text }}>
+  1552→  1552→                        {evt.title}
+  1553→  1553→                      </p>
+  1554→  1554→                      <div className="flex items-center gap-1.5 mt-1">
+  1555→  1555→                        {evt.type && (
+  1556→  1556→                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${tc.bg} ${tc.text}`}>
+  1557→  1557→                            {evt.type}
+  1558→  1558→                          </span>
+  1559→  1559→                        )}
+  1560→  1560→                      </div>
+  1561→  1561→                    </div>
+  1562→  1562→                  </div>
+  1563→  1563→                );
+  1564→  1564→              })}
+  1565→  1565→            </div>
+  1566→  1566→          ) : (
+  1567→  1567→            <div className="flex flex-col items-center gap-3 py-10 rounded-xl" style={{ backgroundColor: t.bgCard }}>
+  1568→  1568→              <div className="w-14 h-14 rounded-2xl bg-cyan-500/15 flex items-center justify-center">
+  1569→  1569→                <CalendarDays className="w-6 h-6 text-cyan-400" />
+  1570→  1570→              </div>
+  1571→  1571→              <p className="text-sm font-medium" style={{ color: t.text }}>No events</p>
+  1572→  1572→              <p className="text-xs text-center max-w-[200px]" style={{ color: t.textSecondary }}>
+  1573→  1573→                Use /event or /remind in Telegram to add events
+  1574→  1574→              </p>
+  1575→  1575→            </div>
+  1576→  1576→          )}
+  1577→  1577→        </div>
+  1578→  1578→
+  1579→  1579→        {/* Action Buttons */}
+  1580→  1580→        <div className="grid grid-cols-2 gap-2.5">
+  1581→  1581→          <button
+  1582→  1582→            onClick={() => showCommandPopup('/event')}
+  1583→  1583→            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 active:scale-95 transition-transform"
+  1584→  1584→          >
+  1585→  1585→            <Plus className="w-4 h-4" />
+  1586→  1586→            <span className="text-sm font-medium">Add Event</span>
+  1587→  1587→          </button>
+  1588→  1588→          <button
+  1589→  1589→            onClick={() => showCommandPopup('/remind')}
+  1590→  1590→            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 active:scale-95 transition-transform"
+  1591→  1591→          >
+  1592→  1592→            <Plus className="w-4 h-4" />
+  1593→  1593→            <span className="text-sm font-medium">Add Reminder</span>
+  1594→  1594→          </button>
+  1595→  1595→        </div>
+  1596→  1596→      </div>
+  1597→  1597→    );
+  1598→  1598→  };
+  1599→  1599→
+  1600→  1600→  // ─── Tab Bar ─────────────────────────────────────────────────────────────
+  1601→  1601→
+  1602→  1602→  const tabs: { id: TabId; label: string; icon: typeof Home }[] = [
+  1603→  1603→    { id: 'home', label: 'Home', icon: Home },
+  1604→  1604→    { id: 'categories', label: 'Categories', icon: LayoutGrid },
+  1605→  1605→    { id: 'finance', label: 'Finance', icon: Wallet },
+  1606→  1606→    { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+  1607→  1607→    { id: 'search', label: 'Search', icon: Search },
+  1608→  1608→    { id: 'profile', label: 'Profile', icon: User },
+  1609→  1609→  ];
+  1610→  1610→
+  1611→  1611→  // ─── Main Render ─────────────────────────────────────────────────────────
+  1612→  1612→
+  1613→  1613→  return (
+  1614→  1614→    <div className="flex flex-col min-h-screen" style={{ backgroundColor: t.bg }}>
+  1615→  1615→      {/* Pull-to-refresh indicator */}
+  1616→  1616→      {pullRefreshing && (
+  1617→  1617→        <div className="flex items-center justify-center py-3" style={{ paddingTop: t.safeTop + 12 }}>
+  1618→  1618→          <Loader2 className="w-4 h-4 animate-spin text-emerald-400 mr-2" />
+  1619→  1619→          <span className="text-xs text-emerald-400">Refreshing...</span>
+  1620→  1620→        </div>
+  1621→  1621→      )}
+  1622→  1622→
+  1623→  1623→      {/* Content Area */}
+  1624→  1624→      <div
+  1625→  1625→        ref={scrollRef}
+  1626→  1626→        className="flex-1 overflow-y-auto px-4"
+  1627→  1627→        style={{
+  1628→  1628→          paddingTop: t.safeTop + (pullRefreshing ? 0 : 16),
+  1629→  1629→          paddingBottom: 80 + t.safeBottom,
+  1630→  1630→          scrollbarWidth: 'thin',
+  1631→  1631→        }}
+  1632→  1632→        onTouchStart={handleTouchStart}
+  1633→  1633→        onTouchMove={handleTouchMove}
+  1634→  1634→        onTouchEnd={handleTouchEnd}
+  1635→  1635→      >
+  1636→  1636→        {/* Error banner (non-blocking) */}
+  1637→  1637→        {error && botData && (
+  1638→  1638→          <div className="flex items-center gap-2 p-3 mb-4 rounded-xl bg-red-500/10 border border-red-500/20">
+  1639→  1639→            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+  1640→  1640→            <p className="text-xs text-red-400 flex-1">{error}</p>
+  1641→  1641→            <button onClick={() => fetchData()} className="text-[10px] font-medium text-red-400 underline shrink-0">
+  1642→  1642→              Retry
+  1643→  1643→            </button>
+  1644→  1644→          </div>
+  1645→  1645→        )}
+  1646→  1646→
+  1647→  1647→        {/* Tab Content */}
+  1648→  1648→        <div className="transition-opacity duration-200">
+  1649→  1649→          {selectedCategory ? (
+  1650→  1650→            renderCategoryDetail()
+  1651→  1651→          ) : activeTab === 'home' ? (
+  1652→  1652→            renderHome()
+  1653→  1653→          ) : activeTab === 'categories' ? (
+  1654→  1654→            renderCategories()
+  1655→  1655→          ) : activeTab === 'finance' ? (
+  1656→  1656→            renderFinance()
+  1657→  1657→          ) : activeTab === 'calendar' ? (
+  1658→  1658→            renderCalendar()
+  1659→  1659→          ) : activeTab === 'search' ? (
+  1660→  1660→            renderSearch()
+  1661→  1661→          ) : activeTab === 'profile' ? (
+  1662→  1662→            renderProfile()
+  1663→  1663→          ) : null}
+  1664→  1664→        </div>
+  1665→  1665→      </div>
+  1666→  1666→
+  1667→  1667→      {/* Bottom Tab Bar */}
+  1668→  1668→      <div
+  1669→  1669→        className="fixed bottom-0 left-0 right-0 border-t flex items-center justify-around"
+  1670→  1670→        style={{
+  1671→  1671→          backgroundColor: t.bg,
+  1672→  1672→          borderColor: t.border,
+  1673→  1673→          paddingBottom: t.safeBottom,
+  1674→  1674→          paddingTop: 6,
+  1675→  1675→          paddingLeft: t.safeTop > 0 ? 8 : 0,
+  1676→  1676→          paddingRight: t.safeTop > 0 ? 8 : 0,
+  1677→  1677→        }}
+  1678→  1678→      >
+  1679→  1679→        {tabs.map((tab) => {
+  1680→  1680→          const isActive = activeTab === tab.id && !selectedCategory;
+  1681→  1681→          return (
+  1682→  1682→            <button
+  1683→  1683→              key={tab.id}
+  1684→  1684→              onClick={() => { haptic('light'); setActiveTab(tab.id); setSelectedCategory(null); }}
+  1685→  1685→              className="flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl transition-all active:scale-95"
+  1686→  1686→              style={{ color: isActive ? '#10b981' : t.textMuted }}
+  1687→  1687→            >
+  1688→  1688→              <tab.icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
+  1689→  1689→              <span className="text-[10px] font-medium">{tab.label}</span>
+  1690→  1690→              {isActive && (
+  1691→  1691→                <div className="w-1 h-1 rounded-full bg-emerald-400 mt-0.5" />
+  1692→  1692→              )}
+  1693→  1693→            </button>
+  1694→  1694→          );
+  1695→  1695→        })}
+  1696→  1696→      </div>
+  1697→  1697→    </div>
+  1698→  1698→  );
+  1699→  1699→}

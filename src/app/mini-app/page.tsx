@@ -12,7 +12,8 @@ import {
   ChevronDown, ChevronUp, ArrowLeft, CircleDot, Hash,
   StickyNote, Bookmark, FolderOpen, Link2, Cpu, Heart,
   Shield, Info, Activity, PieChart, ListChecks, Award,
-  Wallet, ArrowUpRight, ArrowDownRight, ChevronRight, Plus, CheckCircle2
+  Wallet, ArrowUpRight, ArrowDownRight, ChevronRight, Plus, CheckCircle2,
+  X, Check
 } from 'lucide-react';
 
 // ─── Telegram WebApp Types ───────────────────────────────────────────────────
@@ -162,6 +163,16 @@ interface ReportsData {
     thisWeek: number;
     byType: Record<string, number>;
   };
+}
+
+interface FormField {
+  name: string;
+  label: string;
+  type: 'text' | 'number' | 'textarea' | 'select' | 'date' | 'time';
+  placeholder: string;
+  required?: boolean;
+  options?: string[];
+  defaultValue?: string;
 }
 
 interface ReportItem {
@@ -525,6 +536,18 @@ export default function MiniAppPage() {
     return new Date().toISOString().split('T')[0];
   });
 
+  // Form modal state
+  const [formModal, setFormModal] = useState<{
+    open: boolean;
+    type: string;
+    title: string;
+    fields: FormField[];
+  }>({ open: false, type: '', title: '', fields: [] });
+  const [formLoading, setFormLoading] = useState(false);
+  const [formSuccess, setFormSuccess] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [formValues, setFormValues] = useState<Record<string, string>>({});
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const pullStartY = useRef(0);
   const pullDistance = useRef(0);
@@ -642,7 +665,233 @@ export default function MiniAppPage() {
     setSelectedCategory(null);
   };
 
-  // Search logic
+  // ─── Form System ─────────────────────────────────────────────────────────
+
+  const FORM_CONFIGS: Record<string, { title: string; fields: FormField[] }> = {
+    income: {
+      title: 'Add Income',
+      fields: [
+        { name: 'amount', label: 'Amount (ETB)', type: 'number', placeholder: '0', required: true },
+        { name: 'category', label: 'Category', type: 'select', placeholder: 'Select category', options: ['Salary', 'Sales', 'Service', 'Freelance', 'Investment', 'Other'] },
+        { name: 'description', label: 'Description', type: 'text', placeholder: 'What is this income for?' },
+      ],
+    },
+    expense: {
+      title: 'Add Expense',
+      fields: [
+        { name: 'amount', label: 'Amount (ETB)', type: 'number', placeholder: '0', required: true },
+        { name: 'category', label: 'Category', type: 'select', placeholder: 'Select category', options: ['Food', 'Transport', 'Rent', 'Supplies', 'Utility', 'Internet', 'Phone', 'Other'] },
+        { name: 'description', label: 'Description', type: 'text', placeholder: 'What is this expense for?' },
+      ],
+    },
+    event: {
+      title: 'Add Event',
+      fields: [
+        { name: 'title', label: 'Event title', type: 'text', placeholder: 'Meeting with team', required: true },
+        { name: 'date', label: 'Date', type: 'date', placeholder: '', required: true },
+        { name: 'time', label: 'Time', type: 'time', placeholder: '' },
+        { name: 'location', label: 'Location', type: 'text', placeholder: 'Office, Zoom, etc.' },
+        { name: 'type', label: 'Type', type: 'select', placeholder: 'Select type', options: ['Event', 'Meeting', 'Reminder', 'Deadline'], defaultValue: 'Event' },
+        { name: 'priority', label: 'Priority', type: 'select', placeholder: 'Select priority', options: ['Low', 'Medium', 'High', 'Urgent'], defaultValue: 'Medium' },
+        { name: 'description', label: 'Description', type: 'textarea', placeholder: 'Event details...' },
+      ],
+    },
+    reminder: {
+      title: 'Add Reminder',
+      fields: [
+        { name: 'title', label: 'Reminder title', type: 'text', placeholder: 'Call the client', required: true },
+        { name: 'date', label: 'Date', type: 'date', placeholder: '', required: true },
+        { name: 'time', label: 'Time', type: 'time', placeholder: '' },
+        { name: 'priority', label: 'Priority', type: 'select', placeholder: 'Select priority', options: ['Low', 'Medium', 'High', 'Urgent'], defaultValue: 'High' },
+        { name: 'description', label: 'Description', type: 'textarea', placeholder: 'Reminder details...' },
+      ],
+    },
+    business: {
+      title: 'Add Business',
+      fields: [
+        { name: 'name', label: 'Business name', type: 'text', placeholder: 'My Company', required: true },
+        { name: 'type', label: 'Type', type: 'select', placeholder: 'Select type', options: ['Tech', 'College', 'Consulting', 'EV Charging', 'Training', 'Other'] },
+        { name: 'industry', label: 'Industry', type: 'text', placeholder: 'Technology, Education, etc.' },
+        { name: 'description', label: 'Description', type: 'textarea', placeholder: 'Business description...' },
+      ],
+    },
+    note: {
+      title: 'Add Note',
+      fields: [
+        { name: 'title', label: 'Note title', type: 'text', placeholder: 'Meeting notes', required: true },
+        { name: 'content', label: 'Note content', type: 'textarea', placeholder: 'Write your note here...', required: true },
+      ],
+    },
+    document: {
+      title: 'Add Document',
+      fields: [
+        { name: 'title', label: 'Document title', type: 'text', placeholder: 'Monthly Report', required: true },
+        { name: 'category', label: 'Category', type: 'select', placeholder: 'Select category', options: ['Report', 'Invoice', 'Contract', 'CV', 'Letter', 'Memo', 'Receipt', 'Certificate', 'Other'] },
+        { name: 'description', label: 'Description', type: 'text', placeholder: 'Brief description' },
+        { name: 'tags', label: 'Tags (comma separated)', type: 'text', placeholder: 'finance, monthly, 2024' },
+      ],
+    },
+  };
+
+  const openForm = (type: string) => {
+    const config = FORM_CONFIGS[type];
+    if (!config) return false;
+    haptic('medium');
+    const initialValues: Record<string, string> = {};
+    config.fields.forEach((f) => {
+      initialValues[f.name] = f.defaultValue || '';
+    });
+    setFormValues(initialValues);
+    setFormError('');
+    setFormModal({ open: true, type, title: config.title, fields: config.fields });
+    return true;
+  };
+
+  const openFormForCommand = (cmd: string) => {
+    const cmdMap: Record<string, string> = {
+      '/income': 'income',
+      '/expense': 'expense',
+      '/event': 'event',
+      '/remind': 'reminder',
+      '/setreminder': 'reminder',
+      '/business': 'business',
+      '/note': 'note',
+      '/files': 'document',
+      '/documents': 'document',
+      '/savefile': 'document',
+    };
+    const formType = cmdMap[cmd];
+    if (formType && openForm(formType)) return;
+    showCommandPopup(cmd);
+  };
+
+  const closeForm = () => {
+    haptic('light');
+    setFormModal({ open: false, type: '', title: '', fields: [] });
+    setFormValues({});
+    setFormError('');
+  };
+
+  const updateFormValue = (name: string, value: string) => {
+    setFormValues((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const submitForm = async () => {
+    // Validate required fields
+    const missingField = formModal.fields.find((f) => f.required && !formValues[f.name]?.trim());
+    if (missingField) {
+      haptic('error' as any);
+      setFormError(`${missingField.label} is required`);
+      return;
+    }
+
+    setFormLoading(true);
+    setFormError('');
+    try {
+      let url = '';
+      let body: Record<string, unknown> = {};
+
+      switch (formModal.type) {
+        case 'income':
+        case 'expense':
+          url = '/api/finance';
+          body = {
+            type: formModal.type,
+            amount: parseFloat(formValues.amount),
+            category: formValues.category || 'Other',
+            description: formValues.description || '',
+            date: new Date().toISOString().split('T')[0],
+            chatId: 0,
+          };
+          break;
+        case 'event':
+          url = '/api/calendar';
+          body = {
+            title: formValues.title,
+            date: formValues.date,
+            time: formValues.time || null,
+            location: formValues.location || '',
+            type: (formValues.type || 'event').toLowerCase(),
+            priority: (formValues.priority || 'medium').toLowerCase(),
+            chatId: 0,
+          };
+          break;
+        case 'reminder':
+          url = '/api/calendar';
+          body = {
+            title: formValues.title,
+            date: formValues.date,
+            time: formValues.time || null,
+            type: 'reminder',
+            priority: 'high',
+            chatId: 0,
+          };
+          break;
+        case 'business':
+          url = '/api/businesses';
+          body = {
+            name: formValues.name,
+            type: formValues.type || 'Other',
+            industry: formValues.industry || '',
+            description: formValues.description || '',
+          };
+          break;
+        case 'note':
+          url = '/api/bot/reports';
+          body = {
+            type: 'note',
+            title: formValues.title,
+            content: formValues.content,
+            category: 'note',
+            chatId: 0,
+          };
+          break;
+        case 'document':
+          url = '/api/documents';
+          body = {
+            title: formValues.title,
+            category: formValues.category || 'Other',
+            description: formValues.description || '',
+            tags: JSON.stringify(
+              (formValues.tags || '')
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean) || []
+            ),
+          };
+          break;
+      }
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        if (typeof window !== 'undefined') {
+          window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success');
+        }
+        setFormModal({ open: false, type: '', title: '', fields: [] });
+        setFormValues({});
+        setFormSuccess(true);
+        setTimeout(() => setFormSuccess(false), 2000);
+        fetchData(false);
+      } else {
+        if (typeof window !== 'undefined') {
+          window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('error');
+        }
+        setFormError(data.error || 'Failed to save');
+      }
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : 'Network error');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  // ─── Search logic ─────────────────────────────────────────────────────────
   const searchResults = (() => {
     if (!searchQuery.trim() || !botData) return { reports: [], notes: [], tasks: [], contacts: [], knowledge: [] };
     const q = searchQuery.toLowerCase();
@@ -843,7 +1092,7 @@ export default function MiniAppPage() {
             {cat.commands.map((cmd) => (
               <button
                 key={cmd.cmd}
-                onClick={() => showCommandPopup(cmd.cmd)}
+                onClick={() => openFormForCommand(cmd.cmd)}
                 className={`p-3.5 rounded-xl text-left transition-all active:scale-[0.97] border ${cat.bgColor} ${cat.borderColor}`}
               >
                 <p className={`text-sm font-semibold ${cat.textColor}`}>{cmd.name}</p>
@@ -932,7 +1181,7 @@ export default function MiniAppPage() {
                   </p>
                 </div>
                 <button
-                  onClick={() => showCommandPopup(catData.emptyCmd)}
+                  onClick={() => openFormForCommand(catData.emptyCmd)}
                   className={`px-4 py-2 rounded-xl text-xs font-medium ${cat.bgColor} ${cat.textColor} border ${cat.borderColor} active:scale-95 transition-transform`}
                 >
                   {catData.emptyCmd}
@@ -1016,7 +1265,7 @@ export default function MiniAppPage() {
             {QUICK_ACTIONS.map((action) => (
               <button
                 key={action.cmd}
-                onClick={() => showCommandPopup(action.cmd)}
+                onClick={() => openFormForCommand(action.cmd)}
                 className="flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all active:scale-95"
                 style={{ backgroundColor: t.bgCard }}
               >
@@ -1432,14 +1681,14 @@ export default function MiniAppPage() {
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-2.5">
           <button
-            onClick={() => showCommandPopup('/income')}
+            onClick={() => openForm('income')}
             className="flex items-center justify-center gap-2 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 active:scale-95 transition-transform"
           >
             <Plus className="w-4 h-4" />
             <span className="text-sm font-medium">Add Income</span>
           </button>
           <button
-            onClick={() => showCommandPopup('/expense')}
+            onClick={() => openForm('expense')}
             className="flex items-center justify-center gap-2 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 active:scale-95 transition-transform"
           >
             <Plus className="w-4 h-4" />
@@ -1579,19 +1828,144 @@ export default function MiniAppPage() {
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-2.5">
           <button
-            onClick={() => showCommandPopup('/event')}
+            onClick={() => openForm('event')}
             className="flex items-center justify-center gap-2 p-3 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 active:scale-95 transition-transform"
           >
             <Plus className="w-4 h-4" />
             <span className="text-sm font-medium">Add Event</span>
           </button>
           <button
-            onClick={() => showCommandPopup('/remind')}
+            onClick={() => openForm('reminder')}
             className="flex items-center justify-center gap-2 p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 active:scale-95 transition-transform"
           >
             <Plus className="w-4 h-4" />
             <span className="text-sm font-medium">Add Reminder</span>
           </button>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── Form Modal Render ────────────────────────────────────────────────────
+
+  const renderFormModal = () => {
+    if (!formModal.open) return null;
+
+    const inputStyle: React.CSSProperties = {
+      backgroundColor: t.bg,
+      color: t.text,
+      border: `1px solid ${t.border}`,
+    };
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-end justify-center">
+        {/* Overlay */}
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={closeForm}
+        />
+
+        {/* Bottom Sheet */}
+        <div
+          className="relative w-full max-w-lg rounded-t-2xl transition-transform duration-300 ease-out"
+          style={{
+            backgroundColor: t.bgCard,
+            maxHeight: '85vh',
+            paddingBottom: t.safeBottom + 16,
+            transform: formModal.open ? 'translateY(0)' : 'translateY(100%)',
+          }}
+        >
+          {/* Drag Handle */}
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 rounded-full" style={{ backgroundColor: t.border }} />
+          </div>
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 pb-3 pt-1">
+            <h2 className="text-base font-bold" style={{ color: t.text }}>{formModal.title}</h2>
+            <button
+              onClick={closeForm}
+              className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 transition-transform"
+              style={{ backgroundColor: t.bg }}
+            >
+              <X className="w-4 h-4" style={{ color: t.textSecondary }} />
+            </button>
+          </div>
+
+          {/* Error */}
+          {formError && (
+            <div className="mx-5 mb-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+              <p className="text-xs text-red-400">{formError}</p>
+            </div>
+          )}
+
+          {/* Form Fields */}
+          <div className="overflow-y-auto px-5 pb-4" style={{ maxHeight: 'calc(85vh - 160px)', scrollbarWidth: 'thin' }}>
+            <div className="flex flex-col gap-3">
+              {formModal.fields.map((field) => (
+                <div key={field.name}>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: t.textSecondary }}>
+                    {field.label}
+                    {field.required && <span className="text-red-400 ml-0.5">*</span>}
+                  </label>
+                  {field.type === 'select' ? (
+                    <select
+                      value={formValues[field.name] || ''}
+                      onChange={(e) => { haptic('light'); updateFormValue(field.name, e.target.value); }}
+                      className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none appearance-none transition-colors"
+                      style={inputStyle}
+                    >
+                      <option value="">{field.placeholder}</option>
+                      {field.options?.map((opt) => (
+                        <option key={opt} value={opt} style={{ backgroundColor: t.bgCard, color: t.text }}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  ) : field.type === 'textarea' ? (
+                    <textarea
+                      value={formValues[field.name] || ''}
+                      onChange={(e) => updateFormValue(field.name, e.target.value)}
+                      placeholder={field.placeholder}
+                      rows={3}
+                      className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none resize-none transition-colors"
+                      style={inputStyle}
+                    />
+                  ) : (
+                    <input
+                      type={field.type}
+                      value={formValues[field.name] || ''}
+                      onChange={(e) => updateFormValue(field.name, e.target.value)}
+                      placeholder={field.placeholder}
+                      className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none transition-colors"
+                      style={inputStyle}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <div className="px-5 pt-2 border-t" style={{ borderColor: t.border }}>
+            <button
+              onClick={submitForm}
+              disabled={formLoading}
+              className="w-full py-3 rounded-xl text-sm font-semibold text-white bg-emerald-500 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {formLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>Submit</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -1694,6 +2068,17 @@ export default function MiniAppPage() {
           );
         })}
       </div>
+
+      {/* Form Modal */}
+      {renderFormModal()}
+
+      {/* Success Toast */}
+      {formSuccess && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-xl bg-emerald-500 text-white text-sm font-medium flex items-center gap-2 shadow-lg shadow-emerald-500/30">
+          <CheckCircle2 className="w-4 h-4" />
+          <span>Saved successfully!</span>
+        </div>
+      )}
     </div>
   );
 }
